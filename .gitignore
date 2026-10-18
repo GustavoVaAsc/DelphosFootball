@@ -1,5 +1,6 @@
-# Local reference material, never committed
+# Local-only material (reference docs, personal AI tool settings), never committed
 /docs/complementos/
+/.claude/
 
 # Secrets and local configuration
 .env
