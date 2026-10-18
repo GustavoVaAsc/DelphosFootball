@@ -1,0 +1,24 @@
+# Local reference material, never committed
+/docs/complementos/
+
+# Secrets and local configuration
+.env
+kaggle.json
+
+# Generated outputs (regenerable by running the pipeline)
+/artifacts/
+/data/
+/analysis/output/
+/llms/models/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
