@@ -113,7 +113,7 @@ Both the backend and the pipeline import the same shared Python package, `delpho
 ### 4.3 delphos_ml shared package
 
 - **Responsibility:** The single Python library both the backend and the pipeline import. It contains data schemas/types (shared Pydantic models), model-loading code, and the scoring functions used for inference. Batch training and batch scoring live behind the pipeline's CLI; interactive scoring is exposed as ordinary importable functions.
-- **Technology:** Python package living in `ml/` (see [Repository layout](#repository-layout)). Depends on scikit-learn, pandas, Pydantic (pinned in the shared Python constraint set ([Artifact contract](#43-delphos_ml-shared-package))). Model artifacts are serialized with joblib.
+- **Technology:** Python package living in `ml/` (see [Repository layout](#repository-layout)). Targets scikit-learn, pandas, and Pydantic (pinned in the shared Python constraint set ([Artifact contract](#43-delphos_ml-shared-package))). Dependencies are added as stages need them; today the package depends on kagglehub, pyarrow, pydantic, pydantic-settings, and typer. Model artifacts are serialized with joblib.
 - **Interfaces/contracts:** The backend imports it to load trained joblib artifacts from `artifacts/` and score on demand (live inference, e.g. "what-if" re-scoring of a hypothetical player). The pipeline imports it for batch training and batch scoring. This dual-mode requirement — batch inference by the pipeline and live inference by the API from the same artifacts — is a core architectural constraint, which is why the package is shared rather than duplicated.
 
 **Artifact contract** — the publish/load boundary this package enforces:
@@ -121,16 +121,17 @@ Both the backend and the pipeline import the same shared Python package, `delpho
 - Each publish writes `artifacts/<model_run_id>/` containing the trained model, the preprocessor, and a `manifest.json` with the ordered feature names, the scikit-learn and `delphos_ml` versions, the pinned Kaggle dataset version and snapshot hash, and a training-config reference. The exact manifest and training-config fields are defined in `docs/ML_ARCHITECTURE.md`.
 - Exactly one `model_runs` row has status `active`; both the publish stage and the backend resolve the "current model" through it (see [Publish/activation protocol](#44-offline-ml-pipeline)).
 - `delphos_ml.load_model()` refuses to load an artifact whose recorded scikit-learn version differs from the installed one.
-- `backend/`, `ml/`, and `analysis/` install from one shared set of pinned versions (tool and file layout to be decided, see [Future work](#11-future-work)) so joblib unpickling cannot drift between the pipeline that wrote the artifacts and the API that reads them.
+- `backend/`, `ml/`, and `analysis/` install from one shared set of pinned versions, the root `uv.lock` ([ADR-011](#adr-011-python-tooling-with-a-uv-workspace)), so joblib unpickling cannot drift between the pipeline that wrote the artifacts and the API that reads them.
 
 ### 4.4 Offline ML pipeline
 
 > Internal design (algorithms, features, evaluation) is deferred to [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md). This section covers only its place in the software architecture.
 
 - **Responsibility:** Batch ingestion and publishing. Runs the stages ingest → clean → transform → train → evaluate → publish, producing trained models and publishing curated player data, predictions, cluster assignments, valuation residuals, replacement candidates, and an inefficiency analysis into the database.
-- **Technology:** Python with scikit-learn and pandas, orchestrated as CLI stages (one command per stage plus an "all" runner). It is a batch pipeline, not a long-running service: it runs manually, on demand, or on a schedule via Docker (the `pipeline` compose profile). It is never on the request path.
+- **Technology:** Python with scikit-learn and pandas, orchestrated as Typer CLI stages: `uv run delphos-pipeline <stage>`, one command per stage, each writing to `data/<stage>/`. An "all" runner is added once two or more stages exist. It is a batch pipeline, not a long-running service: it runs manually, on demand, or on a schedule via Docker (the `pipeline` compose profile). It is never on the request path.
 - **Interfaces/contracts:**
-  - **In:** the ingest stage downloads the Kaggle dataset through Kaggle's API at a pinned dataset version, with credentials from environment variables ([ADR-010](#adr-010-kaggle-api-with-a-pinned-dataset-version-over-a-manually-downloaded-snapshot)).
+  - **In:** the ingest stage downloads the Kaggle dataset through Kaggle's API at a pinned dataset version, with no credentials required for this public dataset ([ADR-010](#adr-010-kaggle-api-with-a-pinned-dataset-version-over-a-manually-downloaded-snapshot)).
+  - Ingest is a text-only faithful copy of the source; typing and cleaning happen in `clean` ([ADR-012](#adr-012-ingest-stores-source-columns-as-text-typing-happens-in-clean)).
   - **Out:** the stages write their outputs as Parquet under `data/`, and `publish` is the only stage that writes to PostgreSQL ([ADR-008](#adr-008-parquet-files-between-pipeline-stages-postgresql-only-at-publish)). The pipeline writes trained model artifacts (joblib) into `artifacts/<model_run_id>/` per the [Artifact contract](#43-delphos_ml-shared-package), and publishes curated player data, predictions, cluster assignments, valuation residuals, replacement candidates, and the inefficiency analysis into the `analytics` schema through the pipeline database role (writes `analytics` only).
   - The `evaluate` stage produces an inefficiency-analysis output (`inefficiency_analysis`), published alongside predictions. Minimal acceptance for this output: at least one hypothesis test with a reported statistic and significance over transfer-fee vs predicted-value residuals, presented by the analysis scripts (see [Analysis scripts](#45-analysis-scripts)) and summarized in the app. Which tests and which statistics are defined in `docs/ML_ARCHITECTURE.md`.
 
@@ -167,11 +168,18 @@ LLM call parameters — timeouts, concurrency limits, context budget and assembl
 The monorepo layout below is the convention of record. It follows the team's previous project (hyperwrite-ai) where applicable.
 
 ```
+README.md      # entry point: quickstart and what each root file is
+AGENTS.md      # shared instructions for AI coding agents
 backend/       # FastAPI application (routers/services/schemas per feature, as in hyperwrite-ai)
 backend/tests/ # pytest unit tests for the API layer
 frontend/      # Flutter app (Dart)
-ml/            # delphos_ml shared package + pipeline CLI stages
-ml/tests/      # pytest unit tests for delphos_ml load/score paths
+ml/            # uv workspace member: distribution delphos-ml, src layout
+ml/src/delphos_ml/ # delphos_ml package; pipeline/ holds one module per stage
+ml/tests/      # pytest unit tests for delphos_ml
+pyproject.toml # uv workspace root (no [project]); dev dependency group; pytest and ruff config
+uv.lock        # the one shared lockfile (ADR-011)
+.python-version # Python 3.13
+.env.example   # documents the DELPHOS_ variables (see section 9)
 migrations/    # Alembic config; one migration head per schema (analytics, app)
 analysis/      # one script per analysis (EDA, inefficiency demonstration, model comparison)
 analysis/output/ # generated figures and tables (gitignored)
@@ -302,8 +310,16 @@ Notes:
 
 ## 9. Cross-cutting concerns
 
-- **Configuration and secrets.** All configuration is environment variables read from `.env`, which is gitignored; `.env.example` documents every key. This includes DB URLs (one per role), CORS origins for the Flutter client, the LLM endpoint/model, and the Kaggle API credentials used by ingest.
-- **Reproducibility of model artifacts.** `artifacts/` is gitignored, so reproducibility rests on three things: pinned dependency versions (the shared Python constraint set required by the [Artifact contract](#43-delphos_ml-shared-package) so joblib unpickling cannot drift; the Flutter SDK pinned in `pubspec.yaml` with `pubspec.lock` committed; all pins date from project kickoff and are bumped only via explicit dependency-bump commits), the Kaggle dataset version and hash recorded at ingest, and training configuration persisted with each run in `analytics.model_runs`. Anyone can re-run the pipeline and obtain equivalent artifacts.
+- **Configuration and secrets.** All configuration is environment variables read from `.env`, which is gitignored; `.env.example` documents every key. The pipeline reads the variables below through pydantic-settings. Precedence is real environment variables, then `<repo root>/.env`, then the defaults. The repo root is the nearest directory at or above the working directory that contains `uv.lock`. An invalid value exits with code 1 and a message naming the variable. `.env.example` mirrors this table. The settings for the database, CORS, and the LLM are added here when those components land.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `DELPHOS_DATA_DIR` | `<repo root>/data` | Root of stage outputs (`<dir>/<stage>/`); `~` is expanded; relative values resolve against the repo root |
+| `DELPHOS_KAGGLE_DATASET` | `davidcariboo/player-scores` | Kaggle handle `owner/slug`, unversioned |
+| `DELPHOS_KAGGLE_DATASET_VERSION` | `679` | Pinned dataset version (positive integer); changing it is a deliberate refresh |
+
+A relative `DELPHOS_DATA_DIR`, including the default, requires a `uv.lock` at or above the working directory; otherwise the run exits 1 with a message naming `DELPHOS_DATA_DIR`. A container must therefore include `uv.lock` or set an absolute `DELPHOS_DATA_DIR`.
+- **Reproducibility of model artifacts.** `artifacts/` is gitignored, so reproducibility rests on three things: pinned dependency versions (the root `uv.lock`, the shared Python constraint set required by the [Artifact contract](#43-delphos_ml-shared-package) so joblib unpickling cannot drift; the Flutter SDK pinned in `pubspec.yaml` with `pubspec.lock` committed; all pins date from project kickoff and are bumped only via explicit dependency-bump commits), the Kaggle dataset `version` and `snapshot_sha256` recorded at ingest in `data/ingest/_snapshot.json` together with `tool_versions` (kagglehub and pyarrow), and training configuration persisted with each run in `analytics.model_runs`. Anyone can re-run the pipeline and obtain equivalent artifacts.
 - **Versioning of published results.** Every published row carries the `model_run_id` that produced it, and reports record the model version used. Exactly one run is `active` at a time; the API reads only the active run and includes the `model_run_id` in responses that carry model-derived values ([Publish/activation protocol](#44-offline-ml-pipeline)). Re-publishing a new model does not silently rewrite historical results already surfaced to users.
 - **Error handling at service boundaries.** The backend is the only component that talks to clients, and it translates failures at its boundaries into RFC 9457 problem responses (`application/problem+json` with `type`, `title`, `status`, `detail`, and `trace_id`), defined once as a shared Pydantic model behind a global exception handler. Expected problem types, by endpoint group: *missing artifact* and *stale artifact* (any model-derived read and `/players/what-if`), *LLM unavailable* (`/reports/*` and `/chat` — the rest of the API keeps working during an LLM outage), *mid-stream failure* (streamed report/chat responses, after the 200 headers were already sent), and *not found* (`/players/{id}` and other id lookups). The pipeline fails fast per stage and leaves the previously published results in place; `publish` is the last stage and flips the active pointer only in its final transaction ([Publish/activation protocol](#44-offline-ml-pipeline)), so a crashed run does not corrupt what the API serves.
 - **Testing.** v1 scope is unit tests with pytest: fixtures for artifact loading and parametrized scoring cases, covering the `delphos_ml` load/score paths (`ml/tests/`) and the API route logic (`backend/tests/`). The golden batch-vs-live equivalence check, contract tests, OpenAPI drift checks, and CI are explicitly out of v1 scope — listed in [Future work](#11-future-work), not as v1 commitments.
@@ -379,9 +395,23 @@ Short ADR-style records. All decisions below are settled; they are recorded here
 ### ADR-010: Kaggle API with a pinned dataset version over a manually downloaded snapshot
 
 - **Context:** The dataset was previously planned as a manually downloaded local snapshot with no recorded version.
-- **Decision:** The ingest stage downloads the dataset through Kaggle's API at a pinned dataset version and writes its tables as Parquet under `data/`. Credentials come from environment variables in `.env`, never committed; the keys get documented in `.env.example` when ingest is implemented. The dataset version and snapshot hash are recorded per run (`docs/ML_ARCHITECTURE.md` §3.1).
+- **Decision:** The ingest stage downloads the dataset through Kaggle's API (kagglehub) at a pinned dataset version and writes its tables as Parquet under `data/ingest/`. This public dataset needs no credentials; if Kaggle ever requires them, kagglehub reads `KAGGLE_*` variables from the process environment or `~/.kaggle`, not from the pipeline's `.env` settings. The dataset version and snapshot hash are recorded per run (`docs/ML_ARCHITECTURE.md` §3.1).
 - **Alternatives:** Manual download (rejected: unrecorded version and a manual step); committing data files (rejected: bloats the repo and duplicates the source of truth).
-- **Consequences:** Ingest needs outbound network access and credentials, and refreshing the data means deliberately bumping the pinned version. The "data never leaves the club's servers" claim is unaffected because ingest only downloads.
+- **Consequences:** Ingest needs outbound network access, and refreshing the data means deliberately bumping the pinned version. The "data never leaves the club's servers" claim is unaffected because ingest only downloads.
+
+### ADR-011: Python tooling with a uv workspace
+
+- **Context:** Section 11 listed the Python version, dependency tool, CLI framework, Kaggle client, configuration mechanism, and `ml/` layout as undecided, and the Artifact contract requires one shared constraint set.
+- **Decision:** Python 3.13, pinned in `.python-version` (`requires-python = ">=3.13,<3.14"`). A uv workspace with a virtual root: the root `pyproject.toml` has no `[project]` table, lists `members = ["ml"]`, and holds a `dev` dependency group (pytest, ruff) with their configuration. Exactly one `uv.lock` at the root is the shared constraint set of the [Artifact contract](#43-delphos_ml-shared-package). The member `ml/` is the distribution `delphos-ml` (import name `delphos_ml`) in a src layout, built with `uv_build`. Dependencies are kagglehub as the Kaggle client, pyarrow, pydantic, pydantic-settings, and Typer; pandas returns with the `clean` stage. The CLI is a Typer console script, `delphos-pipeline` (`delphos_ml.pipeline.cli:app`). Each stage is one module with one entry function whose docstring is its `--help` text, and a stage exits 0 on success and 1 on an expected failure with `<stage> failed: <reason>` on stderr. Stage outputs go to `data/<stage>/`. Configuration uses pydantic-settings with the `DELPHOS_` prefix ([Cross-cutting concerns](#9-cross-cutting-concerns)). The locked direct versions are kagglehub 1.0.2, pyarrow 26.0.0, pydantic 2.14.1, pydantic-settings 2.16.0, and typer 0.27.3, with pytest 9.1.1 and ruff 0.17.1 for development.
+- **Alternatives:** A root project instead of a virtual root (rejected: it would need an empty package just to list the members); pip-tools and poetry (rejected); argparse instead of Typer (rejected); a flat layout instead of src (rejected); `raw/interim/processed` directories instead of `data/<stage>/` (rejected); python-dotenv instead of pydantic-settings (rejected).
+- **Consequences:** One `uv.lock` is the shared constraint set. `backend/` joins as a workspace member that uses the same lock, and the analysis scripts' dependencies go in a root dependency group. The "all" runner arrives with the second stage; until then `ingest` is the only command.
+
+### ADR-012: Ingest stores source columns as text; typing happens in clean
+
+- **Context:** The first ingest implementation let pandas infer column types. An audit found that this changed the source text ("007" became 7, "700000.000" became 700000.0, "True" became a bool), silently renamed duplicate headers, and put typing work inside ingest.
+- **Decision:** Ingest is a faithful copy. Every column of every `data/ingest/*.parquet` is Arrow `string` and holds the exact CSV field text, so "007", "True", "700000.000", "NA", "null", and "-" are kept as they are. Only an unquoted empty field becomes null. A quoted empty field (`""`) stays an empty string, because the source writes empty strings that way and keeps them distinct from null. Blank lines are skipped in multi-column files, but in a single-column file an empty line is an unquoted empty field and becomes a null row; a final trailing newline never adds a row. Quoted values may span lines, and a UTF-8 BOM is stripped. Each file is streamed in 16 MiB blocks with pyarrow, so memory does not grow with file size. A header with duplicate, empty, or whitespace-only names fails the run, as do an empty file, invalid UTF-8, and ragged rows; each failure prints one `ingest failed: <reason>` line and exits 1. The output swap retries each rename 3 times and restores the previous output on failure. An existing `ingest/` without `_snapshot.json` is never replaced. Concurrent runs are not supported.
+- **Alternatives:** pandas type inference (rejected: it changed the text form, renamed duplicate headers, and mixed typing into ingest).
+- **Consequences:** `clean` must cast every column it uses explicitly and record the rules in `docs/ML_ARCHITECTURE.md` §3.5. Memory stays bounded by streaming.
 
 ## 11. Future work
 
@@ -391,7 +421,6 @@ Short ADR-style records. All decisions below are settled; they are recorded here
 - **Logging and metrics design** — structured logging format, log shipping, and the metrics/observability stack.
 - **Dart client generation mechanism** — whether the Flutter HTTP client is generated from the OpenAPI spec or hand-written against it (the OpenAPI spec is the contract of record either way).
 - **Course schedule** — the schedule, actual progress, and variances live in [docs/WORK_PLAN.md](WORK_PLAN.md), not here.
-- **Python tooling, to be decided before the first code lands** — Python version, dependency/lockfile tool, CLI framework for the pipeline stages, the internal layout of `ml/` (the paths in [Repository layout](#repository-layout) are top-level only), the Kaggle client library, and the Kaggle credential env var names (documented in `.env.example` when ingest is implemented, per ADR-010).
 - **Authentication and multi-user support** — the current design is single-team with no auth layer; add it if the tool is ever shared beyond the club.
 - **pgvector / semantic retrieval** — if chat gains retrieval over historical reports, switch `db` to the pgvector-enabled Postgres image (same major version, drop-in).
 - **Artifact distribution via Git LFS** — if artifacts ever need to be versioned in-repo instead of regenerated, revisit the gitignored-`artifacts/` decision.

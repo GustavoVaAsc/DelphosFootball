@@ -41,7 +41,7 @@ Status as of 2026-10-17.
 | --- | --- | --- | --- | --- |
 | W1 | Sep 30 – Oct 6 | Business understanding and data selection | Draft proposal handed in on 2026-09-30 (docs/CONTEXT.md). | Business understanding done |
 | W2 | Oct 7 – Oct 13 | Business understanding and data selection | Software architecture and ML architecture skeleton written (commit a9be1cf, 2026-10-11). Python-only data-mining tooling approved by the professor (2026-10-12). Data selection not started. | Partial, data selection slipped (V-01) |
-| W3 (in progress) | Oct 14 – Oct 20 | Data cleaning and transformation | Architecture decisions ADR-007 to ADR-010 recorded; ML checklist reordered by pipeline stage; repository .gitignore added; this work plan created. Data cleaning not started. | Behind (V-01) |
+| W3 (in progress) | Oct 14 – Oct 20 | Data cleaning and transformation | Architecture decisions ADR-007 to ADR-010 recorded; ML checklist reordered by pipeline stage; repository .gitignore added; this work plan created. Python environment set up (uv workspace, Python 3.13, ADR-011) and ingest stage implemented and hardened after the post-implementation audit (text-only faithful copy, ADR-012; streaming with bounded memory); Kaggle dataset version 679 pinned (12 tables, 7,497,433 rows). Root README.md (repository layout) and AGENTS.md (shared guide for AI agents) added. Exploratory data analysis (the remaining data-selection work) not started. Data cleaning not started. | Behind (V-01) |
 | W4 | Oct 21 – Oct 27 | Data cleaning and transformation | Not started. | Planned |
 | W5 | Oct 28 – Nov 3 | Implementation of algorithms (K-means, Multiple Linear Regression, Polynomial Regression, and Random Forest/Decision Tree Classification) | Not started. | Planned |
 | W6 | Nov 4 – Nov 10 | Implementation of algorithms (same as W5) | Not started. | Planned |
@@ -55,7 +55,7 @@ Status as of 2026-10-17.
 - **Baseline:** weeks 1–2 cover business understanding and data selection.
 - **Actual:** the team wrote the software architecture and the ML architecture skeleton before any data work and committed them in week 2 (commit a9be1cf, 2026-10-11). Data selection did not start.
 - **Justification:** the team wanted the whole system written down and planned before starting any data manipulation.
-- **Impact:** data selection did not start in weeks 1–2. Data work is about 1.5 weeks behind baseline as of 2026-10-17. There is no code, no data access, and no exploratory data analysis yet.
+- **Impact:** data selection did not start in weeks 1–2. Data work is about 1.5 weeks behind baseline as of 2026-10-17. By the end of 2026-10-17 the Python environment and the ingest stage exist and the pinned dataset is accessible; the exploratory data analysis that closes data selection, and data cleaning, have not started.
 - **Recovery:** see [Recovery plan](#6-recovery-plan).
 
 ## 5. Decision log
@@ -68,12 +68,15 @@ Status as of 2026-10-17.
 | 2026-10-17 | ADR-008: Parquet files between pipeline stages; PostgreSQL only at publish | Keeping staging tables in `analytics` required PostgreSQL, roles, Alembic, and compose from day one for every stage | ARCHITECTURE.md ADR-008 |
 | 2026-10-17 | ADR-009: analysis scripts over Jupyter notebooks | The team decided on plain Python scripts with no notebooks | ARCHITECTURE.md ADR-009 |
 | 2026-10-17 | ADR-010: Kaggle API with a pinned dataset version over a manually downloaded snapshot | The manual download left the dataset version unrecorded and needed a manual step | ARCHITECTURE.md ADR-010 |
+| 2026-10-17 | ADR-011: Python tooling with a uv workspace | Section 11 listed the Python tooling as undecided, and the shared constraint set needed one lockfile | ARCHITECTURE.md ADR-011 |
+| 2026-10-17 | ADR-012: ingest stores source columns as text; typing happens in clean | The first implementation inferred types and changed the source text, which the audit flagged | ARCHITECTURE.md ADR-012 |
+| 2026-10-17 | Kaggle dataset version 679 pinned | Latest version on 2026-10-17; upstream updates are paused and the data is current to 2026-07-06 | ML_ARCHITECTURE.md §3.1 |
 
 ## 6. Recovery plan
 
 As of 2026-10-17. Section numbers refer to [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md).
 
-- **Rest of week 3 (Oct 17–20):** set up the Python environment and the `ml/` skeleton (dependency tool and Python version are decided first); build the ingest stage through the Kaggle API at a pinned version; write the exploratory analysis script; decide §3.1 and §3.2.
+- **Rest of week 3 (Oct 17–20):** the Python environment and the `ml/` skeleton, the ingest stage through the Kaggle API at a pinned version, and §3.1 are done (2026-10-17). The exploratory analysis script and §3.2 remain.
 - **Week 4 (Oct 21–27):** decide §3.3 to §3.8; implement the clean and transform stages. Target: back on baseline by 2026-10-27.
 - **Weeks 5–6:** train; decide §3.9 to §3.14; implement the evaluate outputs that publish loads (inefficiency analysis, replacements) and the publish stage (migration `0001`, the `analytics` tables, the single-transaction load).
 - **Week 7:** evaluation and cross-validation (§3.15, §3.16); build the minimal demo (ADR-007 priority 2): FastAPI search, valuation, and replacements over the published `analytics` rows, plus the Flutter screens for them.
