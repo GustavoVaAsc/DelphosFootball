@@ -66,6 +66,8 @@ To guarantee the success and traceability of the project, the following schedule
 * **Week 7:** Data interpretation and evaluation (Prediction Performance, Cross-validation, and Comparison of data mining schemes).
 * **Week 8:** Comparison of results (Baseline vs. Actual) and final documentation (APA 7th edition format).
 
+Actual progress, variances from this baseline, and their justification are tracked in [docs/WORK_PLAN.md](WORK_PLAN.md).
+
 ## 7. Tools and Environment
 
 * Centralized development in the **Python** environment.

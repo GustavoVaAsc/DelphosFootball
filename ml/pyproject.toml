@@ -1,0 +1,19 @@
+[project]
+name = "delphos-ml"
+version = "0.1.0"
+description = "DelphosFootball shared ML package and offline pipeline CLI."
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "kagglehub>=1.0.2",
+    "pyarrow>=26.0.0",
+    "pydantic>=2.14.1",
+    "pydantic-settings>=2.16.0",
+    "typer>=0.27.3",
+]
+
+[project.scripts]
+delphos-pipeline = "delphos_ml.pipeline.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.10.7,<0.11"]
+build-backend = "uv_build"
