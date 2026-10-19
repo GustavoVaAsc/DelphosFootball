@@ -49,7 +49,7 @@ External systems:
 
 | External system | Relationship |
 | --- | --- |
-| Kaggle "Football Data from Transfermarkt" dataset | Source of truth for raw data. The ingest stage downloads it through Kaggle's API at a pinned dataset version and writes its tables as Parquet under `data/`; the version and snapshot hash are recorded per run ([ADR-010](#adr-010-kaggle-api-with-a-pinned-dataset-version-over-a-manually-downloaded-snapshot)). |
+| Kaggle "Football Data from Transfermarkt" dataset | Source of truth for raw data. The ingest stage downloads it through Kaggle's API at a pinned dataset version and writes its tables as Parquet under `ml/data/`; the version and snapshot hash are recorded per run ([ADR-010](#adr-010-kaggle-api-with-a-pinned-dataset-version-over-a-manually-downloaded-snapshot)). |
 | ggml-org/llama.cpp project | Source of the llama.cpp server container image used for local LLM inference. |
 | Quantized GGUF model weights | Downloaded manually from a public GGUF repository (the specific repository and quant file will be recorded here when provisioned) into `llms/models/`; the running system never fetches model weights at runtime. |
 
@@ -75,7 +75,7 @@ flowchart LR
         PIPE["offline ML pipeline<br/>internal design: docs/ML_ARCHITECTURE.md"]
         DB[("PostgreSQL<br/>schemas: analytics + app")]
         ART[("artifacts/<br/>joblib models")]
-        DATA[("data/<br/>Parquet stage outputs")]
+        DATA[("ml/data/<br/>Parquet stage outputs")]
     end
 
     subgraph external [External]
@@ -121,18 +121,18 @@ Both the backend and the pipeline import the same shared Python package, `delpho
 - Each publish writes `artifacts/<model_run_id>/` containing the trained model, the preprocessor, and a `manifest.json` with the ordered feature names, the scikit-learn and `delphos_ml` versions, the pinned Kaggle dataset version and snapshot hash, and a training-config reference. The exact manifest and training-config fields are defined in `docs/ML_ARCHITECTURE.md`.
 - Exactly one `model_runs` row has status `active`; both the publish stage and the backend resolve the "current model" through it (see [Publish/activation protocol](#44-offline-ml-pipeline)).
 - `delphos_ml.load_model()` refuses to load an artifact whose recorded scikit-learn version differs from the installed one.
-- `backend/`, `ml/`, and `analysis/` install from one shared set of pinned versions, the root `uv.lock` ([ADR-011](#adr-011-python-tooling-with-a-uv-workspace)), so joblib unpickling cannot drift between the pipeline that wrote the artifacts and the API that reads them.
+- Each Python component is its own uv project with its own lockfile ([ADR-013](#adr-013-per-component-uv-projects-over-a-root-uv-workspace)): `ml/` today, `backend/` when it lands. Their direct dependency pins are manually aligned on the same versions: kagglehub 1.0.2, pyarrow 26.0.0, pydantic 2.14.1, pydantic-settings 2.16.0, typer 0.27.3. Joblib unpickling therefore cannot drift between the pipeline that wrote the artifacts and the API that reads them only as long as the pins stay aligned; without one shared lockfile this alignment is a discipline, not a guarantee (accepted risk, recorded in ADR-013).
 
 ### 4.4 Offline ML pipeline
 
 > Internal design (algorithms, features, evaluation) is deferred to [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md). This section covers only its place in the software architecture.
 
 - **Responsibility:** Batch ingestion and publishing. Runs the stages ingest → clean → transform → train → evaluate → publish, producing trained models and publishing curated player data, predictions, cluster assignments, valuation residuals, replacement candidates, and an inefficiency analysis into the database.
-- **Technology:** Python with scikit-learn and pandas, orchestrated as Typer CLI stages: `uv run delphos-pipeline <stage>`, one command per stage, each writing to `data/<stage>/`. An "all" runner is added once two or more stages exist. It is a batch pipeline, not a long-running service: it runs manually, on demand, or on a schedule via Docker (the `pipeline` compose profile). It is never on the request path.
+- **Technology:** Python with scikit-learn and pandas, orchestrated as Typer CLI stages: `uv run delphos-pipeline <stage>`, one command per stage, each writing to `ml/data/<stage>/`. An "all" runner is added once two or more stages exist. It is a batch pipeline, not a long-running service: it runs manually, on demand, or on a schedule via Docker (the `pipeline` compose profile). It is never on the request path.
 - **Interfaces/contracts:**
   - **In:** the ingest stage downloads the Kaggle dataset through Kaggle's API at a pinned dataset version, with no credentials required for this public dataset ([ADR-010](#adr-010-kaggle-api-with-a-pinned-dataset-version-over-a-manually-downloaded-snapshot)).
   - Ingest is a text-only faithful copy of the source; typing and cleaning happen in `clean` ([ADR-012](#adr-012-ingest-stores-source-columns-as-text-typing-happens-in-clean)).
-  - **Out:** the stages write their outputs as Parquet under `data/`, and `publish` is the only stage that writes to PostgreSQL ([ADR-008](#adr-008-parquet-files-between-pipeline-stages-postgresql-only-at-publish)). The pipeline writes trained model artifacts (joblib) into `artifacts/<model_run_id>/` per the [Artifact contract](#43-delphos_ml-shared-package), and publishes curated player data, predictions, cluster assignments, valuation residuals, replacement candidates, and the inefficiency analysis into the `analytics` schema through the pipeline database role (writes `analytics` only).
+  - **Out:** the stages write their outputs as Parquet under `ml/data/`, and `publish` is the only stage that writes to PostgreSQL ([ADR-008](#adr-008-parquet-files-between-pipeline-stages-postgresql-only-at-publish)). The pipeline writes trained model artifacts (joblib) into `artifacts/<model_run_id>/` per the [Artifact contract](#43-delphos_ml-shared-package), and publishes curated player data, predictions, cluster assignments, valuation residuals, replacement candidates, and the inefficiency analysis into the `analytics` schema through the pipeline database role (writes `analytics` only).
   - The `evaluate` stage produces an inefficiency-analysis output (`inefficiency_analysis`), published alongside predictions. Minimal acceptance for this output: at least one hypothesis test with a reported statistic and significance over transfer-fee vs predicted-value residuals, presented by the analysis scripts (see [Analysis scripts](#45-analysis-scripts)) and summarized in the app. Which tests and which statistics are defined in `docs/ML_ARCHITECTURE.md`.
 
 **Publish/activation protocol.** `publish` is transactional from the API's point of view:
@@ -147,7 +147,7 @@ The API filters its reads on the active run and includes the `model_run_id` in r
 
 - **Responsibility:** One script per analysis in the top-level `analysis/` directory: exploratory data analysis, the statistical demonstration of market inefficiency (at least one hypothesis test with reported statistic and significance over transfer-fee vs predicted-value residuals; the test selection is defined in `docs/ML_ARCHITECTURE.md`), and the model-comparison figures. Each script's module docstring states its input, its output, and its single responsibility ([ADR-009](#adr-009-analysis-scripts-over-jupyter-notebooks)).
 - **Technology:** Python, pinned in the shared Python constraint set ([Artifact contract](#43-delphos_ml-shared-package)). Scripts import `delphos_ml` instead of re-implementing algorithms.
-- **Interfaces/contracts:** Reads the pipeline's Parquet outputs under `data/`. Writes figures and tables to `analysis/output/` (gitignored, regenerable) and nothing to the database. The scripts are not part of the deployed stack.
+- **Interfaces/contracts:** Reads the pipeline's Parquet outputs under `ml/data/`. Writes figures and tables to `analysis/output/` (gitignored, regenerable) and nothing to the database. The scripts are not part of the deployed stack.
 
 ### 4.6 LLM inference service
 
@@ -169,28 +169,28 @@ The monorepo layout below is the convention of record. It follows the team's pre
 
 ```
 README.md      # entry point: quickstart and what each root file is
-AGENTS.md      # shared instructions for AI coding agents
+AGENTS.md      # global instructions for AI coding agents; per-component guides sit beside each component
 backend/       # FastAPI application (routers/services/schemas per feature, as in hyperwrite-ai)
 backend/tests/ # pytest unit tests for the API layer
 frontend/      # Flutter app (Dart)
-ml/            # uv workspace member: distribution delphos-ml, src layout
+ml/            # the delphos-ml uv project (ADR-013): distribution delphos-ml, src layout
+ml/pyproject.toml # project metadata; dev dependency group; pytest and ruff config
+ml/uv.lock     # this component's lockfile
+ml/.python-version # Python 3.13
 ml/src/delphos_ml/ # delphos_ml package; pipeline/ holds one module per stage
 ml/tests/      # pytest unit tests for delphos_ml
-pyproject.toml # uv workspace root (no [project]); dev dependency group; pytest and ruff config
-uv.lock        # the one shared lockfile (ADR-011)
-.python-version # Python 3.13
-.env.example   # documents the DELPHOS_ variables (see section 9)
+ml/data/       # Parquet outputs of pipeline stages (gitignored)
+.env.example   # documents the DELPHOS_ variables for every component (see section 9)
 migrations/    # Alembic config; one migration head per schema (analytics, app)
 analysis/      # one script per analysis (EDA, inefficiency demonstration, model comparison)
 analysis/output/ # generated figures and tables (gitignored)
-data/          # Parquet outputs of pipeline stages (gitignored)
 llms/models/   # GGUF model files (gitignored)
 artifacts/     # trained model artifacts (gitignored — see below)
 docs/          # CONTEXT.md, ARCHITECTURE.md, ML_ARCHITECTURE.md, WORK_PLAN.md
 docker-compose.yml
 ```
 
-`data/` and `analysis/output/` are gitignored and regenerable.
+`ml/data/` and `analysis/output/` are gitignored and regenerable.
 
 `artifacts/` is **gitignored**, not Git LFS. Artifacts are fully regenerable by running the pipeline, and reproducibility is handled by pinning dependencies and recording the dataset snapshot and training configuration alongside each run (see [Cross-cutting concerns](#9-cross-cutting-concerns)). Git LFS would add tooling overhead for a course project without buying reproducibility we do not already have.
 
@@ -208,13 +208,13 @@ The pipeline publishes results; the API serves them; the frontend displays them.
 flowchart LR
     DS["Kaggle API<br/>pinned dataset version"] --> P[offline ML pipeline<br/>ingest - clean - transform<br/>train - evaluate - publish]
     P -->|joblib| ART[(artifacts/)]
-    P -->|"Parquet stage outputs"| DATA[("data/")]
+    P -->|"Parquet stage outputs"| DATA[("ml/data/")]
     P -->|"curated players, predictions, clusters,<br/>residuals, replacements, inefficiency analysis"| AN[("analytics schema")]
     AN -->|read| API[FastAPI backend]
     API -->|REST| UI[Flutter app]
 ```
 
-The stages exchange Parquet files under `data/`, and only `publish` writes to `analytics`.
+The stages exchange Parquet files under `ml/data/`, and only `publish` writes to `analytics`.
 
 ### 5.2 Live inference flow
 
@@ -274,7 +274,7 @@ One PostgreSQL instance holds two schemas with separate owners. Access separatio
 | Read by | API role | API role |
 | Contents | Curated player data (profiles and performance metrics), predictions, cluster assignments, valuation residuals, replacement candidates, inefficiency analysis, model/run metadata | User data: saved shortlists, scouting report records, chat session/message metadata |
 
-Illustrative tables (design intent, not exhaustive): `analytics` holds a curated players table (the profiles and performance metrics served by `GET /players*`, keyed by player and `model_run_id`), a `predictions` table (fair value, residual, undervaluation flag, keyed by player and `model_run_id`), a `clusters` table, a `replacements` table (computed at publish, keyed by target player and `model_run_id`, holding up to 3 ranked candidates per target with similarity score and cost data; exactly 3 when 3+ qualify, otherwise fewer with an explicit "no qualifying replacement" reason, never padded), the inefficiency-analysis output, and a `model_runs` table recording each publish. `app` holds `shortlists`, `reports` (text plus the `model_run_id` that produced them), and `chat_sessions` / `chat_messages`. Raw and intermediate data live as Parquet under `data/` ([ADR-008](#adr-008-parquet-files-between-pipeline-stages-postgresql-only-at-publish)).
+Illustrative tables (design intent, not exhaustive): `analytics` holds a curated players table (the profiles and performance metrics served by `GET /players*`, keyed by player and `model_run_id`), a `predictions` table (fair value, residual, undervaluation flag, keyed by player and `model_run_id`), a `clusters` table, a `replacements` table (computed at publish, keyed by target player and `model_run_id`, holding up to 3 ranked candidates per target with similarity score and cost data; exactly 3 when 3+ qualify, otherwise fewer with an explicit "no qualifying replacement" reason, never padded), the inefficiency-analysis output, and a `model_runs` table recording each publish. `app` holds `shortlists`, `reports` (text plus the `model_run_id` that produced them), and `chat_sessions` / `chat_messages`. Raw and intermediate data live as Parquet under `ml/data/` ([ADR-008](#adr-008-parquet-files-between-pipeline-stages-postgresql-only-at-publish)).
 
 Schema changes are managed by Alembic with one migration head per schema (`analytics`, `app`); each head is applied by that schema's owning role — pipeline role for `analytics`, API role for `app`. The role/schema bootstrap SQL implied by ADR-002 is committed as migration `0001`, so role enforcement lives in reviewable migrations rather than manual setup. Migrations run as the one-shot `migrate` compose step before the backend starts (see [Deployment topology](#8-deployment-topology)).
 
@@ -284,7 +284,7 @@ The base image is plain `postgres:16`; pgvector is not adopted because no curren
 
 ## 8. Deployment topology
 
-Everything runs under Docker Compose via a single root `docker-compose.yml` (scalable and reproducible per the team's decision). Named network; one named volume for DB data (`pgdata`); bind mounts for the host directories `./data`, `./artifacts`, and `./llms/models`, so the host-side analysis scripts and the manually provisioned GGUF files are visible to the containers; healthchecks with `depends_on: condition: service_healthy` throughout, plus a one-shot `migrate` step that the backend waits on (`service_completed_successfully`).
+Everything runs under Docker Compose via a single root `docker-compose.yml` (scalable and reproducible per the team's decision). Named network; one named volume for DB data (`pgdata`); bind mounts for the host directories `./ml/data`, `./artifacts`, and `./llms/models`, so the host-side analysis scripts and the manually provisioned GGUF files are visible to the containers; healthchecks with `depends_on: condition: service_healthy` throughout, plus a one-shot `migrate` step that the backend waits on (`service_completed_successfully`).
 
 | Service | Image / build | Ports | Volumes | Depends on |
 | --- | --- | --- | --- | --- |
@@ -293,7 +293,7 @@ Everything runs under Docker Compose via a single root `docker-compose.yml` (sca
 | `db` | `postgres:16` | `5432` internal only; exposed in dev for tooling | `pgdata` named volume | — |
 | `migrate` | Alembic migrations (`migrations/`; one-shot, exits when done) | none | — | `db` (service_healthy) |
 | `inference-chat` | `ggml-org/llama.cpp` server image (CUDA variant; CPU fallback) | `8080` internal only | `./llms/models` bind mount (GGUF files, read-only) | — |
-| `pipeline` | ML pipeline (`ml/`, compose profile `pipeline`) | none | `./artifacts` bind mount (read-write), `./data` bind mount (read-write, Parquet stage outputs) | `db` (service_healthy), `migrate` (service_completed_successfully) |
+| `pipeline` | ML pipeline (`ml/`, compose profile `pipeline`) | none | `./artifacts` bind mount (read-write), `./ml/data` bind mount (read-write, Parquet stage outputs) | `db` (service_healthy), `migrate` (service_completed_successfully) |
 
 Notes:
 
@@ -310,16 +310,16 @@ Notes:
 
 ## 9. Cross-cutting concerns
 
-- **Configuration and secrets.** All configuration is environment variables read from `.env`, which is gitignored; `.env.example` documents every key. The pipeline reads the variables below through pydantic-settings. Precedence is real environment variables, then `<repo root>/.env`, then the defaults. The repo root is the nearest directory at or above the working directory that contains `uv.lock`. An invalid value exits with code 1 and a message naming the variable. `.env.example` mirrors this table. The settings for the database, CORS, and the LLM are added here when those components land.
+- **Configuration and secrets.** All configuration is environment variables read from `.env`, which is gitignored; `.env.example` at the repository root documents every key for every component. The pipeline reads the variables below through pydantic-settings. Precedence is real environment variables, then the nearest `.env`, then the defaults. The project root, used to resolve a relative `DELPHOS_DATA_DIR`, is the nearest directory at or above the working directory that contains `uv.lock`, which in this repository is `ml/` ([ADR-013](#adr-013-per-component-uv-projects-over-a-root-uv-workspace)). The `.env` lookup walks upward from the working directory, first hit wins, and stops after the parent of the project root. With the working directory at `ml/` (where the dev commands run), the lookup checks `ml/.env` and then `<repo root>/.env`; the documented location is the repo root, beside `.env.example`. A `.env` above the repository root is never read. With no `uv.lock` at or above the working directory, only the working directory itself is checked. An invalid value exits with code 1 and a message naming the variable. `.env.example` mirrors this table. The settings for the database, CORS, and the LLM are added here when those components land.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `DELPHOS_DATA_DIR` | `<repo root>/data` | Root of stage outputs (`<dir>/<stage>/`); `~` is expanded; relative values resolve against the repo root |
+| `DELPHOS_DATA_DIR` | `<project root>/data` (that is, `ml/data/` in this repository) | Root of stage outputs (`<dir>/<stage>/`); `~` is expanded; relative values resolve against the project root (the nearest directory containing `uv.lock`, here `ml/`) |
 | `DELPHOS_KAGGLE_DATASET` | `davidcariboo/player-scores` | Kaggle handle `owner/slug`, unversioned |
 | `DELPHOS_KAGGLE_DATASET_VERSION` | `679` | Pinned dataset version (positive integer); changing it is a deliberate refresh |
 
 A relative `DELPHOS_DATA_DIR`, including the default, requires a `uv.lock` at or above the working directory; otherwise the run exits 1 with a message naming `DELPHOS_DATA_DIR`. A container must therefore include `uv.lock` or set an absolute `DELPHOS_DATA_DIR`.
-- **Reproducibility of model artifacts.** `artifacts/` is gitignored, so reproducibility rests on three things: pinned dependency versions (the root `uv.lock`, the shared Python constraint set required by the [Artifact contract](#43-delphos_ml-shared-package) so joblib unpickling cannot drift; the Flutter SDK pinned in `pubspec.yaml` with `pubspec.lock` committed; all pins date from project kickoff and are bumped only via explicit dependency-bump commits), the Kaggle dataset `version` and `snapshot_sha256` recorded at ingest in `data/ingest/_snapshot.json` together with `tool_versions` (kagglehub and pyarrow), and training configuration persisted with each run in `analytics.model_runs`. Anyone can re-run the pipeline and obtain equivalent artifacts.
+- **Reproducibility of model artifacts.** `artifacts/` is gitignored, so reproducibility rests on three things: pinned dependency versions (per-component lockfiles with manually aligned direct pins, as the [Artifact contract](#43-delphos_ml-shared-package) requires; joblib-unpickling drift is guarded by that pinning discipline, an accepted risk recorded in [ADR-013](#adr-013-per-component-uv-projects-over-a-root-uv-workspace); the Flutter SDK pinned in `pubspec.yaml` with `pubspec.lock` committed; all pins date from project kickoff and are bumped only via explicit dependency-bump commits), the Kaggle dataset `version` and `snapshot_sha256` recorded at ingest in `ml/data/ingest/_snapshot.json` together with `tool_versions` (kagglehub and pyarrow), and training configuration persisted with each run in `analytics.model_runs`. Anyone can re-run the pipeline and obtain equivalent artifacts.
 - **Versioning of published results.** Every published row carries the `model_run_id` that produced it, and reports record the model version used. Exactly one run is `active` at a time; the API reads only the active run and includes the `model_run_id` in responses that carry model-derived values ([Publish/activation protocol](#44-offline-ml-pipeline)). Re-publishing a new model does not silently rewrite historical results already surfaced to users.
 - **Error handling at service boundaries.** The backend is the only component that talks to clients, and it translates failures at its boundaries into RFC 9457 problem responses (`application/problem+json` with `type`, `title`, `status`, `detail`, and `trace_id`), defined once as a shared Pydantic model behind a global exception handler. Expected problem types, by endpoint group: *missing artifact* and *stale artifact* (any model-derived read and `/players/what-if`), *LLM unavailable* (`/reports/*` and `/chat` — the rest of the API keeps working during an LLM outage), *mid-stream failure* (streamed report/chat responses, after the 200 headers were already sent), and *not found* (`/players/{id}` and other id lookups). The pipeline fails fast per stage and leaves the previously published results in place; `publish` is the last stage and flips the active pointer only in its final transaction ([Publish/activation protocol](#44-offline-ml-pipeline)), so a crashed run does not corrupt what the API serves.
 - **Testing.** v1 scope is unit tests with pytest: fixtures for artifact loading and parametrized scoring cases, covering the `delphos_ml` load/score paths (`ml/tests/`) and the API route logic (`backend/tests/`). The golden batch-vs-live equivalence check, contract tests, OpenAPI drift checks, and CI are explicitly out of v1 scope — listed in [Future work](#11-future-work), not as v1 commitments.
@@ -327,7 +327,7 @@ A relative `DELPHOS_DATA_DIR`, including the default, requires a `uv.lock` at or
 
 ## 10. Decisions and tradeoffs
 
-Short ADR-style records. All decisions below are settled; they are recorded here for context, not for revisiting.
+Short ADR-style records. The decisions below are settled as recorded, for context; when a decision changes, a later ADR supersedes the earlier one and the superseded record stays in place for history ([ADR-011](#adr-011-python-tooling-with-a-uv-workspace) is superseded by [ADR-013](#adr-013-per-component-uv-projects-over-a-root-uv-workspace)).
 
 ### ADR-001: FastAPI (Python) over Go for the backend
 
@@ -405,6 +405,7 @@ Short ADR-style records. All decisions below are settled; they are recorded here
 - **Decision:** Python 3.13, pinned in `.python-version` (`requires-python = ">=3.13,<3.14"`). A uv workspace with a virtual root: the root `pyproject.toml` has no `[project]` table, lists `members = ["ml"]`, and holds a `dev` dependency group (pytest, ruff) with their configuration. Exactly one `uv.lock` at the root is the shared constraint set of the [Artifact contract](#43-delphos_ml-shared-package). The member `ml/` is the distribution `delphos-ml` (import name `delphos_ml`) in a src layout, built with `uv_build`. Dependencies are kagglehub as the Kaggle client, pyarrow, pydantic, pydantic-settings, and Typer; pandas returns with the `clean` stage. The CLI is a Typer console script, `delphos-pipeline` (`delphos_ml.pipeline.cli:app`). Each stage is one module with one entry function whose docstring is its `--help` text, and a stage exits 0 on success and 1 on an expected failure with `<stage> failed: <reason>` on stderr. Stage outputs go to `data/<stage>/`. Configuration uses pydantic-settings with the `DELPHOS_` prefix ([Cross-cutting concerns](#9-cross-cutting-concerns)). The locked direct versions are kagglehub 1.0.2, pyarrow 26.0.0, pydantic 2.14.1, pydantic-settings 2.16.0, and typer 0.27.3, with pytest 9.1.1 and ruff 0.17.1 for development.
 - **Alternatives:** A root project instead of a virtual root (rejected: it would need an empty package just to list the members); pip-tools and poetry (rejected); argparse instead of Typer (rejected); a flat layout instead of src (rejected); `raw/interim/processed` directories instead of `data/<stage>/` (rejected); python-dotenv instead of pydantic-settings (rejected).
 - **Consequences:** One `uv.lock` is the shared constraint set. `backend/` joins as a workspace member that uses the same lock, and the analysis scripts' dependencies go in a root dependency group. The "all" runner arrives with the second stage; until then `ingest` is the only command.
+- **Status:** superseded by [ADR-013](#adr-013-per-component-uv-projects-over-a-root-uv-workspace) on 2026-10-18; retained for history.
 
 ### ADR-012: Ingest stores source columns as text; typing happens in clean
 
@@ -412,6 +413,13 @@ Short ADR-style records. All decisions below are settled; they are recorded here
 - **Decision:** Ingest is a faithful copy. Every column of every `data/ingest/*.parquet` is Arrow `string` and holds the exact CSV field text, so "007", "True", "700000.000", "NA", "null", and "-" are kept as they are. Only an unquoted empty field becomes null. A quoted empty field (`""`) stays an empty string, because the source writes empty strings that way and keeps them distinct from null. Blank lines are skipped in multi-column files, but in a single-column file an empty line is an unquoted empty field and becomes a null row; a final trailing newline never adds a row. Quoted values may span lines, and a UTF-8 BOM is stripped. Each file is streamed in 16 MiB blocks with pyarrow, so memory does not grow with file size. A header with duplicate, empty, or whitespace-only names fails the run, as do an empty file, invalid UTF-8, and ragged rows; each failure prints one `ingest failed: <reason>` line and exits 1. The output swap retries each rename 3 times and restores the previous output on failure. An existing `ingest/` without `_snapshot.json` is never replaced. Concurrent runs are not supported.
 - **Alternatives:** pandas type inference (rejected: it changed the text form, renamed duplicate headers, and mixed typing into ingest).
 - **Consequences:** `clean` must cast every column it uses explicitly and record the rules in `docs/ML_ARCHITECTURE.md` §3.5. Memory stays bounded by streaming.
+
+### ADR-013: Per-component uv projects over a root uv workspace
+
+- **Context:** [ADR-011](#adr-011-python-tooling-with-a-uv-workspace) set up a root uv workspace with one shared `uv.lock` when `ml/` was the only Python component. With a single member, the virtual root `pyproject.toml` and the root lockfile were overhead, and the backend had not arrived yet. The [Artifact contract](#43-delphos_ml-shared-package) still requires the Python components to agree on the versions that read and write joblib artifacts.
+- **Decision:** Each Python component is its own uv project. `ml/` owns its `pyproject.toml` (project metadata, the `dev` dependency group, and the pytest and ruff configuration), its `uv.lock`, and its `.python-version` (Python 3.13). The root `pyproject.toml` and root `uv.lock` are removed. `.env.example` stays at the repository root as the global configuration-key list for every component (see [Cross-cutting concerns](#9-cross-cutting-concerns)). `backend/` gets its own uv project and lockfile when it lands. Joblib-unpickling drift is held off by manually aligned direct pins across the lockfiles: kagglehub 1.0.2, pyarrow 26.0.0, pydantic 2.14.1, pydantic-settings 2.16.0, typer 0.27.3. The project-root anchor (the nearest `uv.lock` at or above the working directory) now resolves to `ml/`, so a relative `DELPHOS_DATA_DIR` defaults stage outputs to `ml/data/<stage>/`.
+- **Alternatives:** Keep the root workspace with the single shared lock (rejected: it was overhead for a single Python component, and scoping tooling per module was preferred).
+- **Consequences:** Each component installs, locks, tests, and lints independently, from its own directory. Version alignment between `ml/` and the future `backend/` is a manual discipline rather than a lockfile guarantee: a backend install that resolves a different joblib-relevant version can fail to unpickle the pipeline's artifacts, and this accepted risk is recorded here. Configuration stays global (one `.env.example` at the repo root); the `.env` lookup (nearest `.env` at or above the working directory, first hit wins) is bounded by the lockfile-based project-root anchor: the walk stops after the project root's parent, so a `.env` above the repository root is never read, and with no `uv.lock` at or above the working directory only the working directory itself is checked.
 
 ## 11. Future work
 

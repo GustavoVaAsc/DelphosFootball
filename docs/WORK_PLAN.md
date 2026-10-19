@@ -58,6 +58,14 @@ Status as of 2026-10-17.
 - **Impact:** data selection did not start in weeks 1–2. Data work is about 1.5 weeks behind baseline as of 2026-10-17. By the end of 2026-10-17 the Python environment and the ingest stage exist and the pinned dataset is accessible; the exploratory data analysis that closes data selection, and data cleaning, have not started.
 - **Recovery:** see [Recovery plan](#6-recovery-plan).
 
+### V-02: Root uv workspace dissolved; uv commands moved to `ml/`
+
+- **Baseline:** Python tooling is one uv workspace at the repo root with a single shared `uv.lock`, and the documented dev commands run from the repo root (ADR-011).
+- **Actual:** on 2026-10-18 the root workspace was dissolved. `ml/` became its own uv project, owning its `pyproject.toml`, `uv.lock`, and `.python-version`, and the documented dev commands run from `ml/` (ADR-013). ADR-011 is superseded but retained for history. `.env.example` stays at the repo root as the global configuration-key list.
+- **Justification:** the root workspace was overhead for a single Python component, and scoping tooling per module was preferred.
+- **Impact:** version alignment between `ml/` and the future `backend/` is now a manual pinning discipline instead of a lockfile guarantee (accepted risk, ADR-013). No schedule date moves.
+- **Recovery:** none required; this is a tooling change with no schedule effect.
+
 ## 5. Decision log
 
 | Date | Decision | Reason | Recorded in |
@@ -71,6 +79,7 @@ Status as of 2026-10-17.
 | 2026-10-17 | ADR-011: Python tooling with a uv workspace | Section 11 listed the Python tooling as undecided, and the shared constraint set needed one lockfile | ARCHITECTURE.md ADR-011 |
 | 2026-10-17 | ADR-012: ingest stores source columns as text; typing happens in clean | The first implementation inferred types and changed the source text, which the audit flagged | ARCHITECTURE.md ADR-012 |
 | 2026-10-17 | Kaggle dataset version 679 pinned | Latest version on 2026-10-17; upstream updates are paused and the data is current to 2026-07-06 | ML_ARCHITECTURE.md §3.1 |
+| 2026-10-18 | Per-component uv projects: the root uv workspace dissolved (ADR-013 supersedes ADR-011) | The root workspace was overhead for a single Python component, and scoping tooling per module was preferred | ARCHITECTURE.md ADR-013 |
 
 ## 6. Recovery plan
 
