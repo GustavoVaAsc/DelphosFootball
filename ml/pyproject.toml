@@ -17,3 +17,23 @@ delphos-pipeline = "delphos_ml.pipeline.cli:app"
 [build-system]
 requires = ["uv_build>=0.10.7,<0.11"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--import-mode=importlib"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["src", "tests"]
+# Python only: ruff 0.17 also formats Markdown by default, and the docs are hand-written.
+include = ["*.py", "*.pyi", "**/pyproject.toml"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
