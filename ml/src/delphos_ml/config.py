@@ -1,16 +1,19 @@
-"""Pipeline settings, read from environment variables and the repo-root `.env`.
+"""Pipeline settings, read from environment variables and the nearest `.env`.
 
-Input: `DELPHOS_*` environment variables, then `.env`, then the defaults in `Settings`.
+Input: `DELPHOS_*` environment variables, then the nearest `.env`, then the defaults in `Settings`.
 Output: a validated `Settings` object, or `ConfigError` naming each invalid variable.
 Responsibility: defines every configuration name and default.
 
-The repo root is the nearest directory at or above the working directory that contains
-`uv.lock`. `.env` is read from there, or from the working directory when no repo root is found.
-A relative `DELPHOS_DATA_DIR` (including the default `data`) resolves against the repo root, and
-`~` expands to the home directory. Without a repo root, a relative data directory is an error,
-so a container must either include `uv.lock` or set an absolute `DELPHOS_DATA_DIR`. Anchoring on
-this file's location (`Path(__file__)`) was rejected because it breaks once the package is
-installed outside the source tree.
+The project root is the nearest directory at or above the working directory that contains
+`uv.lock`; a relative `DELPHOS_DATA_DIR` (including the default `data`) resolves against it, and
+`~` expands to the home directory. Without a project root, a relative data directory is an error,
+so a container must either include `uv.lock` or set an absolute `DELPHOS_DATA_DIR`. `.env` is
+looked up separately from the project root: the nearest `.env` at or above the working directory
+is read (first hit wins), but the walk stops at the project root's parent (the repository root),
+so a `.env` above the repository root is never read; without a project root only the working
+directory itself is checked, and when no `.env` is found no env file is loaded. Anchoring on this
+file's location (`Path(__file__)`) was rejected because it breaks once the package is installed
+outside the source tree.
 """
 
 from pathlib import Path
@@ -37,6 +40,24 @@ def find_project_root(start: Path | None = None) -> Path | None:
     for candidate in (start, *start.parents):
         if (candidate / PROJECT_ROOT_MARKER).is_file():
             return candidate
+    return None
+
+
+def _find_env_file(start: Path | None = None) -> Path | None:
+    """Return the nearest `.env` from `start` (default: CWD) up to the project root's parent.
+
+    With no project root, only `start` itself is checked. Returns None when no `.env` is in
+    that range.
+    """
+    start = (start or Path.cwd()).resolve()
+    project_root = find_project_root(start)
+    top = project_root.parent if project_root is not None else start
+    for candidate in (start, *start.parents):
+        env_file = candidate / ".env"
+        if env_file.is_file():
+            return env_file
+        if candidate == top:
+            break
     return None
 
 
@@ -70,13 +91,12 @@ class Settings(BaseSettings):
 
 
 def load_settings() -> Settings:
-    """Build `Settings` from the environment and `.env`.
+    """Build `Settings` from the environment and the nearest `.env`.
 
     Raises `ConfigError`, naming each invalid variable, if a value fails validation.
     """
-    env_file = (find_project_root() or Path.cwd()) / ".env"
     try:
-        return Settings(_env_file=env_file)
+        return Settings(_env_file=_find_env_file())
     except ValidationError as exc:
         problems = "; ".join(
             f"{ENV_PREFIX}{'_'.join(str(part) for part in error['loc']).upper()}: "
