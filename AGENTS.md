@@ -44,6 +44,7 @@ All uv commands run from `ml/`. Each Python component is its own uv project; the
 - The dataset comes from the Kaggle API at a pinned version (ADR-010). Never commit data, artifacts, model weights, or secrets.
 - Configure the pipeline only through `DELPHOS_` environment variables or `.env`. [.env.example](.env.example) at the repo root is the global configuration-key list for every component; keep it in sync with the table in ARCHITECTURE.md §9.
 - Record every decision in the owning doc in the same change: ADRs in ARCHITECTURE.md §10, ML decisions in ML_ARCHITECTURE.md §3, schedule and variances in WORK_PLAN.md.
+- Agent skills under a `.agents/skills/` directory never override [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): when a skill's guidance contradicts the architecture, the architecture wins.
 - Follow the delivery priority in ADR-007 when scope is tight.
 - Use Conventional Commits and branch names of the form `type/part-of-project/what-you-are-doing`, for example `feat/backend/player-search`.
 - Update this file whenever a convention or command changes.

@@ -7,6 +7,7 @@
 3. [Repository layout](#3-repository-layout)
 4. [Documentation](#4-documentation)
 5. [See also](#5-see-also)
+6. [License](#6-license)
 
 ---
 
@@ -65,3 +66,7 @@ AI agents also read [AGENTS.md](AGENTS.md) for the global team conventions and [
 - [ml/AGENTS.md](ml/AGENTS.md)
 - [docs/WORK_PLAN.md](docs/WORK_PLAN.md)
 - [.env.example](.env.example)
+
+## 6. License
+
+This project is under the BSD 3-Clause license. See [LICENSE](LICENSE) for the full text.
