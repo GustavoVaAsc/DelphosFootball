@@ -2,6 +2,7 @@
 name = "delphos-ml"
 version = "0.1.0"
 description = "DelphosFootball shared ML package and offline pipeline CLI."
+license = "BSD-3-Clause"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "kagglehub>=1.0.2",

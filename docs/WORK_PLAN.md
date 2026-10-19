@@ -80,6 +80,7 @@ Status as of 2026-10-17.
 | 2026-10-17 | ADR-012: ingest stores source columns as text; typing happens in clean | The first implementation inferred types and changed the source text, which the audit flagged | ARCHITECTURE.md ADR-012 |
 | 2026-10-17 | Kaggle dataset version 679 pinned | Latest version on 2026-10-17; upstream updates are paused and the data is current to 2026-07-06 | ML_ARCHITECTURE.md §3.1 |
 | 2026-10-18 | Per-component uv projects: the root uv workspace dissolved (ADR-013 supersedes ADR-011) | The root workspace was overhead for a single Python component, and scoping tooling per module was preferred | ARCHITECTURE.md ADR-013 |
+| 2026-10-18 | Agent-tooling cleanup and license added: `frontend/.agents/skills/` pruned of five Dart skills (dart-setup-ffi-assets, dart-use-ffigen, dart-build-cli-app, dart-migrate-to-checks-package, dart-use-doc-examples), `LICENSE` added (BSD 3-Clause), and the AGENTS.md rule that agent skills never override ARCHITECTURE.md | The auto-installed Dart skill pack contained skills that do not apply to a Flutter REST client app (native interop / FFI and ffigen, CLI app building, package:checks migration, Dartdoc example injection), and the repository had no license | This document, LICENSE, AGENTS.md |
 
 ## 6. Recovery plan
 
