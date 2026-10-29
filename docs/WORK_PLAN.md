@@ -35,7 +35,7 @@ The two team members work jointly on every task in shared sessions. There are no
 
 ## 3. Baseline vs. actual
 
-Status as of 2026-10-28.
+Status as of 2026-10-29.
 
 | Week | Dates | Baseline | Actual | Status |
 | --- | --- | --- | --- | --- |
@@ -43,7 +43,7 @@ Status as of 2026-10-28.
 | W2 | Oct 7 – Oct 13 | Business understanding and data selection | Software architecture and ML design checklist defined, and Python-only data-mining stack approved by the professor. Data selection still pending. | Partial, data selection slipped (V-01) |
 | W3 | Oct 14 – Oct 20 | Data cleaning and transformation | Python ML environment and the `ingest` pipeline stage built to download the pinned Transfermarkt dataset (version 679: 12 tables, 7,497,433 rows) into text-only Parquet tables. Exploratory data analysis, data cleaning, and transformation still pending. | Behind (V-01, V-02) |
 | W4 | Oct 21 – Oct 27 | Data cleaning and transformation | No advances during this week. | Slipped (V-03) |
-| W5 (in progress) | Oct 28 – Nov 3 | Implementation of algorithms (K-means, Multiple Linear Regression, Polynomial Regression, and Random Forest/Decision Tree Classification) | Exploratory data analysis completed over the 12 ingested tables (summary tables and six diagnostic figures), which closes data selection. Modeling population, end-of-season player snapshot rule, temporal-leakage controls, and data-cleaning rules defined, with empirical findings recorded in Spanish for the final report. Data cleaning, feature transformation, and algorithm implementation still pending. | Behind (V-01, V-03) |
+| W5 (in progress) | Oct 28 – Nov 3 | Implementation of algorithms (K-means, Multiple Linear Regression, Polynomial Regression, and Random Forest/Decision Tree Classification) | Exploratory data analysis completed on 2026-10-28 over the 12 ingested tables (summary tables and six diagnostic figures), closing data selection and setting the modeling population, end-of-season snapshot rule, temporal-leakage controls, and cleaning rules. Data cleaning completed on 2026-10-29: the `clean` pipeline stage and sequential `all` runner produce 9 typed Parquet tables (`6,216,263` rows from `6,222,716` input rows) with excluded tables and 22 static 2026 columns removed, Unicode whitespace and `"-"` / `"-1"` sentinels normalized, unique primary keys verified, and row-level outliers filtered. Feature transformation (`transform`) and algorithm implementation remain pending. | Behind (V-01, V-03) |
 | W6 | Nov 4 – Nov 10 | Implementation of algorithms (same as W5) | Not started. | Planned |
 | W7 | Nov 11 – Nov 17 | Data interpretation and evaluation (Prediction Performance, Cross-validation, and Comparison of data mining schemes) | Not started. | Planned |
 | W8 | Nov 18 – Nov 25 (09:00) | Comparison of results (Baseline vs. Actual) and final documentation (APA 7th edition format) | Not started. | Planned |
@@ -72,7 +72,7 @@ Status as of 2026-10-28.
 - **Actual:** no KDD or pipeline progress took place between 2026-10-19 and 2026-10-27. Exploratory data analysis started on 2026-10-28 at the opening of week 5.
 - **Justification:** both team members had midterm exams and extra coursework across weeks 3 and 4. Gustavo also carried external work commitments, and Yordi competed in the Club America sports-analytics hackathon from Thursday 2026-10-16 to Thursday 2026-10-23; the professor was informed beforehand because the hackathon topic related directly to the course and Yordi consulted him on it.
 - **Impact:** data cleaning, feature transformation, and algorithm implementation start one week later than the 2026-10-17 recovery plan assumed, putting the project roughly two weeks behind the original baseline entering week 5.
-- **Recovery:** finish EDA and §3.2 to §3.5 on 2026-10-28, complete `clean` and `transform` (§3.6 to §3.8) during week 5, concentrate model training and `publish` in week 6, and protect weeks 7 and 8 through the delivery priority in ADR-007. See [Recovery plan](#6-recovery-plan).
+- **Recovery:** finish EDA and §3.2 to §3.5 on 2026-10-28, complete `clean` on 2026-10-29 and `transform` (§3.6 to §3.8) during the rest of week 5, concentrate model training and `publish` in week 6, and protect weeks 7 and 8 through the delivery priority in ADR-007. See [Recovery plan](#6-recovery-plan).
 
 ## 5. Decision log
 
@@ -90,12 +90,13 @@ Status as of 2026-10-28.
 | 2026-10-18 | Per-component uv projects: the root uv workspace dissolved (ADR-013 supersedes ADR-011) | The root workspace was overhead for a single Python component, and scoping tooling per module was preferred | ARCHITECTURE.md ADR-013 |
 | 2026-10-28 | ADR-014: analysis scripts run in the `ml/` uv project through an `analysis` dependency group (`matplotlib`, `scipy`, `seaborn`), and `pandas` joins `ml/` runtime dependencies | Keeps one lockfile and virtual environment for `ml/` and `analysis/`, preserves `ml/uv.lock` as the `DELPHOS_DATA_DIR` anchor, and keeps plotting packages out of the runtime `delphos_ml` wheel | ARCHITECTURE.md ADR-014, ml/pyproject.toml |
 | 2026-10-28 | KDD data scope, unit of analysis, temporal-leakage rules, and cleaning policy decided from v679 EDA (`analysis/eda.py`) | Restricts population to the 14 European domestic leagues with `appearances` coverage (`2017` to `2025`, outfield players, `>= 180` min + Empirical Bayes `m = 5`), adopts Option A end-of-season snapshots, excludes `game_events` and static 2026 columns, sets chronological splits (`2017..2023` / `2024` / `2025`), and specifies `clean` typing and sentinel rules | ML_ARCHITECTURE.md §3.2 to §3.5, REPORT_NOTES.md |
+| 2026-10-29 | `clean` stage and `all` CLI runner implemented; §3.4 and §3.5 refined from v679 schema validation | Keeps composite/hex/alphanumeric IDs (`appearance_id`, `game_lineups_id`, `competition_id`) as `string`, strips Unicode `\xa0` whitespace (`44,493` raw cells in `players.city_of_birth`), maps `"-"` in `players.city_of_birth` (`127` raw `"-\xa0\xa0"` cells) and `"-1"` in `competitions.country_id` (`12` rows) to null, and physically drops 22 static 2026 columns across `players`, `clubs`, and `appearances` when writing `ml/data/clean/` | ML_ARCHITECTURE.md §3.4 to §3.5, REPORT_NOTES.md |
 
 ## 6. Recovery plan
 
-As of 2026-10-28. Section numbers refer to [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md).
+As of 2026-10-29. Section numbers refer to [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md).
 
-- **Week 5 (Oct 28 – Nov 3):** exploratory data analysis, ADR-014, Spanish report notes, and KDD decisions §3.2 to §3.5 are done (2026-10-28). Next: decide §3.6 to §3.8 and implement the `clean` and `transform` stages with unit tests.
+- **Week 5 (Oct 28 – Nov 3):** exploratory data analysis, ADR-014, Spanish report notes, and KDD decisions §3.2 to §3.5 finished on 2026-10-28, and the `clean` pipeline stage plus `all` runner finished on 2026-10-29. Next: decide §3.6 to §3.8 and implement the `transform` stage with unit tests.
 - **Week 6 (Nov 4 – Nov 10):** decide §3.9 to §3.14; implement `train`, `evaluate` (market-inefficiency tests and replacement rankings), and `publish` (migration `0001`, the `analytics` tables, and the single-transaction load).
 - **Week 7 (Nov 11 – Nov 17):** cross-validation and model comparison (§3.15, §3.16); build the minimal demo (ADR-007 priority 2): FastAPI search, valuation, and replacements over the published `analytics` rows, plus the Flutter screens for them.
 - **Week 8 (Nov 18 – Nov 25, 09:00):** final report in APA 7th edition format and the closing baseline-vs-actual comparison; ADR-007 priorities 3 and 4 only if priority 2 is complete.

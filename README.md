@@ -25,10 +25,11 @@ uv sync
 uv run pytest
 uv run delphos-pipeline --help
 uv run delphos-pipeline ingest
+uv run delphos-pipeline clean
 uv run python ../analysis/eda.py
 ```
 
-The first `ingest` needs about 1 GiB of free RAM and about 1.1 GB of disk: about 873 MiB for the kagglehub cache plus about 228 MiB in `ml/data/ingest/`.
+`uv run delphos-pipeline all` runs `ingest` and `clean` sequentially. The first `ingest` needs about 1 GiB of free RAM and about 1.1 GB of disk: about 873 MiB for the kagglehub cache plus about 228 MiB in `ml/data/ingest/` (`ml/data/clean/` adds about 165 MiB).
 
 To override a default setting, copy `.env.example` to `.env` at the repo root and uncomment the line you want. The pipeline walks up from the working directory and reads the first `.env` it finds, stopping after the repo root, which is the parent of the project root `ml/`, so a repo-root `.env` applies when you run from `ml/`; a `.env` above the repo root is never read.
 

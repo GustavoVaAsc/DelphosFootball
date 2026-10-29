@@ -5,7 +5,8 @@
 1. [Propósito](#1-propósito)
 2. [Ingesta de datos (`ingest`)](#2-ingesta-de-datos-ingest)
 3. [Análisis exploratorio y selección de datos (`eda`)](#3-análisis-exploratorio-y-selección-de-datos-eda)
-4. [Referencias internas](#4-referencias-internas)
+4. [Limpieza y tipado de datos (`clean`)](#4-limpieza-y-tipado-de-datos-clean)
+5. [Referencias internas](#5-referencias-internas)
 
 ---
 
@@ -78,7 +79,32 @@ Durante la primera corrida de `analysis/eda.py` apareció también un error real
 
 Por último, verificamos dos insumos necesarios para las semanas 5 y 6: la edad muestra una relación no lineal marcada con `log10(market_value_in_eur)` (`R^2` cuadrático `0.0763` frente a `0.0414` lineal, con pico cuadrático en `24.68` años y sesgo de selección en juveniles de 18 a 19 años que ya suman minutos de primera división, `fig04_age_valuation_nonlinearity.png`), y el cruce de `transfers` conserva `5,325` transferencias pagadas de jugadores de campo en las 14 ligas (`2017` a `2025`, con valuación previa y `>= 180` minutos en los 365 días estrictamente anteriores a `transfer_date`, incluidas `760` compras desde ligas *feeder* hacia las cinco grandes ligas; `08_transfers_join_audit.csv` y `fig06_transfer_fee_vs_valuation.png`). Incluso antes de entrenar nuestro modelo, el diferencial `log10(transfer_fee) - log10(market_value_in_eur)` sobre esas `5,325` operaciones se aleja significativamente de cero (`t = -15.554`, `p = 2.21e-53`; prueba de Wilcoxon `p = 3.45e-45`; razón media `fee / MV = 1.1481`, mediana `0.9133`, con `40.30%` de traspasos pagados por encima de su tasación previa).
 
-## 4. Referencias internas
+## 4. Limpieza y tipado de datos (`clean`)
+
+### H-08. Identificadores alfanuméricos, espacios duros del scraper y balance real de `clean`
+
+Al implementar `delphos_ml.pipeline.clean` el `2026-10-29` y validar los `6,222,716` registros de las `9` tablas incluidas antes de convertir los tipos de `Arrow string`, encontramos tres particularidades adicionales que ajustamos en [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.4 y §3.5:
+
+1. En el borrador inicial habíamos agrupado todas las llaves primarias como enteros `int64`, pero en los datos crudos tres familias de identificadores son textuales: `appearances.appearance_id` concatena partido y jugador (`"2231978_38004"`), `game_lineups.game_lineups_id` es un hash hexadecimal MD5 de 32 caracteres (`"b2dbe01c3656b06c8e23e9de714e26bb"`) y `competition_id` (igual que `domestic_competition_id` y `player_club_domestic_competition_id`) usa códigos como `"IT1"` o `"CL"`. Mantuvimos esos identificadores como `string` no nulo y tipamos como `int64` estricto las llaves numéricas de jugador, partido y club (`0` valores no enteros en las 9 tablas).
+2. El scraper original de Transfermarkt arrastra espacios de no separación Unicode (`\xa0`, provenientes de `&nbsp;` junto al ícono de bandera en el HTML) al final de `44,493` de los `44,541` valores no nulos de `players.city_of_birth` (`99.89%`, por ejemplo `"Opole\xa0\xa0"`), así como en `4` registros de `game_lineups.player_name`. Además, `127` de esas celdas crudas en `city_of_birth` eran `"-\xa0\xa0"` (`99` en los jugadores de campo retenidos), por lo que al recortar espacios aparecía un centinela `"-"` oculto. Aplicamos recorte de espacios Unicode en todas las columnas de texto antes de evaluar cadenas vacías (`""`) y de mapear `"-"` a nulo en `city_of_birth`, dejando `39,104` ciudades limpias y `99` centinelas convertidos a nulo sin doble conteo entre ambos indicadores.
+3. Las `12` competiciones internacionales sin país asociado (`country_name` nulo, como Champions League o Mundial) codifican `competitions.country_id == "-1"`. Convertimos ese centinela a nulo en `int64` anulable para que coincida con `country_name`. También detectamos que `appearances.player_current_club_id` (con `2` filas en `"-1"`) guarda el club estático de 2026 junto al club histórico del partido (`player_club_id`), por lo que la eliminamos físicamente en `clean` junto con las `11` columnas estáticas de `players` y las `10` columnas agregadas o de ruta interna de `clubs` (`22` columnas podadas en total).
+
+La corrida completa de `uv run delphos-pipeline clean` sobre la versión `679` generó `ml/data/clean/` (`164.9 MiB` frente a los `228 MiB` de `ingest/`) y el manifiesto `ml/data/clean/_clean.json` con `0` llaves primarias duplicadas y el siguiente balance exacto:
+
+| Tabla | Filas entrada | Filas salida | Filas descartadas | Celdas a nulo | Detalle aplicado en `clean` |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `appearances` | `1,894,350` | `1,894,347` | `3` | `0` | Descarta `3` filas con `minutes_played <= 0`, acota `3` filas `> 120` a `120` y poda `player_current_club_id`. |
+| `club_games` | `177,916` | `177,916` | `0` | `0` | Convierte `is_win` (`"0"` / `"1"`) a `bool` y posiciones de tabla a `int64` anulable. |
+| `clubs` | `796` | `796` | `0` | `0` | Conserva `7` columnas de identidad y estadio; elimina `10` columnas de plantilla 2026 y ruta de scraper. |
+| `competitions` | `65` | `65` | `0` | `12` | Mapea `12` centinelas `country_id == "-1"` de torneos internacionales a nulo. |
+| `game_lineups` | `3,179,016` | `3,179,016` | `0` | `25,701` | Mapea `25,698` guiones `"-"` en `number` y `3` cadenas `""` en `position` a nulo; limpia `4` `\xa0` en `player_name`. |
+| `games` | `88,958` | `88,958` | `0` | `0` | Tipa `season`, goles, clubes y `attendance` a `int64`, y `date` a `date32`. |
+| `player_valuations` | `656,301` | `656,300` | `1` | `0` | Convierte `market_value_in_eur` a `float64` y descarta `1` fila con valor `<= 0`. |
+| `players` | `50,149` | `43,700` | `6,449` | `112` | Descarta la unión de `49` sin `date_of_birth` y `6,414` `Goalkeeper` / `Missing` (`14` traslapadas); anula `13` estaturas `< 140` cm y `99` centinelas `"-\xa0\xa0"` en `city_of_birth` (rango limpio `154` a `206` cm, `3,519` nulos totales en `height_in_cm` y `4,310` en `foot`); recorta `\xa0` en `39,104` ciudades válidas y poda `11` columnas 2026. |
+| `transfers` | `175,165` | `175,165` | `0` | `0` | Parsea decimales `"700000.000"` a `float64`, conservando `96,085` ceros reales distintos de `61,526` nulos. |
+| **Total (9 tablas)** | **`6,222,716`** | **`6,216,263`** | **`6,453`** | **`25,825`** | Excluye `countries` (`124`), `national_teams` (`124`) y `game_events` (`1,274,469`). |
+
+## 5. Referencias internas
 
 - [docs/CONTEXT.md](CONTEXT.md): propuesta base, estrategia KDD y calendario original.
 - [docs/ARCHITECTURE.md](ARCHITECTURE.md): arquitectura de software y registro de decisiones ADR-001 a ADR-014.
