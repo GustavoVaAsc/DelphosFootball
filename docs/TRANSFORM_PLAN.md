@@ -80,7 +80,7 @@ ml/src/delphos_ml/
 
 `all` becomes `ingest`, `clean`, `transform`.
 
-The manifest carries every parameter that `train` would otherwise hard-code, so the fitted preprocessor and the stage that produced the rows cannot drift apart: `window_days` (`365`), `minutes_floor` (`180`), `empirical_bayes_m` (`5`), `prior_grouping` (`position`), `season_month_start` (`7`), and the per-split row counts. The fitted prior values themselves belong to the preprocessor artifact written by `train` ([docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.11), not to this transform manifest.
+The transform manifest (`_transform.json`) carries every parameter that `train` would otherwise hard-code, so the fitted preprocessor and the stage that produced the rows cannot drift apart: `window_days` (`365`), `minutes_floor` (`180`), `empirical_bayes_m` (`5`), `prior_grouping` (`position`), `season_month_start` (`7`), and the per-split row counts. The fitted prior values themselves belong to the preprocessor artifact written by `train` ([docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.11), not to this transform manifest.
 
 **Acceptance.** The stage is accepted when its output row counts equal the population fixed in [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.2 and §3.3: `107,456` outfield player-season snapshots before the minutes floor, `47,359` after it, `14,692` distinct players, and `5,325` paid transfer rows. Per-season and per-split counts go into `_transform.json`. A run whose counts disagree is a defect, not a variant.
 
@@ -158,7 +158,7 @@ Each step has a gate: the next step starts only when the gate passes.
 
 | # | Step | Gate |
 | --- | --- | --- |
-| 0 | Toolchain: put `uv` on `PATH` and run `uv sync` in `ml/` | done: `uv` 0.12.0 on `PATH`, `uv run pytest` runs the suite |
+| 0 | Toolchain: put `uv` on `PATH` and run `uv sync` in `ml/` | done: `uv` 0.12.0 on `PATH`, `uv run pytest` runs the suite (the two failures it reports predate this branch) |
 | 1 | Add `scikit-learn` and `joblib` to `ml/pyproject.toml`, align their versions in [docs/ARCHITECTURE.md](ARCHITECTURE.md) §4.3 (§3) | done on 2026-10-31: `scikit-learn` 1.9.1, `joblib` 1.6.0, `numpy` 2.5.4, `scipy` 1.18.1, `cloudpickle` 3.1.2 and `threadpoolctl` 3.7.0 declared and aligned, lockfile updated, §4.3 alignment list and manifest fields extended |
 | 2 | Implement `features/windows.py`; point `analysis/eda.py` at it and drop its private copy (§3) | `eda.py` re-runs and reproduces the recorded figures: `107,456`, `47,359`, `14,692`, `5,325`, the `42.4%` RMSE reduction from `m = 5` (`0.3143` to `0.1809`) over `2,378` transitions, the `97.82%` season agreement, and the `30.91` / `30.90` appearances per game |
 | 3 | Extract `pipeline/_staging.py` from `clean.py`, parameterizing the staging prefix by stage name (§3) | `ml/tests/test_clean.py` unchanged and green |
