@@ -30,6 +30,7 @@ import seaborn as sns
 from scipy import stats
 
 from delphos_ml.config import ConfigError, find_project_root, load_settings
+from delphos_ml.features.windows import TrailingWindowIndex
 
 EXPECTED_TABLES: tuple[str, ...] = (
     "appearances",
@@ -81,7 +82,6 @@ CORE_14_LEAGUE_IDS: frozenset[str] = frozenset(
     }
 )
 EPOCH_ANCHOR = pd.Timestamp("1900-01-01")
-KEY_STRIDE = 1_000_000
 
 
 def _fail(reason: str) -> None:
@@ -315,148 +315,11 @@ def _audit_coverage(
     return seasonal, comp_summary, coverage_meta
 
 
-def _build_window_index(
-    appearances: pd.DataFrame,
-    club_games: pd.DataFrame,
-    lineups: pd.DataFrame,
-    competitions: pd.DataFrame,
-) -> dict[str, np.ndarray]:
-    """Build sorted `(player_id * STRIDE + day)` prefix-sum arrays for O(N log M) 365d windows."""
-    apps = appearances[
-        [
-            "game_id",
-            "player_id",
-            "player_club_id",
-            "date",
-            "competition_id",
-            "minutes_played",
-            "goals",
-            "assists",
-            "yellow_cards",
-            "red_cards",
-        ]
-    ].copy()
-    apps["pid"] = _to_numeric(apps["player_id"])
-    _, apps["day"] = _to_days(apps["date"])
-    apps = apps.dropna(subset=["pid", "day"]).copy()
-    apps["pid"] = apps["pid"].astype(np.int64)
-    apps["day"] = apps["day"].astype(np.int64)
-
-    for col in ("minutes_played", "goals", "assists", "yellow_cards", "red_cards"):
-        apps[col] = _to_numeric(apps[col]).fillna(0.0)
-
-    cg = club_games[["game_id", "club_id", "own_goals", "opponent_goals", "is_win"]].copy()
-    cg["own_goals"] = _to_numeric(cg["own_goals"])
-    cg["opponent_goals"] = _to_numeric(cg["opponent_goals"])
-    cg["win_flag"] = (cg["is_win"] == "1").astype(np.float64)
-    cg["clean_sheet_flag"] = (cg["opponent_goals"] == 0).astype(np.float64)
-    cg["goals_conceded"] = cg["opponent_goals"].fillna(0.0)
-
-    apps = apps.merge(
-        cg[["game_id", "club_id", "win_flag", "clean_sheet_flag", "goals_conceded"]],
-        left_on=["game_id", "player_club_id"],
-        right_on=["game_id", "club_id"],
-        how="left",
-    )
-    for col in ("win_flag", "clean_sheet_flag", "goals_conceded"):
-        apps[col] = apps[col].fillna(0.0)
-
-    uefa_mask = (competitions["type"] == "international_cup") | (
-        competitions["sub_type"].fillna("").str.startswith("uefa_")
-    )
-    uefa_ids = set(competitions.loc[uefa_mask, "competition_id"])
-    apps["uefa_minutes"] = np.where(
-        apps["competition_id"].isin(uefa_ids), apps["minutes_played"], 0.0
-    )
-    apps["apps_count"] = 1.0
-    apps["key"] = apps["pid"] * KEY_STRIDE + apps["day"]
-
-    metric_cols = [
-        "minutes_played",
-        "goals",
-        "assists",
-        "yellow_cards",
-        "red_cards",
-        "apps_count",
-        "win_flag",
-        "clean_sheet_flag",
-        "goals_conceded",
-        "uefa_minutes",
-    ]
-    daily_apps = apps.groupby("key", sort=True)[metric_cols].sum()
-
-    app_index: dict[str, np.ndarray] = {"app_keys": daily_apps.index.to_numpy(dtype=np.int64)}
-    for col in metric_cols:
-        app_index[f"app_{col}"] = np.concatenate(
-            [[0.0], np.cumsum(daily_apps[col].to_numpy(dtype=np.float64))]
-        )
-
-    lu = lineups[["player_id", "date", "type", "team_captain"]].copy()
-    lu["pid"] = _to_numeric(lu["player_id"])
-    _, lu["day"] = _to_days(lu["date"])
-    lu = lu.dropna(subset=["pid", "day"]).copy()
-    lu["pid"] = lu["pid"].astype(np.int64)
-    lu["day"] = lu["day"].astype(np.int64)
-    lu["starts"] = (lu["type"] == "starting_lineup").astype(np.float64)
-    lu["squad_inclusions"] = 1.0
-    lu["captain"] = (lu["team_captain"] == "1").astype(np.float64)
-    lu["key"] = lu["pid"] * KEY_STRIDE + lu["day"]
-    daily_lu = lu.groupby("key", sort=True)[["starts", "squad_inclusions", "captain"]].sum()
-
-    app_index["lu_keys"] = daily_lu.index.to_numpy(dtype=np.int64)
-    for col in ("starts", "squad_inclusions", "captain"):
-        app_index[f"lu_{col}"] = np.concatenate(
-            [[0.0], np.cumsum(daily_lu[col].to_numpy(dtype=np.float64))]
-        )
-    return app_index
-
-
-def _query_365d_window(
-    index: dict[str, np.ndarray],
-    pids: np.ndarray,
-    days: np.ndarray,
-    *,
-    strict_before: bool = False,
-) -> dict[str, np.ndarray]:
-    """Vectorized 365-day trailing window sums per `(pid, day)`."""
-    hi_keys = pids * KEY_STRIDE + days
-    lo_keys = pids * KEY_STRIDE + (days - 365)
-    side = "left" if strict_before else "right"
-
-    app_keys = index["app_keys"]
-    hi_a = np.searchsorted(app_keys, hi_keys, side=side)
-    lo_a = np.searchsorted(app_keys, lo_keys, side=side)
-
-    out: dict[str, np.ndarray] = {}
-    for col in (
-        "minutes_played",
-        "goals",
-        "assists",
-        "yellow_cards",
-        "red_cards",
-        "apps_count",
-        "win_flag",
-        "clean_sheet_flag",
-        "goals_conceded",
-        "uefa_minutes",
-    ):
-        arr = index[f"app_{col}"]
-        out[col] = arr[hi_a] - arr[lo_a]
-
-    lu_keys = index["lu_keys"]
-    hi_l = np.searchsorted(lu_keys, hi_keys, side=side)
-    lo_l = np.searchsorted(lu_keys, lo_keys, side=side)
-    for col in ("starts", "squad_inclusions", "captain"):
-        arr = index[f"lu_{col}"]
-        out[col] = arr[hi_l] - arr[lo_l]
-    return out
-
-
 def _prepare_valuations(
     vals_raw: pd.DataFrame,
     players_raw: pd.DataFrame,
     comps_raw: pd.DataFrame,
-    window_index: dict[str, np.ndarray],
+    window_index: TrailingWindowIndex,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     vals = vals_raw.copy()
     vals["pid"] = _to_numeric(vals["player_id"])
@@ -510,8 +373,7 @@ def _prepare_valuations(
     )
     merged["is_big5"] = merged["player_club_domestic_competition_id"].isin(BIG5_COMPETITION_IDS)
 
-    win = _query_365d_window(
-        window_index,
+    win = window_index.query(
         merged["pid"].to_numpy(),
         merged["day"].to_numpy(),
         strict_before=False,
@@ -822,7 +684,7 @@ def _audit_features_and_events(
 
 def _audit_transfers(
     frames: dict[str, pd.DataFrame],
-    window_index: dict[str, np.ndarray],
+    window_index: TrailingWindowIndex,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     tr = frames["transfers"].copy()
     players = frames["players"][["player_id", "position"]].copy()
@@ -855,8 +717,7 @@ def _audit_transfers(
     tr_valid["pid_i"] = tr_valid["pid"].astype(np.int64)
     tr_valid["day_i"] = tr_valid["day"].astype(np.int64)
 
-    win = _query_365d_window(
-        window_index,
+    win = window_index.query(
         tr_valid["pid_i"].to_numpy(),
         tr_valid["day_i"].to_numpy(),
         strict_before=True,
@@ -1207,7 +1068,7 @@ def run_eda() -> dict[str, Any]:
     seasonal_cov.to_csv(out_dir / "03a_coverage_by_season.csv", index=False)
     comp_summary.to_csv(out_dir / "03b_competitions_summary.csv", index=False)
 
-    win_idx = _build_window_index(
+    win_idx = TrailingWindowIndex(
         frames["appearances"],
         frames["club_games"],
         frames["game_lineups"],
