@@ -44,7 +44,7 @@ ml/src/delphos_ml/
 ```
 
 - **`TrailingWindowIndex`** (`windows.py`): promotes `_build_window_index` and `_query_365d_window` from `analysis/eda.py` into the package. It keeps per-`(player_id, day)` prefix sums and answers window queries with `searchsorted`, in O(N log M) without per-player loops. One method, `query(pids, days, strict_before)`:
-  - `strict_before=False`: window `[as_of_date - 365 days, as_of_date]` (valuation rows);
+  - `strict_before=False`: window `(as_of_date - 365 days, as_of_date]`, half-open — the as-of day is included and a match exactly 365 days before it is not (valuation rows);
   - `strict_before=True`: window `[transfer_date - 365 days, transfer_date - 1 day]` (transfer rows).
 
   `analysis/eda.py` will import it instead of keeping its own copy (ADR-009).
