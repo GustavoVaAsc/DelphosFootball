@@ -137,18 +137,19 @@ source = { editable = "." }
 dependencies = [
     { name = "joblib" },
     { name = "kagglehub" },
+    { name = "numpy" },
     { name = "pandas" },
     { name = "pyarrow" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "scikit-learn" },
+    { name = "scipy" },
     { name = "typer" },
 ]
 
 [package.dev-dependencies]
 analysis = [
     { name = "matplotlib" },
-    { name = "scipy" },
     { name = "seaborn" },
 ]
 dev = [
@@ -160,18 +161,19 @@ dev = [
 requires-dist = [
     { name = "joblib", specifier = ">=1.6.0" },
     { name = "kagglehub", specifier = ">=1.0.2" },
+    { name = "numpy", specifier = ">=2.5.4" },
     { name = "pandas", specifier = ">=3.1.0" },
     { name = "pyarrow", specifier = ">=26.0.0" },
     { name = "pydantic", specifier = ">=2.14.1" },
     { name = "pydantic-settings", specifier = ">=2.16.0" },
     { name = "scikit-learn", specifier = ">=1.9.1" },
+    { name = "scipy", specifier = ">=1.18.1" },
     { name = "typer", specifier = ">=0.27.3" },
 ]
 
 [package.metadata.requires-dev]
 analysis = [
     { name = "matplotlib", specifier = ">=3.11.2" },
-    { name = "scipy", specifier = ">=1.18.1" },
     { name = "seaborn", specifier = ">=0.13.2" },
 ]
 dev = [
