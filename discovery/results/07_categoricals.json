@@ -1,0 +1,458 @@
+{
+ "players.csv": {
+  "position": {
+   "n_rows": 50149,
+   "n_null": 0,
+   "n_distinct": 5,
+   "top5": [
+    {
+     "value": "Defender",
+     "count": 15961
+    },
+    {
+     "value": "Midfield",
+     "count": 14272
+    },
+    {
+     "value": "Attack",
+     "count": 13502
+    },
+    {
+     "value": "Goalkeeper",
+     "count": 5828
+    },
+    {
+     "value": "Missing",
+     "count": 586
+    }
+   ]
+  },
+  "sub_position": {
+   "n_rows": 50149,
+   "n_null": 586,
+   "n_distinct": 13,
+   "top5": [
+    {
+     "value": "Centre-Back",
+     "count": 8766
+    },
+    {
+     "value": "Centre-Forward",
+     "count": 6749
+    },
+    {
+     "value": "Goalkeeper",
+     "count": 5828
+    },
+    {
+     "value": "Central Midfield",
+     "count": 5498
+    },
+    {
+     "value": "Defensive Midfield",
+     "count": 4123
+    }
+   ]
+  },
+  "foot": {
+   "n_rows": 50149,
+   "n_null": 5893,
+   "n_distinct": 3,
+   "top5": [
+    {
+     "value": "right",
+     "count": 31445
+    },
+    {
+     "value": "left",
+     "count": 11000
+    },
+    {
+     "value": "both",
+     "count": 1811
+    }
+   ]
+  },
+  "last_season": {
+   "n_rows": 50149,
+   "n_null": 0,
+   "n_distinct": 14,
+   "top5": [
+    {
+     "value": "2025",
+     "count": 22292
+    },
+    {
+     "value": "2024",
+     "count": 6075
+    },
+    {
+     "value": "2023",
+     "count": 2092
+    },
+    {
+     "value": "2018",
+     "count": 2065
+    },
+    {
+     "value": "2013",
+     "count": 2061
+    }
+   ]
+  }
+ },
+ "appearances.csv": {
+  "competition_id": {
+   "n_rows": 1894350,
+   "n_null": 0,
+   "n_distinct": 48,
+   "top5": [
+    {
+     "value": "IT1",
+     "count": 155187
+    },
+    {
+     "value": "ES1",
+     "count": 153877
+    },
+    {
+     "value": "GB1",
+     "count": 149751
+    },
+    {
+     "value": "FR1",
+     "count": 143395
+    },
+    {
+     "value": "TR1",
+     "count": 132464
+    }
+   ]
+  }
+ },
+ "games.csv": {
+  "competition_id": {
+   "n_rows": 88958,
+   "n_null": 0,
+   "n_distinct": 70,
+   "top5": [
+    {
+     "value": "GB1",
+     "count": 5320
+    },
+    {
+     "value": "ES1",
+     "count": 5320
+    },
+    {
+     "value": "IT1",
+     "count": 5320
+    },
+    {
+     "value": "FR1",
+     "count": 4997
+    },
+    {
+     "value": "TR1",
+     "count": 4618
+    }
+   ]
+  },
+  "season": {
+   "n_rows": 88958,
+   "n_null": 0,
+   "n_distinct": 18,
+   "top5": [
+    {
+     "value": "2024",
+     "count": 10036
+    },
+    {
+     "value": "2025",
+     "count": 9598
+    },
+    {
+     "value": "2022",
+     "count": 6008
+    },
+    {
+     "value": "2023",
+     "count": 5951
+    },
+    {
+     "value": "2021",
+     "count": 5939
+    }
+   ]
+  },
+  "competition_type": {
+   "n_rows": 88958,
+   "n_null": 1214,
+   "n_distinct": 5,
+   "top5": [
+    {
+     "value": "domestic_league",
+     "count": 63382
+    },
+    {
+     "value": "domestic_cup",
+     "count": 12904
+    },
+    {
+     "value": "other",
+     "count": 7599
+    },
+    {
+     "value": "international_cup",
+     "count": 3117
+    },
+    {
+     "value": "national_team_competition",
+     "count": 742
+    }
+   ]
+  }
+ },
+ "game_events.csv": {
+  "type": {
+   "n_rows": 1274469,
+   "n_null": 0,
+   "n_distinct": 4,
+   "top5": [
+    {
+     "value": "Substitutions",
+     "count": 631339
+    },
+    {
+     "value": "Cards",
+     "count": 381753
+    },
+    {
+     "value": "Goals",
+     "count": 247803
+    },
+    {
+     "value": "Shootout",
+     "count": 13574
+    }
+   ]
+  }
+ },
+ "game_lineups.csv": {
+  "type": {
+   "n_rows": 3179016,
+   "n_null": 0,
+   "n_distinct": 2,
+   "top5": [
+    {
+     "value": "starting_lineup",
+     "count": 1780759
+    },
+    {
+     "value": "substitutes",
+     "count": 1398257
+    }
+   ]
+  },
+  "position": {
+   "n_rows": 3179016,
+   "n_null": 3,
+   "n_distinct": 18,
+   "top5": [
+    {
+     "value": "Centre-Back",
+     "count": 551970
+    },
+    {
+     "value": "Centre-Forward",
+     "count": 394661
+    },
+    {
+     "value": "Goalkeeper",
+     "count": 357844
+    },
+    {
+     "value": "Central Midfield",
+     "count": 329361
+    },
+    {
+     "value": "Defensive Midfield",
+     "count": 279364
+    }
+   ]
+  }
+ },
+ "transfers.csv": {
+  "transfer_season": {
+   "n_rows": 175165,
+   "n_null": 0,
+   "n_distinct": 35,
+   "top5": [
+    {
+     "value": "23/24",
+     "count": 17379
+    },
+    {
+     "value": "24/25",
+     "count": 16686
+    },
+    {
+     "value": "22/23",
+     "count": 16386
+    },
+    {
+     "value": "25/26",
+     "count": 15676
+    },
+    {
+     "value": "21/22",
+     "count": 15045
+    }
+   ]
+  }
+ },
+ "player_valuations.csv": {
+  "player_club_domestic_competition_id": {
+   "n_rows": 656301,
+   "n_null": 92973,
+   "n_distinct": 32,
+   "top5": [
+    {
+     "value": "IT1",
+     "count": 50413
+    },
+    {
+     "value": "TR1",
+     "count": 47666
+    },
+    {
+     "value": "ES1",
+     "count": 37561
+    },
+    {
+     "value": "L1",
+     "count": 37049
+    },
+    {
+     "value": "GB1",
+     "count": 33748
+    }
+   ]
+  }
+ },
+ "competitions.csv": {
+  "type": {
+   "n_rows": 65,
+   "n_null": 0,
+   "n_distinct": 5,
+   "top5": [
+    {
+     "value": "domestic_league",
+     "count": 31
+    },
+    {
+     "value": "other",
+     "count": 16
+    },
+    {
+     "value": "domestic_cup",
+     "count": 10
+    },
+    {
+     "value": "national_team_competition",
+     "count": 5
+    },
+    {
+     "value": "international_cup",
+     "count": 3
+    }
+   ]
+  },
+  "sub_type": {
+   "n_rows": 65,
+   "n_null": 0,
+   "n_distinct": 16,
+   "top5": [
+    {
+     "value": "first_tier",
+     "count": 31
+    },
+    {
+     "value": "domestic_cup",
+     "count": 10
+    },
+    {
+     "value": "domestic_super_cup",
+     "count": 9
+    },
+    {
+     "value": "play_off",
+     "count": 3
+    },
+    {
+     "value": "afc_asian_cup",
+     "count": 1
+    }
+   ]
+  },
+  "confederation": {
+   "n_rows": 65,
+   "n_null": 0,
+   "n_distinct": 5,
+   "top5": [
+    {
+     "value": "europa",
+     "count": 53
+    },
+    {
+     "value": "asien",
+     "count": 5
+    },
+    {
+     "value": "amerika",
+     "count": 5
+    },
+    {
+     "value": "afrika",
+     "count": 1
+    },
+    {
+     "value": "fifa",
+     "count": 1
+    }
+   ]
+  }
+ },
+ "club_games.csv": {
+  "hosting": {
+   "n_rows": 177916,
+   "n_null": 0,
+   "n_distinct": 2,
+   "top5": [
+    {
+     "value": "Home",
+     "count": 88958
+    },
+    {
+     "value": "Away",
+     "count": 88958
+    }
+   ]
+  },
+  "is_win": {
+   "n_rows": 177916,
+   "n_null": 0,
+   "n_distinct": 2,
+   "top5": [
+    {
+     "value": "0",
+     "count": 108260
+    },
+    {
+     "value": "1",
+     "count": 69656
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,1203 @@
+{
+ "appearances.csv": {
+  "n_rows": 1894350,
+  "columns": [
+   {
+    "name": "appearance_id",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "game_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "player_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "player_club_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "player_current_club_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "date",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "player_name",
+    "dtype": "str",
+    "nulls": 2,
+    "null_rate": 1e-06,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "competition_id",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "yellow_cards",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "red_cards",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "goals",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "assists",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "minutes_played",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   }
+  ]
+ },
+ "club_games.csv": {
+  "n_rows": 177916,
+  "columns": [
+   {
+    "name": "game_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "club_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "own_goals",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "own_position",
+    "dtype": "float64",
+    "nulls": 50754,
+    "null_rate": 0.285269,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "own_manager_name",
+    "dtype": "str",
+    "nulls": 1688,
+    "null_rate": 0.009488,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "opponent_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "opponent_goals",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "opponent_position",
+    "dtype": "float64",
+    "nulls": 50754,
+    "null_rate": 0.285269,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "opponent_manager_name",
+    "dtype": "str",
+    "nulls": 1688,
+    "null_rate": 0.009488,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "hosting",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "is_win",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   }
+  ]
+ },
+ "clubs.csv": {
+  "n_rows": 796,
+  "columns": [
+   {
+    "name": "club_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "club_code",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "name",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "domestic_competition_id",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "total_market_value",
+    "dtype": "float64",
+    "nulls": 796,
+    "null_rate": 1.0,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "squad_size",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "average_age",
+    "dtype": "float64",
+    "nulls": 38,
+    "null_rate": 0.047739,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "foreigners_number",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "foreigners_percentage",
+    "dtype": "float64",
+    "nulls": 60,
+    "null_rate": 0.075377,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "national_team_players",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "stadium_name",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "stadium_seats",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "net_transfer_record",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "coach_name",
+    "dtype": "str",
+    "nulls": 393,
+    "null_rate": 0.493719,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "last_season",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "filename",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "url",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   }
+  ]
+ },
+ "competitions.csv": {
+  "n_rows": 65,
+  "columns": [
+   {
+    "name": "competition_id",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "competition_code",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "name",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "sub_type",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "type",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "country_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "country_name",
+    "dtype": "str",
+    "nulls": 12,
+    "null_rate": 0.184615,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "domestic_league_code",
+    "dtype": "str",
+    "nulls": 12,
+    "null_rate": 0.184615,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "confederation",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "total_clubs",
+    "dtype": "float64",
+    "nulls": 15,
+    "null_rate": 0.230769,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "url",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   }
+  ]
+ },
+ "countries.csv": {
+  "n_rows": 124,
+  "columns": [
+   {
+    "name": "country_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "country_name",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "country_code",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "confederation",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "total_clubs",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "total_players",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "average_age",
+    "dtype": "float64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "url",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   }
+  ]
+ },
+ "game_events.csv": {
+  "n_rows": 1274469,
+  "columns": [
+   {
+    "name": "game_event_id",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "date",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "game_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "minute",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "type",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "club_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "club_name",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "player_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "description",
+    "dtype": "str",
+    "nulls": 93157,
+    "null_rate": 0.073095,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "player_in_id",
+    "dtype": "float64",
+    "nulls": 643922,
+    "null_rate": 0.505247,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "player_assist_id",
+    "dtype": "float64",
+    "nulls": 1086191,
+    "null_rate": 0.852269,
+    "flag_gt20pct_null": true
+   }
+  ]
+ },
+ "game_lineups.csv": {
+  "n_rows": 3179016,
+  "columns": [
+   {
+    "name": "game_lineups_id",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "date",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "game_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "player_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "club_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "player_name",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "type",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "position",
+    "dtype": "str",
+    "nulls": 3,
+    "null_rate": 1e-06,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "number",
+    "dtype": "mixed(object,str)",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "team_captain",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   }
+  ]
+ },
+ "games.csv": {
+  "n_rows": 88958,
+  "columns": [
+   {
+    "name": "game_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "competition_id",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "season",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "round",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "date",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "home_club_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "away_club_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "home_club_goals",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "away_club_goals",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "home_club_position",
+    "dtype": "float64",
+    "nulls": 25377,
+    "null_rate": 0.285269,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "away_club_position",
+    "dtype": "float64",
+    "nulls": 25377,
+    "null_rate": 0.285269,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "home_club_manager_name",
+    "dtype": "str",
+    "nulls": 844,
+    "null_rate": 0.009488,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "away_club_manager_name",
+    "dtype": "str",
+    "nulls": 844,
+    "null_rate": 0.009488,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "stadium",
+    "dtype": "str",
+    "nulls": 242,
+    "null_rate": 0.00272,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "attendance",
+    "dtype": "float64",
+    "nulls": 10803,
+    "null_rate": 0.121439,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "referee",
+    "dtype": "str",
+    "nulls": 678,
+    "null_rate": 0.007622,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "url",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "home_club_formation",
+    "dtype": "str",
+    "nulls": 8200,
+    "null_rate": 0.092178,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "away_club_formation",
+    "dtype": "str",
+    "nulls": 8073,
+    "null_rate": 0.090751,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "home_club_name",
+    "dtype": "str",
+    "nulls": 86,
+    "null_rate": 0.000967,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "away_club_name",
+    "dtype": "str",
+    "nulls": 36,
+    "null_rate": 0.000405,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "aggregate",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "competition_type",
+    "dtype": "str",
+    "nulls": 1214,
+    "null_rate": 0.013647,
+    "flag_gt20pct_null": false
+   }
+  ]
+ },
+ "national_teams.csv": {
+  "n_rows": 124,
+  "columns": [
+   {
+    "name": "national_team_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "name",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "team_code",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "country_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "country_name",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "country_code",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "confederation",
+    "dtype": "str",
+    "nulls": 1,
+    "null_rate": 0.008065,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "team_image_url",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "squad_size",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "average_age",
+    "dtype": "float64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "foreigners_number",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "foreigners_percentage",
+    "dtype": "float64",
+    "nulls": 8,
+    "null_rate": 0.064516,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "total_market_value",
+    "dtype": "float64",
+    "nulls": 4,
+    "null_rate": 0.032258,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "coach_name",
+    "dtype": "float64",
+    "nulls": 124,
+    "null_rate": 1.0,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "fifa_ranking",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "last_season",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "url",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   }
+  ]
+ },
+ "players.csv": {
+  "n_rows": 50149,
+  "columns": [
+   {
+    "name": "player_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "first_name",
+    "dtype": "str",
+    "nulls": 3164,
+    "null_rate": 0.063092,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "last_name",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "name",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "last_season",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "current_club_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "player_code",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "country_of_birth",
+    "dtype": "str",
+    "nulls": 5885,
+    "null_rate": 0.11735,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "city_of_birth",
+    "dtype": "str",
+    "nulls": 5608,
+    "null_rate": 0.111827,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "country_of_citizenship",
+    "dtype": "str",
+    "nulls": 269,
+    "null_rate": 0.005364,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "date_of_birth",
+    "dtype": "str",
+    "nulls": 49,
+    "null_rate": 0.000977,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "sub_position",
+    "dtype": "str",
+    "nulls": 586,
+    "null_rate": 0.011685,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "position",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "foot",
+    "dtype": "str",
+    "nulls": 5893,
+    "null_rate": 0.11751,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "height_in_cm",
+    "dtype": "float64",
+    "nulls": 4365,
+    "null_rate": 0.087041,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "contract_expiration_date",
+    "dtype": "str",
+    "nulls": 18569,
+    "null_rate": 0.370277,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "agent_name",
+    "dtype": "str",
+    "nulls": 23296,
+    "null_rate": 0.464536,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "image_url",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "international_caps",
+    "dtype": "float64",
+    "nulls": 30793,
+    "null_rate": 0.61403,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "international_goals",
+    "dtype": "float64",
+    "nulls": 30793,
+    "null_rate": 0.61403,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "current_national_team_id",
+    "dtype": "float64",
+    "nulls": 46889,
+    "null_rate": 0.934994,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "url",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "current_club_domestic_competition_id",
+    "dtype": "str",
+    "nulls": 2986,
+    "null_rate": 0.059543,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "current_club_name",
+    "dtype": "str",
+    "nulls": 2986,
+    "null_rate": 0.059543,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "market_value_in_eur",
+    "dtype": "float64",
+    "nulls": 8621,
+    "null_rate": 0.171908,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "highest_market_value_in_eur",
+    "dtype": "float64",
+    "nulls": 8621,
+    "null_rate": 0.171908,
+    "flag_gt20pct_null": false
+   }
+  ]
+ },
+ "player_valuations.csv": {
+  "n_rows": 656301,
+  "columns": [
+   {
+    "name": "player_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "date",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "market_value_in_eur",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "current_club_name",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "current_club_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "player_club_domestic_competition_id",
+    "dtype": "str",
+    "nulls": 92973,
+    "null_rate": 0.141662,
+    "flag_gt20pct_null": false
+   }
+  ]
+ },
+ "transfers.csv": {
+  "n_rows": 175165,
+  "columns": [
+   {
+    "name": "player_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "transfer_date",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "transfer_season",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "from_club_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "to_club_id",
+    "dtype": "int64",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "from_club_name",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "to_club_name",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   },
+   {
+    "name": "transfer_fee",
+    "dtype": "float64",
+    "nulls": 61526,
+    "null_rate": 0.351246,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "market_value_in_eur",
+    "dtype": "float64",
+    "nulls": 68160,
+    "null_rate": 0.389119,
+    "flag_gt20pct_null": true
+   },
+   {
+    "name": "player_name",
+    "dtype": "str",
+    "nulls": 0,
+    "null_rate": 0.0,
+    "flag_gt20pct_null": false
+   }
+  ]
+ }
+}

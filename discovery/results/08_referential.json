@@ -1,0 +1,289 @@
+{
+ "appearances.csv": {
+  "competition_id -> competitions": {
+   "n_non_null": 1894350,
+   "n_null": 0,
+   "n_orphan": 14200,
+   "orphan_rate_over_non_null": 0.00749597,
+   "orphan_examples": [
+    "CGB",
+    "KLUB",
+    "POCP",
+    "UKRS"
+   ]
+  },
+  "game_id -> games": {
+   "n_non_null": 1894350,
+   "n_null": 0,
+   "n_orphan": 0,
+   "orphan_rate_over_non_null": 0.0,
+   "orphan_examples": []
+  },
+  "player_club_id -> clubs": {
+   "n_non_null": 1894350,
+   "n_null": 0,
+   "n_orphan": 11062,
+   "orphan_rate_over_non_null": 0.00583947,
+   "orphan_examples": [
+    "1020",
+    "1035",
+    "1042",
+    "10625",
+    "1072"
+   ]
+  },
+  "player_current_club_id -> clubs": {
+   "n_non_null": 1894350,
+   "n_null": 0,
+   "n_orphan": 24431,
+   "orphan_rate_over_non_null": 0.01289677,
+   "orphan_examples": [
+    "1008",
+    "1037",
+    "10482",
+    "10625",
+    "1064"
+   ]
+  },
+  "player_id -> players": {
+   "n_non_null": 1894350,
+   "n_null": 0,
+   "n_orphan": 2,
+   "orphan_rate_over_non_null": 1.06e-06,
+   "orphan_examples": [
+    "380365"
+   ]
+  }
+ },
+ "club_games.csv": {
+  "club_id -> clubs": {
+   "n_non_null": 177916,
+   "n_null": 0,
+   "n_orphan": 24060,
+   "orphan_rate_over_non_null": 0.13523236,
+   "orphan_examples": [
+    "3437",
+    "3441",
+    "3449",
+    "3589",
+    "6303"
+   ]
+  },
+  "game_id -> games": {
+   "n_non_null": 177916,
+   "n_null": 0,
+   "n_orphan": 0,
+   "orphan_rate_over_non_null": 0.0,
+   "orphan_examples": []
+  },
+  "opponent_id -> clubs": {
+   "n_non_null": 177916,
+   "n_null": 0,
+   "n_orphan": 24060,
+   "orphan_rate_over_non_null": 0.13523236,
+   "orphan_examples": [
+    "3437",
+    "3449",
+    "3505",
+    "3589",
+    "6303"
+   ]
+  }
+ },
+ "games.csv": {
+  "away_club_id -> clubs": {
+   "n_non_null": 88958,
+   "n_null": 0,
+   "n_orphan": 11242,
+   "orphan_rate_over_non_null": 0.12637424,
+   "orphan_examples": [
+    "3299",
+    "3441",
+    "3503",
+    "3589",
+    "6303"
+   ]
+  },
+  "competition_id -> competitions": {
+   "n_non_null": 88958,
+   "n_null": 0,
+   "n_orphan": 1214,
+   "orphan_rate_over_non_null": 0.01364689,
+   "orphan_examples": [
+    "CGB",
+    "COL1",
+    "KLUB",
+    "POCP",
+    "UKRS"
+   ]
+  },
+  "home_club_id -> clubs": {
+   "n_non_null": 88958,
+   "n_null": 0,
+   "n_orphan": 12818,
+   "orphan_rate_over_non_null": 0.14409047,
+   "orphan_examples": [
+    "3262",
+    "3379",
+    "3437",
+    "3449",
+    "3505"
+   ]
+  }
+ },
+ "player_valuations.csv": {
+  "current_club_id -> clubs": {
+   "n_non_null": 656301,
+   "n_null": 0,
+   "n_orphan": 92973,
+   "orphan_rate_over_non_null": 0.14166213,
+   "orphan_examples": [
+    "466",
+    "6189",
+    "73",
+    "8152",
+    "9265"
+   ]
+  },
+  "player_id -> players": {
+   "n_non_null": 656301,
+   "n_null": 0,
+   "n_orphan": 0,
+   "orphan_rate_over_non_null": 0.0,
+   "orphan_examples": []
+  }
+ },
+ "transfers.csv": {
+  "from_club_id -> clubs": {
+   "n_non_null": 175165,
+   "n_null": 0,
+   "n_orphan": 109676,
+   "orphan_rate_over_non_null": 0.62612965,
+   "orphan_examples": [
+    "35387",
+    "41061",
+    "541",
+    "5621",
+    "9"
+   ]
+  },
+  "player_id -> players": {
+   "n_non_null": 175165,
+   "n_null": 0,
+   "n_orphan": 0,
+   "orphan_rate_over_non_null": 0.0,
+   "orphan_examples": []
+  },
+  "to_club_id -> clubs": {
+   "n_non_null": 175165,
+   "n_null": 0,
+   "n_orphan": 92746,
+   "orphan_rate_over_non_null": 0.52947792,
+   "orphan_examples": [
+    "123",
+    "25444",
+    "46292",
+    "515",
+    "78388"
+   ]
+  }
+ },
+ "game_events.csv": {
+  "club_id -> clubs": {
+   "n_non_null": 1274469,
+   "n_null": 0,
+   "n_orphan": 169317,
+   "orphan_rate_over_non_null": 0.13285298,
+   "orphan_examples": [
+    "11177",
+    "119",
+    "12469",
+    "12658",
+    "13499"
+   ]
+  },
+  "game_id -> games": {
+   "n_non_null": 1274469,
+   "n_null": 0,
+   "n_orphan": 0,
+   "orphan_rate_over_non_null": 0.0,
+   "orphan_examples": []
+  },
+  "player_id -> players": {
+   "n_non_null": 1274469,
+   "n_null": 0,
+   "n_orphan": 128274,
+   "orphan_rate_over_non_null": 0.10064898,
+   "orphan_examples": [
+    "1000672",
+    "132677",
+    "1335581",
+    "1377872",
+    "1511136"
+   ]
+  }
+ },
+ "game_lineups.csv": {
+  "club_id -> clubs": {
+   "n_non_null": 3179016,
+   "n_null": 0,
+   "n_orphan": 386777,
+   "orphan_rate_over_non_null": 0.12166563,
+   "orphan_examples": [
+    "1028",
+    "10284",
+    "10854",
+    "10883",
+    "1104"
+   ]
+  },
+  "game_id -> games": {
+   "n_non_null": 3179016,
+   "n_null": 0,
+   "n_orphan": 0,
+   "orphan_rate_over_non_null": 0.0,
+   "orphan_examples": []
+  },
+  "player_id -> players": {
+   "n_non_null": 3179016,
+   "n_null": 0,
+   "n_orphan": 315555,
+   "orphan_rate_over_non_null": 0.09926185,
+   "orphan_examples": [
+    "1060188",
+    "106246",
+    "125917",
+    "131347",
+    "1369324"
+   ]
+  }
+ },
+ "players.csv": {
+  "current_club_id -> clubs": {
+   "n_non_null": 50149,
+   "n_null": 0,
+   "n_orphan": 2986,
+   "orphan_rate_over_non_null": 0.05954256,
+   "orphan_examples": [
+    "123",
+    "184",
+    "2433",
+    "28783",
+    "786"
+   ]
+  },
+  "current_national_team_id -> national_teams": {
+   "n_non_null": 3260,
+   "n_null": 46889,
+   "n_orphan": 106,
+   "orphan_rate_over_non_null": 0.03251534,
+   "orphan_examples": [
+    "14161.0",
+    "32364.0",
+    "3591.0",
+    "3854.0",
+    "4311.0"
+   ]
+  }
+ }
+}
