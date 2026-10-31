@@ -40,6 +40,7 @@ All uv commands run from `ml/`. Each Python component is its own uv project; the
 - Write everything in English (code, comments, docs, commit messages), except [docs/REPORT_NOTES.md](docs/REPORT_NOTES.md), which is written in Spanish to feed the final course report.
 - Use Python scripts, never Jupyter notebooks.
 - Give each script or stage one responsibility. Its module docstring states the input, the output, and the responsibility. A stage's `--help` text comes from its entry function's docstring.
+- One public class per file. A concept's public surface is re-exported through a facade module that only imports: `features/windows.py` re-exports `TrailingWindowIndex` from its own file, `features/preprocess.py` re-exports its transformers, and so on. The rule is about file length, not one symbol per file: when a group of small related functions does not justify a file each, keep them together in one module and state in that module's docstring why it is not split further. No module should grow past roughly 130 lines without being split.
 - Pipeline stages exchange Parquet files under `ml/data/<stage>/`. Only `publish` writes to the database (ADR-008).
 - Ingest is a faithful text-only copy of the source (ADR-012). Typing and cleaning happen only in the `clean` stage.
 - Analysis scripts live in `analysis/`, run from `ml/` through its `analysis` dependency group (ADR-014), and write to `analysis/output/` (ADR-009).
