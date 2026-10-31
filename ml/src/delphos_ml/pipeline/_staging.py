@@ -110,30 +110,52 @@ def _check_ownership(
         )
 
 
-def _rename(source: Path, target: Path) -> None:
-    for attempt in range(1, _RENAME_ATTEMPTS + 1):
+def _rename(
+    source: Path,
+    target: Path,
+    *,
+    attempts: int | None = None,
+    delay_seconds: float | None = None,
+) -> None:
+    """Rename `source` to `target`, retrying on OSError.
+
+    `attempts` and `delay_seconds` default to this module's retry policy so a caller can pass its
+    own; the caller's values are read at call time, so a test can shorten them without patching
+    this module.
+    """
+    attempts = _RENAME_ATTEMPTS if attempts is None else attempts
+    delay_seconds = _RENAME_RETRY_DELAY_SECONDS if delay_seconds is None else delay_seconds
+    for attempt in range(1, attempts + 1):
         try:
             source.rename(target)
             return
         except OSError:
-            if attempt == _RENAME_ATTEMPTS:
+            if attempt == attempts:
                 raise
-            time.sleep(_RENAME_RETRY_DELAY_SECONDS)
+            time.sleep(delay_seconds)
 
 
-def _swap_in(staging: Path, target: Path, *, stage: str, error: type[Exception]) -> None:
+def _swap_in(
+    staging: Path,
+    target: Path,
+    *,
+    stage: str,
+    error: type[Exception],
+    rename_attempts: int | None = None,
+    rename_delay_seconds: float | None = None,
+) -> None:
     retired = None
     if target.exists():
         retired = target.with_name(f"{_retired_prefix(stage)}{uuid.uuid4().hex}")
         try:
-            _rename(target, retired)
+            _rename(target, retired, attempts=rename_attempts, delay_seconds=rename_delay_seconds)
         except OSError as exc:
             raise error(
                 f"could not move the previous output aside: {exc}; close programs or terminals "
                 f"using {target} and retry"
             ) from exc
     try:
-        _rename(staging, target)
+        _rename(staging, target, attempts=rename_attempts, delay_seconds=rename_delay_seconds)
     except OSError as exc:
         if retired is None:
             raise error(
@@ -141,7 +163,7 @@ def _swap_in(staging: Path, target: Path, *, stage: str, error: type[Exception])
                 f"terminals using {target.parent} and retry"
             ) from exc
         try:
-            _rename(retired, target)
+            _rename(retired, target, attempts=rename_attempts, delay_seconds=rename_delay_seconds)
         except OSError as rollback_exc:
             raise error(
                 f"could not move the new output into {target} ({exc}), and putting the previous "

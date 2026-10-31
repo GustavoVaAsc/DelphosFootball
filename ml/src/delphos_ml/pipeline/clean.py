@@ -30,11 +30,6 @@ import typer
 
 from delphos_ml.config import ConfigError, Settings, load_settings
 from delphos_ml.pipeline._staging import (
-    # Re-exported because the test fixture monkeypatches it on this module by name; _rename
-    # reads its own copy in _staging, so the attribute must only exist here.
-    _RENAME_RETRY_DELAY_SECONDS as _RENAME_RETRY_DELAY_SECONDS,
-)
-from delphos_ml.pipeline._staging import (
     _check_ownership,
     _prepare_data_dir,
     _remove_best_effort,
@@ -47,6 +42,10 @@ from delphos_ml.pipeline.ingest import STAGE_DIR_NAME as INGEST_DIR_NAME
 STAGE_DIR_NAME = "clean"
 MANIFEST_FILE_NAME = "_clean.json"
 EXCLUDED_TABLES: tuple[str, ...] = ("countries", "game_events", "national_teams")
+
+# This stage's rename-retry policy, passed to the shared swap so a test can shorten it here.
+_RENAME_ATTEMPTS = 3
+_RENAME_RETRY_DELAY_SECONDS = 0.5
 
 _INT_PATTERN = r"^-?[0-9]+$"
 _FLOAT_PATTERN = r"^-?[0-9]+(\.[0-9]+)?$"
@@ -372,7 +371,14 @@ def _run(settings: Settings) -> dict[str, Any]:
             )
         except OSError as exc:
             raise CleanError(f"could not write {MANIFEST_FILE_NAME}: {exc}") from exc
-        _swap_in(staging, target, stage=STAGE_DIR_NAME, error=CleanError)
+        _swap_in(
+            staging,
+            target,
+            stage=STAGE_DIR_NAME,
+            error=CleanError,
+            rename_attempts=_RENAME_ATTEMPTS,
+            rename_delay_seconds=_RENAME_RETRY_DELAY_SECONDS,
+        )
     finally:
         if staging.exists():
             _remove_best_effort(staging, "the temporary directory", stage=STAGE_DIR_NAME)
