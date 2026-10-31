@@ -5,11 +5,13 @@ description = "DelphosFootball shared ML package and offline pipeline CLI."
 license = "BSD-3-Clause"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    "joblib>=1.6.0",
     "kagglehub>=1.0.2",
     "pandas>=3.1.0",
     "pyarrow>=26.0.0",
     "pydantic>=2.14.1",
     "pydantic-settings>=2.16.0",
+    "scikit-learn>=1.9.1",
     "typer>=0.27.3",
 ]
 
