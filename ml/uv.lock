@@ -135,6 +135,7 @@ name = "delphos-ml"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "cloudpickle" },
     { name = "joblib" },
     { name = "kagglehub" },
     { name = "numpy" },
@@ -144,6 +145,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "scikit-learn" },
     { name = "scipy" },
+    { name = "threadpoolctl" },
     { name = "typer" },
 ]
 
@@ -159,6 +161,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cloudpickle", specifier = ">=3.1.2" },
     { name = "joblib", specifier = ">=1.6.0" },
     { name = "kagglehub", specifier = ">=1.0.2" },
     { name = "numpy", specifier = ">=2.5.4" },
@@ -168,6 +171,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.16.0" },
     { name = "scikit-learn", specifier = ">=1.9.1" },
     { name = "scipy", specifier = ">=1.18.1" },
+    { name = "threadpoolctl", specifier = ">=3.7.0" },
     { name = "typer", specifier = ">=0.27.3" },
 ]
 
