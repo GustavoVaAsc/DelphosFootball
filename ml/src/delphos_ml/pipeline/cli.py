@@ -15,6 +15,7 @@ import typer
 
 from delphos_ml.pipeline.clean import clean
 from delphos_ml.pipeline.ingest import ingest
+from delphos_ml.pipeline.transform import transform
 
 # Plain help output: Typer reflows the docstring paragraphs and leaves `<table>` and
 # brackets in help text alone (rich and markdown modes would not).
@@ -34,15 +35,17 @@ def main() -> None:
 
 
 def run_all() -> None:
-    """Run every implemented pipeline stage in order: ingest, clean.
+    """Run every implemented pipeline stage in order: ingest, clean, transform.
 
     Calls each stage entry function sequentially using the current DELPHOS_* settings and stops at
     the first stage that exits non-zero.
     """
     ingest()
     clean()
+    transform()
 
 
 app.command(name="ingest")(ingest)
 app.command(name="clean")(clean)
+app.command(name="transform")(transform)
 app.command(name="all")(run_all)
