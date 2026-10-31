@@ -6,7 +6,8 @@
 2. [Ingesta de datos (`ingest`)](#2-ingesta-de-datos-ingest)
 3. [Análisis exploratorio y selección de datos (`eda`)](#3-análisis-exploratorio-y-selección-de-datos-eda)
 4. [Limpieza y tipado de datos (`clean`)](#4-limpieza-y-tipado-de-datos-clean)
-5. [Referencias internas](#5-referencias-internas)
+5. [Transformación e ingeniería de atributos (`transform`)](#5-transformación-e-ingeniería-de-atributos-transform)
+6. [Referencias internas](#6-referencias-internas)
 
 ---
 
@@ -104,9 +105,44 @@ La corrida completa de `uv run delphos-pipeline clean` sobre la versión `679` g
 | `transfers` | `175,165` | `175,165` | `0` | `0` | Parsea decimales `"700000.000"` a `float64`, conservando `96,085` ceros reales distintos de `61,526` nulos. |
 | **Total (9 tablas)** | **`6,222,716`** | **`6,216,263`** | **`6,453`** | **`25,825`** | Excluye `countries` (`124`), `national_teams` (`124`) y `game_events` (`1,274,469`). |
 
-## 5. Referencias internas
+## 5. Transformación e ingeniería de atributos (`transform`)
+
+### H-09. Exclusión del valor de mercado previo como atributo predictor
+
+Al diseñar el conjunto de atributos candidatos para la etapa `transform` ([docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.6) discutimos si incluir el valor de mercado del jugador en la temporada anterior, obtenido de `player_valuations` en una fecha estrictamente previa a `as_of_date`. El atributo no viola la política de fuga temporal de §3.4, porque es información conocida en el momento de la predicción. Además, por la fuerte autocorrelación de las tasaciones de Transfermarkt entre temporadas consecutivas, sería con mucha probabilidad el predictor individual más potente del modelo.
+
+Ese mismo poder predictivo es el problema. El objetivo del proyecto es identificar jugadores cuyo valor de mercado no corresponde a su rendimiento deportivo, contexto competitivo y perfil biográfico. Con el valor previo como atributo, la regresión aprendería sobre todo a reproducir la tasación anterior: el residuo dejaría de medir la distancia entre rendimiento y precio y pasaría a medir solo el cambio de tasación entre temporadas. Un jugador que el mercado subvalora de forma persistente heredaría esa subvaloración a través del propio predictor y nunca aparecería como subvalorado. El argumento sería circular, porque explicaríamos el precio con el precio. El efecto contaminaría también la clasificación subvalorado/sobrevalorado (§3.9 y §3.10), que se construye sobre esos residuos, y la prueba estadística de ineficiencia sobre transferencias pagadas (§3.12).
+
+Decidimos excluir el valor de mercado de temporadas anteriores del conjunto de atributos candidatos. Asumimos como costo explícito que el `R^2` de los modelos de regresión será menor que el de un modelo autorregresivo. A cambio, el residuo conserva su interpretación como desajuste entre rendimiento y precio, que es la medida en la que se apoyan las conclusiones del proyecto.
+
+### H-10. Agrupación del prior Empirical Bayes: `position` frente a `sub_position`
+
+El suavizado Empirical Bayes de H-05 necesita un prior por rol: `r_hat = (conteo + m * prior_pos) / ((minutos / 90) + m)`. La pregunta era si ese rol debía definirse con `position` (tres grupos de campo: `Defender`, `Midfield`, `Attack`) o con `sub_position` (doce grupos).
+
+Medimos la exposición real sobre las temporadas de entrenamiento `2017` a `2023` con el piso de `180` minutos. Con `position`, cada grupo acumula entre `166,656` y `264,889` minutos equivalentes a 90 (`n90`), de modo que el prior es una estimación prácticamente exacta y el suavizado solo hace su trabajo. Con `sub_position`, tres grupos quedan por debajo de `5,500` `n90`: `Left Midfield` (`4,101`), `Right Midfield` (`5,429`) y `Second Striker` (`4,841`). En `Left Midfield` la tasa de `0.111` goles por 90 procede de unos cinco goles en total, con un error estándar de cerca del `45%` relativo: eso no es un prior, es un ruido con nombre de estadística. A ello se suma que `sub_position` es una etiqueta que el scraper de Transfermarkt fue mutando (`Left Midfield` y `Right Midfield` son etiquetas casi muertas), mientras que `position` es estable a lo largo de todo el periodo.
+
+El prior solo domina la estimación cuando `minutos / 90 < m`, es decir por debajo de `450` minutos, y ese es entre el `10%` y el `20%` de las filas: justo las de menor exposición, donde la etiqueta de valor de mercado depende más del prestigio que del rendimiento. Ahí es donde un prior ruidoso hace más daño.
+
+Decidimos agrupar el prior por `position` y conservar `sub_position` como atributo categórico en los conjuntos de modelos, de modo que los desplazamientos por rol los estime el propio entrenamiento sobre las filas de `train` en lugar de un prior fijado a mano, y con el VIF de E3 como control de colinealidad.
+
+### H-11. Selección de `k` en K-Means: silueta, codo y estabilidad
+
+La regla inicial de selección de `k` ("el menor `k` cuya silueta esté dentro del `5%` del máximo") tenía un defecto estructural: la silueta alcanza su máximo en valores pequeños de `k` por construcción, de modo que esa regla resolvía en `k = 2` con independencia del resto de evidencia, y dos arquetipos no aportan nada al explorador de arquetipos. Además, el codo por método *kneedle* se calculaba pero no intervenía en la decisión, y la prueba de estabilidad por *bootstrap* comparaba asignaciones de conjuntos de filas distintos, lo que no está bien definido.
+
+Fijamos la regla así: candidatos son los `k` del `3` al `15` cuya silueta está dentro del `5%` del máximo, con silueta absoluta de al menos `0.25`, sin grupos por debajo del `3%` de las filas y que superen las pruebas de estabilidad; entre los candidatos gana el codo si está presente y, en su defecto, el `k` mayor. La estabilidad temporal es la prueba principal (asignar las filas de `2024` con los centroides del entrenamiento y comparar contra un K-Means ajustado directamente sobre `2024`, con umbral `ARI >= 0.5`) y el *bootstrap* es secundaria (20 remuestreos con `ARI` calculado sobre la intersección de las filas compartidas, objetivo `ARI >= 0.8`). El `k` elegido se escribirá como constante en [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.8 cuando se haya ejecutado E6, y `train` no lo volverá a elegir.
+
+En el mismo orden decidimos colapsar en `other` los niveles de `sub_position` por debajo del `1%` de las filas de entrenamiento antes de codificarlos para K-Means, porque un *one-hot* de doce grupos da a categorías casi vacías un peso en la distancia que ningún grupo puede interpretar. La variante de un K-Means por posición queda fuera del alcance de la semana 5: multiplica los modelos, rompe la comparación entre grupos y contradice la razón de ser de la etapa, que es agrupar jugadores parecidos en el terreno.
+
+### H-12. Índice de ventanas compartido entre el EDA y la etapa `transform` (decisión adoptada, validación pendiente)
+
+El índice de ventanas de 365 días que usa `analysis/eda.py` se va a trasladar al paquete (`delphos_ml.features.windows`), porque `transform` necesita responder las mismas consultas de forma vectorial y mantener dos definiciones de la misma ventana en el repositorio dejaría la etapa y el análisis exploratorio con criterios distintos de pertenencia a la ventana.
+
+Como `eda.py` es la procedencia de todas las cifras citadas en este documento, en [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) y en [docs/WORK_PLAN.md](WORK_PLAN.md), la validación de la refactorización no puede consistir en que las pruebas unitarias pasen: consistirá en reejecutar el script y contrastar sus salidas con los valores ya registrados (`107,456` jugador-temporadas antes del piso de minutos, `47,359` después, `14,692` jugadores distintos, `5,325` transferencias pagadas, la reducción del `42.4%` en `RMSE` documentada en H-05 (`0.3143` a `0.1809`) sobre `2,378` transiciones, el acuerdo del `97.82%` entre la regla de temporada por mes y `games.season`, y los `30.91` y `30.90` apariciones por partido). Este texto se completará con el resultado de esa comprobación cuando la reejecución se haya hecho; hasta entonces, describe una decisión tomada y una verificación pendiente.
+
+## 6. Referencias internas
 
 - [docs/CONTEXT.md](CONTEXT.md): propuesta base, estrategia KDD y calendario original.
 - [docs/ARCHITECTURE.md](ARCHITECTURE.md): arquitectura de software y registro de decisiones ADR-001 a ADR-014.
 - [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md): lista de decisiones de diseño de minería de datos (§3.1 a §3.18).
+- [docs/TRANSFORM_PLAN.md](TRANSFORM_PLAN.md): plan de trabajo de la etapa `transform` (conjuntos de atributos, preprocesador ajustado y experimentos E1 a E7).
 - [docs/WORK_PLAN.md](WORK_PLAN.md): comparativa entre calendario base y avance real, varianzas V-01 a V-03 y bitácora de decisiones.

@@ -19,7 +19,7 @@ This file covers `ml/` and the offline analysis scripts in `../analysis/` that r
 
 | Path | What it is |
 | --- | --- |
-| `pyproject.toml` | The uv project: metadata, runtime dependencies (`pandas` included), the `dev` and `analysis` dependency groups, and the pytest and ruff configuration. |
+| `pyproject.toml` | The uv project: metadata, runtime dependencies (`pandas` and `scikit-learn` included, with `joblib`, `numpy`, `scipy`, `cloudpickle` and `threadpoolctl` because the artifacts depend on them), the `dev` and `analysis` dependency groups, and the pytest and ruff configuration. |
 | `uv.lock` | This component's lockfile (`ml/` is its own uv project, ADR-013). |
 | `.python-version` | Pins Python 3.13 for uv. |
 | `src/delphos_ml/` | The package; `pipeline/` holds one module per stage. |
@@ -65,4 +65,5 @@ Settings come from `DELPHOS_` environment variables; [.env.example](../.env.exam
 - [docs/ML_ARCHITECTURE.md](../docs/ML_ARCHITECTURE.md): the ML design checklist and its decisions.
 - [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md): the architecture and the ADRs.
 - [docs/REPORT_NOTES.md](../docs/REPORT_NOTES.md): empirical findings and methodological memory in Spanish for the final report.
+- [docs/TRANSFORM_PLAN.md](../docs/TRANSFORM_PLAN.md): the working plan for the `transform` stage, the stage under construction.
 - [.env.example](../.env.example): the configuration variables and their defaults.

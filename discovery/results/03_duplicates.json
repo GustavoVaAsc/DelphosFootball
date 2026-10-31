@@ -1,0 +1,232 @@
+{
+ "appearances.csv": {
+  "n_rows": 1894350,
+  "full_row_duplicates": 0,
+  "full_row_duplicate_rate": 0.0,
+  "key_checks": [
+   {
+    "columns": [
+     "appearance_id"
+    ],
+    "n_duplicate_rows": 0,
+    "duplicate_rate": 0.0
+   },
+   {
+    "columns": [
+     "player_id",
+     "game_id"
+    ],
+    "n_duplicate_rows": 0,
+    "duplicate_rate": 0.0
+   }
+  ]
+ },
+ "club_games.csv": {
+  "n_rows": 177916,
+  "full_row_duplicates": 0,
+  "full_row_duplicate_rate": 0.0,
+  "key_checks": [
+   {
+    "columns": [
+     "game_id",
+     "club_id"
+    ],
+    "n_duplicate_rows": 0,
+    "duplicate_rate": 0.0
+   },
+   {
+    "columns": [
+     "game_id"
+    ],
+    "n_duplicate_rows": 88958,
+    "duplicate_rate": 0.5
+   }
+  ]
+ },
+ "clubs.csv": {
+  "n_rows": 796,
+  "full_row_duplicates": 0,
+  "full_row_duplicate_rate": 0.0,
+  "key_checks": [
+   {
+    "columns": [
+     "club_id"
+    ],
+    "n_duplicate_rows": 0,
+    "duplicate_rate": 0.0
+   }
+  ]
+ },
+ "competitions.csv": {
+  "n_rows": 65,
+  "full_row_duplicates": 0,
+  "full_row_duplicate_rate": 0.0,
+  "key_checks": [
+   {
+    "columns": [
+     "competition_id"
+    ],
+    "n_duplicate_rows": 0,
+    "duplicate_rate": 0.0
+   }
+  ]
+ },
+ "countries.csv": {
+  "n_rows": 124,
+  "full_row_duplicates": 0,
+  "full_row_duplicate_rate": 0.0,
+  "key_checks": [
+   {
+    "columns": [
+     "country_id"
+    ],
+    "n_duplicate_rows": 0,
+    "duplicate_rate": 0.0
+   }
+  ]
+ },
+ "game_events.csv": {
+  "n_rows": 1274469,
+  "full_row_duplicates": 0,
+  "full_row_duplicate_rate": 0.0,
+  "key_checks": [
+   {
+    "columns": [
+     "game_event_id"
+    ],
+    "n_duplicate_rows": 0,
+    "duplicate_rate": 0.0
+   },
+   {
+    "columns": [
+     "game_id",
+     "player_id",
+     "type",
+     "minute"
+    ],
+    "n_duplicate_rows": 906,
+    "duplicate_rate": 0.000711
+   }
+  ]
+ },
+ "game_lineups.csv": {
+  "n_rows": 3179016,
+  "full_row_duplicates": 0,
+  "full_row_duplicate_rate": 0.0,
+  "key_checks": [
+   {
+    "columns": [
+     "game_lineups_id"
+    ],
+    "n_duplicate_rows": 0,
+    "duplicate_rate": 0.0
+   },
+   {
+    "columns": [
+     "game_id",
+     "player_id"
+    ],
+    "n_duplicate_rows": 12,
+    "duplicate_rate": 4e-06
+   },
+   {
+    "columns": [
+     "game_id",
+     "player_id",
+     "type"
+    ],
+    "n_duplicate_rows": 12,
+    "duplicate_rate": 4e-06
+   }
+  ]
+ },
+ "games.csv": {
+  "n_rows": 88958,
+  "full_row_duplicates": 0,
+  "full_row_duplicate_rate": 0.0,
+  "key_checks": [
+   {
+    "columns": [
+     "game_id"
+    ],
+    "n_duplicate_rows": 0,
+    "duplicate_rate": 0.0
+   }
+  ]
+ },
+ "national_teams.csv": {
+  "n_rows": 124,
+  "full_row_duplicates": 0,
+  "full_row_duplicate_rate": 0.0,
+  "key_checks": [
+   {
+    "columns": [
+     "national_team_id"
+    ],
+    "n_duplicate_rows": 0,
+    "duplicate_rate": 0.0
+   }
+  ]
+ },
+ "players.csv": {
+  "n_rows": 50149,
+  "full_row_duplicates": 0,
+  "full_row_duplicate_rate": 0.0,
+  "key_checks": [
+   {
+    "columns": [
+     "player_id"
+    ],
+    "n_duplicate_rows": 0,
+    "duplicate_rate": 0.0
+   },
+   {
+    "columns": [
+     "name"
+    ],
+    "n_duplicate_rows": 1324,
+    "duplicate_rate": 0.026401
+   }
+  ]
+ },
+ "player_valuations.csv": {
+  "n_rows": 656301,
+  "full_row_duplicates": 0,
+  "full_row_duplicate_rate": 0.0,
+  "key_checks": [
+   {
+    "columns": [
+     "player_id",
+     "date"
+    ],
+    "n_duplicate_rows": 0,
+    "duplicate_rate": 0.0
+   }
+  ]
+ },
+ "transfers.csv": {
+  "n_rows": 175165,
+  "full_row_duplicates": 0,
+  "full_row_duplicate_rate": 0.0,
+  "key_checks": [
+   {
+    "columns": [
+     "player_id",
+     "transfer_date",
+     "from_club_id",
+     "to_club_id"
+    ],
+    "n_duplicate_rows": 0,
+    "duplicate_rate": 0.0
+   },
+   {
+    "columns": [
+     "player_id",
+     "transfer_date"
+    ],
+    "n_duplicate_rows": 118,
+    "duplicate_rate": 0.000674
+   }
+  ]
+ }
+}

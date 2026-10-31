@@ -1,0 +1,42 @@
+{
+ "n_rows": 175165,
+ "transfer_fee_semantics": {
+  "n_null": 61526,
+  "n_zero": 96085,
+  "n_positive": 17554,
+  "n_negative": 0,
+  "min_positive": 400.0,
+  "pct_zero": 0.54854
+ },
+ "zero_fee_breakdown": {
+  "n_zero_fee_with_positive_mv": 70695,
+  "n_zero_fee_with_null_mv": 25390
+ },
+ "small_positive_fees": {
+  "n_fee_eq_1": 0,
+  "n_fee_lt_10k": 55,
+  "n_fee_lt_1k": 7
+ },
+ "fee_vs_market_value": {
+  "n_comparable": 16442,
+  "ratio_quantiles": {
+   "p1": 0.075,
+   "p5": 0.18202500000000002,
+   "p25": 0.5258646616541354,
+   "p50": 0.9375,
+   "p75": 1.5,
+   "p90": 2.7797777777777766,
+   "p95": 4.428571428571429,
+   "p99": 14.0
+  },
+  "n_fee_gt_2x_mv": 2488,
+  "n_fee_gt_5x_mv": 638,
+  "n_fee_lt_half_mv": 3583,
+  "n_fee_lt_tenth_mv": 244
+ },
+ "market_value_col": {
+  "n_null": 68160,
+  "n_zero": 0,
+  "n_negative": 0
+ }
+}

@@ -15,7 +15,7 @@ This document owns ML algorithm design and all ML substance deferred from [docs/
 
 ## 2. Status
 
-In progress. The [Definition checklist](#3-definition-checklist) below is the agenda: each item must be decided and written here before this document is considered complete. As of 2026-10-29, 5 of 18 items are decided (3.1 to 3.5). The checklist is ordered by pipeline stage, and each item names the week it is needed by, except the items gated on delivery priorities 3 and 4 (schedule in [docs/WORK_PLAN.md](WORK_PLAN.md)). Until the remaining items are decided, ARCHITECTURE.md's black-box treatment of the pipeline stands, and the acceptance obligations it states (notably the statistical inefficiency demonstration) are not deferred.
+In progress. The [Definition checklist](#3-definition-checklist) below is the agenda: each item must be decided and written here before this document is considered complete. As of 2026-10-31, 5 of 18 items are decided (3.1 to 3.5), and 3.6 and 3.8 are partially decided (feature-set rules and the `k` selection rule; the remaining parts are open until the experiments in [docs/TRANSFORM_PLAN.md](TRANSFORM_PLAN.md) §7 run). The checklist is ordered by pipeline stage, and each item names the week it is needed by, except the items gated on delivery priorities 3 and 4 (schedule in [docs/WORK_PLAN.md](WORK_PLAN.md)). Until the remaining items are decided, ARCHITECTURE.md's black-box treatment of the pipeline stands, and the acceptance obligations it states (notably the statistical inefficiency demonstration) are not deferred.
 
 ## 3. Definition checklist
 
@@ -74,6 +74,8 @@ Each item names what must be decided, why it matters, and the week and stage tha
 ### 3.6 Feature engineering
 
 - **Decide:** the derived attributes (for example per-90-minute rates, age from date of birth, remaining contract length), the categorical encoding (for example position), and the scaling, with the fitted transformers stored in the artifact preprocessor.
+- **Decision (2026-10-31, partial):** the player's market value from any earlier valuation (for example the previous season's `player_valuations.market_value_in_eur`) is excluded from every feature set. It is point-in-time safe under §3.4, but it would make the regression reproduce the prior valuation, so the residual would measure the change in valuation instead of the gap between performance and price that §3.9, §3.10, and §3.12 rely on. The lower regression `R^2` is an accepted cost ([docs/REPORT_NOTES.md](REPORT_NOTES.md) H-09).
+- **Decision (2026-10-31, partial):** the Empirical Bayes prior of the per-90 rate features is grouped by `position` (`Defender`, `Midfield`, `Attack`), not by `sub_position`. Three of the twelve `sub_position` groups hold fewer than `5,500` n90 of exposure in the training seasons, which makes their priors estimates from a handful of events, and the `sub_position` labels drift between seasons. `sub_position` stays in the model sets as a categorical feature, where the training split estimates the offsets, and it is subject to the VIF check of E3. The rate features travel from `transform` to `train` as counts and minutes; the prior, the imputers and the scalers are fitted on the training split only, and the parameters that both stages must agree on (`window_days`, `minutes_floor`, `empirical_bayes_m`, `prior_grouping`, `season_month_start`) are recorded in the transform manifest (`_transform.json`) so `train` reads them instead of hard-coding them. The rest of §3.6 stays open until the experiments in [docs/TRANSFORM_PLAN.md](TRANSFORM_PLAN.md) §7 run.
 - **Why it matters:** [docs/CONTEXT.md](CONTEXT.md) §3 phase 4 requires it, and the preprocessor is part of the ARCHITECTURE.md artifact contract, so batch and live scoring apply identical transforms.
 - **Needed by:** week 4 (clean, transform).
 
@@ -86,6 +88,7 @@ Each item names what must be decided, why it matters, and the week and stage tha
 ### 3.8 K-Means specifics
 
 - **Decide:** the feature set and scaling, k selection (elbow/silhouette), and cluster validation and stability checks.
+- **Decision (2026-10-31, partial):** the cluster feature set excludes market value and league, and includes the Empirical Bayes per-90 rates, `starter_ratio`, minutes, card rates, competition mix and `sub_position`, with the `sub_position` levels below `1%` of the training rows collapsed into `other`. `k` is chosen by the rule in [docs/TRANSFORM_PLAN.md](TRANSFORM_PLAN.md) §6: the candidates are the `k` in `3` to `15` whose silhouette is within 5% of the maximum, at least `0.25` in absolute terms, with no cluster below about 3% of rows, that pass the stability checks (temporal ARI >= 0.5 against a K-Means fitted on the validation season, and mean bootstrap ARI >= 0.8 computed on the intersection of resampled rows); among the candidates the elbow candidate wins if present, otherwise the largest `k`. The smallest candidate is excluded on purpose, because silhouette peaks at small `k` and "within 5% of the maximum" would otherwise resolve to `k = 2`. The chosen `k` will be written here as a constant once E6 runs, and `train` will not re-select it. The scaler (`StandardScaler` against `RobustScaler`) and the cluster feature set are still open until E6 and E7 run.
 - **Why it matters:** cluster assignments feed the archetype explorer and the replacement-similarity metric.
 - **Needed by:** week 4 (feature set and scaling) and week 5 (k selection).
 
@@ -103,7 +106,7 @@ Each item names what must be decided, why it matters, and the week and stage tha
 
 ### 3.11 Artifact manifest contents
 
-- **Decide:** the exact fields of `manifest.json` and of the training-config reference — beyond the fixed contract items in ARCHITECTURE.md (ordered feature names, sklearn and `delphos_ml` versions, pinned Kaggle dataset version and snapshot hash, training-config reference): what the training config records and in what format.
+- **Decide:** the exact fields of `manifest.json` and of the training-config reference — beyond the fixed contract items in ARCHITECTURE.md (ordered feature names, scikit-learn, joblib, cloudpickle, numpy, scipy, threadpoolctl and `delphos_ml` versions, pinned Kaggle dataset version and snapshot hash, training-config reference): what the training config records and in what format.
 - **Why it matters:** the manifest is how `delphos_ml.load_model()` enforces the artifact contract (version refusal) and how a run is reproduced.
 - **Needed by:** week 5 (train).
 

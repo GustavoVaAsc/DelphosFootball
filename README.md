@@ -62,6 +62,7 @@ Read the documents in this order. Each owns one kind of fact.
 3. [docs/ML_ARCHITECTURE.md](docs/ML_ARCHITECTURE.md): the ML design checklist, ordered by pipeline stage, with decisions recorded as they are made.
 4. [docs/WORK_PLAN.md](docs/WORK_PLAN.md): the schedule, actual progress, variances, and the decision log. Current status lives there.
 5. [docs/REPORT_NOTES.md](docs/REPORT_NOTES.md): empirical findings, data difficulties, and methodological trade-offs written in Spanish for the final report.
+6. [docs/TRANSFORM_PLAN.md](docs/TRANSFORM_PLAN.md): the working plan for the `transform` stage, the stage currently under construction.
 
 AI agents also read [AGENTS.md](AGENTS.md) for the global team conventions and [ml/AGENTS.md](ml/AGENTS.md) for the ML component's dev commands.
 
@@ -71,6 +72,7 @@ AI agents also read [AGENTS.md](AGENTS.md) for the global team conventions and [
 - [ml/AGENTS.md](ml/AGENTS.md)
 - [docs/WORK_PLAN.md](docs/WORK_PLAN.md)
 - [docs/REPORT_NOTES.md](docs/REPORT_NOTES.md)
+- [docs/TRANSFORM_PLAN.md](docs/TRANSFORM_PLAN.md)
 - [.env.example](.env.example)
 
 ## 6. License

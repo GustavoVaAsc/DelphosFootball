@@ -1,0 +1,124 @@
+{
+ "appearances": {
+  "n_rows": 1894350,
+  "n_negative_minutes": 0,
+  "n_minutes_gt_130": 3,
+  "n_zero_minutes": 3,
+  "n_zero_minutes_with_goals": 0,
+  "n_zero_minutes_with_assists": 0,
+  "n_negative_goals": 0,
+  "n_negative_assists": 0,
+  "n_yellow_gt_2": 0,
+  "n_red_gt_1": 0,
+  "n_future_date": 0,
+  "n_null_player_name": 2
+ },
+ "player_valuations": {
+  "n_rows": 656301,
+  "n_dup_player_date_extra_rows": 0,
+  "n_dup_player_date_groups": 0,
+  "n_dup_groups_with_conflicting_values": 0,
+  "n_negative_market_value": 0,
+  "n_zero_market_value": 1,
+  "n_future_date": 0,
+  "n_date_before_2000": 0
+ },
+ "transfers": {
+  "n_rows": 175165,
+  "n_future_dated": 475,
+  "max_transfer_date": "2030-06-30",
+  "n_self_transfer": 8,
+  "n_null_from_club": 0,
+  "n_null_to_club": 0,
+  "n_null_player_id": 0,
+  "n_negative_fee": 0,
+  "n_season_year_mismatch": 181,
+  "n_name_mismatch_vs_players": 0,
+  "n_name_mismatch_compared": 175165,
+  "n_from_club_name_mismatch_vs_clubs": 47948,
+  "n_to_club_name_mismatch_vs_clubs": 60629
+ },
+ "games": {
+  "n_rows": 88958,
+  "n_future_dated": 0,
+  "max_date": "2026-07-06",
+  "n_home_eq_away": 0,
+  "n_negative_goals": 0,
+  "n_null_home_goals": 0,
+  "n_null_away_goals": 0,
+  "n_negative_attendance": 0,
+  "n_null_attendance": 10803,
+  "n_goals_sum_gt_15": 107
+ },
+ "game_lineups": {
+  "n_rows": 3179016,
+  "n_dup_game_player_extra_rows": 12,
+  "n_dup_game_player_type_extra_rows": 12,
+  "n_invalid_type": 0,
+  "n_invalid_captain_flag": 0,
+  "n_non_numeric_number": 25698,
+  "n_invalid_number": 807
+ },
+ "game_events": {
+  "n_rows": 1274469,
+  "n_future_dated": 0,
+  "n_minute_lt_0": 17575,
+  "n_minute_gt_130": 0,
+  "n_null_player_id": 0,
+  "pct_null_player_id": 0.0,
+  "n_null_player_id_by_type_top5": [],
+  "types": [
+   "Cards",
+   "Goals",
+   "Shootout",
+   "Substitutions"
+  ],
+  "n_negative_minute": 17575,
+  "negative_minute_by_type": [
+   {
+    "type": "Shootout",
+    "count": 13574
+   },
+   {
+    "type": "Cards",
+    "count": 3784
+   },
+   {
+    "type": "Goals",
+    "count": 118
+   },
+   {
+    "type": "Substitutions",
+    "count": 99
+   }
+  ]
+ },
+ "players": {
+  "n_rows": 50149,
+  "n_null_dob": 49,
+  "n_dob_in_future": 0,
+  "n_age_at_last_season_lt_14": 0,
+  "n_age_at_last_season_gt_45": 1,
+  "n_height_lt_150": 13,
+  "n_height_gt_210": 0,
+  "n_negative_caps": 0,
+  "n_negative_intl_goals": 0,
+  "n_caps_lt_intl_goals": 28,
+  "n_negative_market_value": 0,
+  "n_null_current_club": 0,
+  "n_dup_name_extra_rows": 1324
+ },
+ "club_games": {
+  "n_rows": 177916,
+  "n_club_eq_opponent": 0,
+  "n_negative_goals": 0,
+  "n_null_own_goals": 0,
+  "n_is_win_not_01": 0
+ },
+ "clubs": {
+  "n_rows": 796,
+  "n_negative_total_mv": 0,
+  "n_null_coach": 393,
+  "n_squad_size_gt_60": 0
+ }
+}

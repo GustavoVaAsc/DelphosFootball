@@ -1,0 +1,115 @@
+{
+ "valuations_history": {
+  "label": "player_valuations.market_value_in_eur (all snapshots)",
+  "n": 656301,
+  "min": 0.0,
+  "max": 200000000.0,
+  "mean": 2290092.7440290353,
+  "std": 6721808.734569109,
+  "skew": 8.697403709483707,
+  "quantiles": {
+   "p1": 25000.0,
+   "p5": 50000.0,
+   "p10": 100000.0,
+   "p25": 200000.0,
+   "p50": 500000.0,
+   "p75": 1500000.0,
+   "p90": 5000000.0,
+   "p95": 10000000.0,
+   "p99": 32000000.0
+  },
+  "n_zero": 1,
+  "n_negative": 0,
+  "pct_top1pct_share_of_sum": 0.23148272006198425
+ },
+ "players_current_value": {
+  "label": "players.market_value_in_eur (current snapshot)",
+  "n": 41528,
+  "min": 10000.0,
+  "max": 200000000.0,
+  "mean": 1511049.2920439222,
+  "std": 5854556.454154643,
+  "skew": 11.754585642980866,
+  "quantiles": {
+   "p1": 25000.0,
+   "p5": 50000.0,
+   "p10": 50000.0,
+   "p25": 100000.0,
+   "p50": 275000.0,
+   "p75": 700000.0,
+   "p90": 2500000.0,
+   "p95": 6000000.0,
+   "p99": 25000000.0
+  },
+  "n_zero": 0,
+  "n_negative": 0,
+  "pct_top1pct_share_of_sum": 0.3398997511667371
+ },
+ "players_highest_value": {
+  "label": "players.highest_market_value_in_eur (post-hoc; leakage)",
+  "n": 41528,
+  "min": 10000.0,
+  "max": 200000000.0,
+  "mean": 3450773.4540550956,
+  "std": 9347394.390237516,
+  "skew": 7.448902554999711,
+  "quantiles": {
+   "p1": 25000.0,
+   "p5": 50000.0,
+   "p10": 100000.0,
+   "p25": 300000.0,
+   "p50": 750000.0,
+   "p75": 2500000.0,
+   "p90": 8000000.0,
+   "p95": 15000000.0,
+   "p99": 45000000.0
+  },
+  "n_zero": 0,
+  "n_negative": 0,
+  "pct_top1pct_share_of_sum": 0.22397534411528186
+ },
+ "log_transform_diag": {
+  "log1p_skew": 0.4312207622456703,
+  "raw_skew": 8.697403709483707,
+  "log1p_mean": 13.276237991075543,
+  "log1p_std": 1.542401195259296,
+  "log1p_quantiles": {
+   "p1": 10.12667110305036,
+   "p5": 10.819798284210286,
+   "p10": 11.51293546492023,
+   "p25": 12.206077645517674,
+   "p50": 13.122365377402328,
+   "p75": 14.220976332738882,
+   "p90": 15.424948670398354,
+   "p95": 16.118095750958314,
+   "p99": 17.281246492014
+  }
+ },
+ "coverage": {
+  "n_players_in_players_csv": 50149,
+  "n_players_with_valuation_history": 41528,
+  "n_players_without_valuation_history": 8621,
+  "n_valuation_player_ids_not_in_players_csv": 0
+ },
+ "history_depth_per_player": {
+  "min": 1,
+  "median": 15.0,
+  "mean": 15.803819109998074,
+  "p90": 30.0,
+  "p99": 41.0,
+  "max": 57,
+  "histogram": {
+   "1": 1063,
+   "2-5": 5940,
+   "6-10": 7434,
+   "11-20": 14294,
+   "21-50": 12779,
+   ">50": 18
+  }
+ },
+ "players_value_vs_history": {
+  "n_comparable": 41528,
+  "pct_equal_last_snapshot": 1.0,
+  "pct_equal_max_ever": 0.29948468503178577
+ }
+}
