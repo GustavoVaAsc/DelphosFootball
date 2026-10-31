@@ -133,13 +133,16 @@ Fijamos la regla así: candidatos son los `k` cuya silueta está dentro del `5%`
 
 En el mismo orden decidimos colapsar en `other` los niveles de `sub_position` por debajo del `1%` de las filas de entrenamiento antes de codificarlos para K-Means, porque un *one-hot* de doce grupos da a categorías casi vacías un peso en la distancia que ningún grupo puede interpretar. La variante de un K-Means por posición queda fuera del alcance de la semana 5: multiplica los modelos, rompe la comparación entre grupos y contradice la razón de ser de la etapa, que es agrupar jugadores parecidos en el terreno.
 
-### H-12. Índice de ventanas compartido entre el EDA y la etapa `transform`
+### H-12. Índice de ventanas compartido entre el EDA y la etapa `transform` (decisión adoptada, validación pendiente)
 
-El índice de ventanas de 365 días que usaba `analysis/eda.py` pasó a formar parte del paquete (`delphos_ml.features.windows`), porque `transform` necesita responder las mismas consultas de forma vectorial y la duplicación del cálculo habría dejado dos definiciones de la misma ventana. Como `eda.py` es la procedencia de todas las cifras citadas en este documento, en [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) y en [docs/WORK_PLAN.md](WORK_PLAN.md), la refactorización se validó reejecutando el script y contrastando sus salidas con los valores ya registrados: `107,456` jugador-temporadas antes del piso de minutos, `47,359` después, `14,692` jugadores distintos, `5,325` transferencias pagadas, la reducción del `42.4%` en `RMSE`_documentada en H-05 (`0.3143` a `0.1809`) sobre `2,378` transiciones, el acuerdo del `97.82%` entre la regla de temporada por mes y `games.season`, y los `30.91` y `30.90` apariciones por partido. La refactorización no puede aceptarse solo porque las pruebas unitarias pasen: lo que se verifica es la igualdad de las cifras.
+El índice de ventanas de 365 días que usa `analysis/eda.py` se va a trasladar al paquete (`delphos_ml.features.windows`), porque `transform` necesita responder las mismas consultas de forma vectorial y mantener dos definiciones de la misma ventana en el repositorio dejaría la etapa y el análisis exploratorio con criterios distintos de pertenencia a la ventana.
+
+Como `eda.py` es la procedencia de todas las cifras citadas en este documento, en [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) y en [docs/WORK_PLAN.md](WORK_PLAN.md), la validación de la refactorización no puede consistir en que las pruebas unitarias pasen: consistirá en reejecutar el script y contrastar sus salidas con los valores ya registrados (`107,456` jugador-temporadas antes del piso de minutos, `47,359` después, `14,692` jugadores distintos, `5,325` transferencias pagadas, la reducción del `42.4%` en `RMSE` documentada en H-05 (`0.3143` a `0.1809`) sobre `2,378` transiciones, el acuerdo del `97.82%` entre la regla de temporada por mes y `games.season`, y los `30.91` y `30.90` apariciones por partido). Este texto se completará con el resultado de esa comprobación cuando la reejecución se haya hecho; hasta entonces, describe una decisión tomada y una verificación pendiente.
 
 ## 6. Referencias internas
 
 - [docs/CONTEXT.md](CONTEXT.md): propuesta base, estrategia KDD y calendario original.
 - [docs/ARCHITECTURE.md](ARCHITECTURE.md): arquitectura de software y registro de decisiones ADR-001 a ADR-014.
 - [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md): lista de decisiones de diseño de minería de datos (§3.1 a §3.18).
+- [docs/TRANSFORM_PLAN.md](TRANSFORM_PLAN.md): plan de trabajo de la etapa `transform` (conjuntos de atributos, preprocesador ajustado y experimentos E1 a E7).
 - [docs/WORK_PLAN.md](WORK_PLAN.md): comparativa entre calendario base y avance real, varianzas V-01 a V-03 y bitácora de decisiones.

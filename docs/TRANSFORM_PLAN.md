@@ -64,7 +64,7 @@ ml/src/delphos_ml/
   - numeric: impute, `log1p` on skewed volumes, then `StandardScaler`;
   - categorical: `OneHotEncoder(handle_unknown="ignore")`.
 
-**New dependency:** `scikit-learn` is not yet in `ml/pyproject.toml`. Adding it requires pinning its version in the alignment list in [docs/ARCHITECTURE.md](ARCHITECTURE.md) §4.3 (ADR-013), because `delphos_ml.load_model()` checks that version. `joblib` goes in the same list: it serializes the artifacts under the same contract, and scikit-learn depends on it, so the pin must be explicit rather than transitive.
+**New dependency:** `scikit-learn` 1.9.1 and `joblib` 1.6.0 are runtime dependencies of `ml/` as of 2026-10-31, together with `numpy` 2.5.4 and `scipy` 1.18.1, which the serialized artifacts depend on. All four are pinned in the alignment list in [docs/ARCHITECTURE.md](ARCHITECTURE.md) §4.3 (ADR-013), because `delphos_ml.load_model()` refuses to load an artifact whose recorded versions differ from the installed ones.
 
 ## 4. Pipeline addition
 
@@ -122,7 +122,7 @@ In `CLUSTER`, `sub_position` is collapsed before encoding: the levels below `1%`
    - temporal (primary): assign the 2024 validation rows with the training centroids and compare against a K-Means fitted directly on 2024, ARI over the same rows. The threshold is ARI >= 0.5.
    - bootstrap (secondary): 20 resamples of the training rows, refit on each resample, and compare assignments on the rows the two resamples share (adjusted Rand index on the intersection, as in Hubert and Arabie). Comparing the assignments of two different row sets is not well defined. The target is mean ARI >= 0.8.
 4. Check interpretability: no cluster below about 3% of rows, and centroid profiles that can be named.
-5. **Decision rule:** the candidate set is the values of `k` whose silhouette is within 5% of the maximum, that pass both stability checks, that have no cluster below about 3% of rows, and whose silhouette is at least `0.25` in absolute terms. From the candidates, take the elbow candidate if it is among them; otherwise take the largest `k` in the candidate set. The smallest candidate is not taken: silhouette peaks at small `k` by construction, so "smallest within 5% of the maximum" resolves to `k = 2` and yields archetypes that carry no information for the archetype explorer.
+5. **Decision rule:** the candidates are the values of `k` in `3` to `15` whose silhouette is within 5% of the maximum, that have a silhouette of at least `0.25` in absolute terms, that have no cluster below about 3% of rows, and that pass both stability checks. From the candidates, take the elbow candidate if it is among them; otherwise take the largest `k` in the candidate set. The smallest candidate is not taken: silhouette peaks at small `k` by construction, so "smallest within 5% of the maximum" resolves to `k = 2` and yields archetypes that carry no information for the archetype explorer.
 
 The chosen `k` is written into §3.8 as a constant. `train` does not re-select it on each run, to keep runs reproducible.
 
@@ -156,8 +156,8 @@ Each step has a gate: the next step starts only when the gate passes.
 
 | # | Step | Gate |
 | --- | --- | --- |
-| 0 | Toolchain: put `uv` on `PATH` and run `uv sync` in `ml/` | `uv run pytest` green on the current suite |
-| 1 | Add `scikit-learn` and `joblib` to `ml/pyproject.toml`, pin both in [docs/ARCHITECTURE.md](ARCHITECTURE.md) §4.3 (§3) | `uv sync` resolves and `delphos_ml` imports scikit-learn |
+| 0 | Toolchain: put `uv` on `PATH` and run `uv sync` in `ml/` | done: `uv` 0.12.0 on `PATH`, `uv run pytest` runs the suite |
+| 1 | Add `scikit-learn` and `joblib` to `ml/pyproject.toml`, pin them in [docs/ARCHITECTURE.md](ARCHITECTURE.md) §4.3 (§3) | done on 2026-10-31: `scikit-learn` 1.9.1, `joblib` 1.6.0, `numpy` 2.5.4 and `scipy` 1.18.1 pinned, lockfile updated, §4.3 alignment list and manifest fields extended |
 | 2 | Implement `features/windows.py`; point `analysis/eda.py` at it and drop its private copy (§3) | `eda.py` re-runs and reproduces the recorded figures: `107,456`, `47,359`, `14,692`, `5,325`, the `42.4%` RMSE reduction from `m = 5` (`0.3143` to `0.1809`) over `2,378` transitions, the `97.82%` season agreement, and the `30.91` / `30.90` appearances per game |
 | 3 | Extract `pipeline/_staging.py` from `clean.py`, parameterizing the staging prefix by stage name (§3) | `ml/tests/test_clean.py` unchanged and green |
 | 4 | Implement `features/snapshots.py`, `pipeline/transform.py`, the CLI wiring and the tests from §4 | the six boundary tests green; the manifest matches the §4 spec |

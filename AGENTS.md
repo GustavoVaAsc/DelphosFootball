@@ -24,6 +24,7 @@ Read these in order. Each file owns one kind of fact, so change a fact in its ow
 3. [docs/ML_ARCHITECTURE.md](docs/ML_ARCHITECTURE.md): the ML design checklist, ordered by pipeline stage. Decisions are recorded here as they are made.
 4. [docs/WORK_PLAN.md](docs/WORK_PLAN.md): the schedule, actual progress, variances, and the decision log. Current status lives here, not in this file.
 5. [docs/REPORT_NOTES.md](docs/REPORT_NOTES.md): empirical findings, data pitfalls, and methodological trade-offs recorded in Spanish for the final course report.
+6. [docs/TRANSFORM_PLAN.md](docs/TRANSFORM_PLAN.md): the working plan for the `transform` stage: feature design, the fitted preprocessor, and the experiments that close ML_ARCHITECTURE §3.6 to §3.8. It is a plan, not a decision record; the decisions it produces belong to the documents above.
 
 ## 3. Per-scope guides
 
@@ -64,4 +65,5 @@ Run every uv command from `ml/`, not from the repo root; Python tooling is scope
 - [docs/ML_ARCHITECTURE.md](docs/ML_ARCHITECTURE.md)
 - [docs/WORK_PLAN.md](docs/WORK_PLAN.md)
 - [docs/REPORT_NOTES.md](docs/REPORT_NOTES.md)
+- [docs/TRANSFORM_PLAN.md](docs/TRANSFORM_PLAN.md)
 - [.env.example](.env.example): the global configuration variables and their defaults.
