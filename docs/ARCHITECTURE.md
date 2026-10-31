@@ -113,7 +113,7 @@ Both the backend and the pipeline import the same shared Python package, `delpho
 ### 4.3 delphos_ml shared package
 
 - **Responsibility:** The single Python library both the backend and the pipeline import. It contains data schemas/types (shared Pydantic models), model-loading code, and the scoring functions used for inference. Batch training and batch scoring live behind the pipeline's CLI; interactive scoring is exposed as ordinary importable functions.
-- **Technology:** Python package living in `ml/` (see [Repository layout](#repository-layout)). Targets scikit-learn, pandas, and Pydantic (pinned in the shared Python constraint set ([Artifact contract](#43-delphos_ml-shared-package))). Dependencies are added as stages need them; today the package depends on kagglehub, pyarrow, pydantic, pydantic-settings, and typer. Model artifacts are serialized with joblib.
+- **Technology:** Python package living in `ml/` (see [Repository layout](#repository-layout)). Targets scikit-learn, pandas, and Pydantic (pinned in the shared Python constraint set ([Artifact contract](#43-delphos_ml-shared-package))). Dependencies are added as stages need them; today the package depends on kagglehub, pandas, pyarrow, pydantic, pydantic-settings, and typer. Model artifacts are serialized with joblib.
 - **Interfaces/contracts:** The backend imports it to load trained joblib artifacts from `artifacts/` and score on demand (live inference, e.g. "what-if" re-scoring of a hypothetical player). The pipeline imports it for batch training and batch scoring. This dual-mode requirement — batch inference by the pipeline and live inference by the API from the same artifacts — is a core architectural constraint, which is why the package is shared rather than duplicated.
 
 **Artifact contract** — the publish/load boundary this package enforces:
@@ -121,14 +121,14 @@ Both the backend and the pipeline import the same shared Python package, `delpho
 - Each publish writes `artifacts/<model_run_id>/` containing the trained model, the preprocessor, and a `manifest.json` with the ordered feature names, the scikit-learn and `delphos_ml` versions, the pinned Kaggle dataset version and snapshot hash, and a training-config reference. The exact manifest and training-config fields are defined in `docs/ML_ARCHITECTURE.md`.
 - Exactly one `model_runs` row has status `active`; both the publish stage and the backend resolve the "current model" through it (see [Publish/activation protocol](#44-offline-ml-pipeline)).
 - `delphos_ml.load_model()` refuses to load an artifact whose recorded scikit-learn version differs from the installed one.
-- Each Python component is its own uv project with its own lockfile ([ADR-013](#adr-013-per-component-uv-projects-over-a-root-uv-workspace)): `ml/` today, `backend/` when it lands. Their direct dependency pins are manually aligned on the same versions: kagglehub 1.0.2, pyarrow 26.0.0, pydantic 2.14.1, pydantic-settings 2.16.0, typer 0.27.3. Joblib unpickling therefore cannot drift between the pipeline that wrote the artifacts and the API that reads them only as long as the pins stay aligned; without one shared lockfile this alignment is a discipline, not a guarantee (accepted risk, recorded in ADR-013).
+- Each Python component is its own uv project with its own lockfile ([ADR-013](#adr-013-per-component-uv-projects-over-a-root-uv-workspace)): `ml/` today, `backend/` when it lands. Their direct dependency pins are manually aligned on the same versions: kagglehub 1.0.2, pandas 3.1.0, pyarrow 26.0.0, pydantic 2.14.1, pydantic-settings 2.16.0, typer 0.27.3. Joblib unpickling therefore cannot drift between the pipeline that wrote the artifacts and the API that reads them only as long as the pins stay aligned; without one shared lockfile this alignment is a discipline, not a guarantee (accepted risk, recorded in ADR-013).
 
 ### 4.4 Offline ML pipeline
 
 > Internal design (algorithms, features, evaluation) is deferred to [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md). This section covers only its place in the software architecture.
 
 - **Responsibility:** Batch ingestion and publishing. Runs the stages ingest → clean → transform → train → evaluate → publish, producing trained models and publishing curated player data, predictions, cluster assignments, valuation residuals, replacement candidates, and an inefficiency analysis into the database.
-- **Technology:** Python with scikit-learn and pandas, orchestrated as Typer CLI stages: `uv run delphos-pipeline <stage>`, one command per stage, each writing to `ml/data/<stage>/`. An "all" runner is added once two or more stages exist. It is a batch pipeline, not a long-running service: it runs manually, on demand, or on a schedule via Docker (the `pipeline` compose profile). It is never on the request path.
+- **Technology:** Python with scikit-learn and pandas, orchestrated as Typer CLI stages: `uv run delphos-pipeline <stage>`, one command per stage, each writing to `ml/data/<stage>/`. `uv run delphos-pipeline all` runs the implemented stages in order and stops at the first failure. It is a batch pipeline, not a long-running service: it runs manually, on demand, or on a schedule via Docker (the `pipeline` compose profile). It is never on the request path.
 - **Interfaces/contracts:**
   - **In:** the ingest stage downloads the Kaggle dataset through Kaggle's API at a pinned dataset version, with no credentials required for this public dataset ([ADR-010](#adr-010-kaggle-api-with-a-pinned-dataset-version-over-a-manually-downloaded-snapshot)).
   - Ingest is a text-only faithful copy of the source; typing and cleaning happen in `clean` ([ADR-012](#adr-012-ingest-stores-source-columns-as-text-typing-happens-in-clean)).
@@ -146,7 +146,7 @@ The API filters its reads on the active run and includes the `model_run_id` in r
 ### 4.5 Analysis scripts
 
 - **Responsibility:** One script per analysis in the top-level `analysis/` directory: exploratory data analysis, the statistical demonstration of market inefficiency (at least one hypothesis test with reported statistic and significance over transfer-fee vs predicted-value residuals; the test selection is defined in `docs/ML_ARCHITECTURE.md`), and the model-comparison figures. Each script's module docstring states its input, its output, and its single responsibility ([ADR-009](#adr-009-analysis-scripts-over-jupyter-notebooks)).
-- **Technology:** Python, pinned in the shared Python constraint set ([Artifact contract](#43-delphos_ml-shared-package)). Scripts import `delphos_ml` instead of re-implementing algorithms.
+- **Technology:** Python 3.13, executed from the `ml/` uv project through its `analysis` dependency group ([ADR-014](#adr-014-analysis-scripts-run-in-the-ml-uv-project-through-a-dependency-group)). Scripts import `delphos_ml` instead of re-implementing algorithms.
 - **Interfaces/contracts:** Reads the pipeline's Parquet outputs under `ml/data/`. Writes figures and tables to `analysis/output/` (gitignored, regenerable) and nothing to the database. The scripts are not part of the deployed stack.
 
 ### 4.6 LLM inference service
@@ -174,7 +174,7 @@ backend/       # FastAPI application (routers/services/schemas per feature, as i
 backend/tests/ # pytest unit tests for the API layer
 frontend/      # Flutter app (Dart)
 ml/            # the delphos-ml uv project (ADR-013): distribution delphos-ml, src layout
-ml/pyproject.toml # project metadata; dev dependency group; pytest and ruff config
+ml/pyproject.toml # project metadata; dev and analysis dependency groups; pytest and ruff config
 ml/uv.lock     # this component's lockfile
 ml/.python-version # Python 3.13
 ml/src/delphos_ml/ # delphos_ml package; pipeline/ holds one module per stage
@@ -420,6 +420,13 @@ Short ADR-style records. The decisions below are settled as recorded, for contex
 - **Decision:** Each Python component is its own uv project. `ml/` owns its `pyproject.toml` (project metadata, the `dev` dependency group, and the pytest and ruff configuration), its `uv.lock`, and its `.python-version` (Python 3.13). The root `pyproject.toml` and root `uv.lock` are removed. `.env.example` stays at the repository root as the global configuration-key list for every component (see [Cross-cutting concerns](#9-cross-cutting-concerns)). `backend/` gets its own uv project and lockfile when it lands. Joblib-unpickling drift is held off by manually aligned direct pins across the lockfiles: kagglehub 1.0.2, pyarrow 26.0.0, pydantic 2.14.1, pydantic-settings 2.16.0, typer 0.27.3. The project-root anchor (the nearest `uv.lock` at or above the working directory) now resolves to `ml/`, so a relative `DELPHOS_DATA_DIR` defaults stage outputs to `ml/data/<stage>/`.
 - **Alternatives:** Keep the root workspace with the single shared lock (rejected: it was overhead for a single Python component, and scoping tooling per module was preferred).
 - **Consequences:** Each component installs, locks, tests, and lints independently, from its own directory. Version alignment between `ml/` and the future `backend/` is a manual discipline rather than a lockfile guarantee: a backend install that resolves a different joblib-relevant version can fail to unpickle the pipeline's artifacts, and this accepted risk is recorded here. Configuration stays global (one `.env.example` at the repo root); the `.env` lookup (nearest `.env` at or above the working directory, first hit wins) is bounded by the lockfile-based project-root anchor: the walk stops after the project root's parent, so a `.env` above the repository root is never read, and with no `uv.lock` at or above the working directory only the working directory itself is checked.
+
+### ADR-014: Analysis scripts run in the `ml/` uv project through a dependency group
+
+- **Context:** [ADR-009](#adr-009-analysis-scripts-over-jupyter-notebooks) places analysis scripts in the top-level `analysis/` directory and requires them to import `delphos_ml` and read `ml/data/<stage>/`. When [ADR-013](#adr-013-per-component-uv-projects-over-a-root-uv-workspace) dissolved the root uv workspace, it gave `ml/` its own uv project and left the Python environment for `analysis/` unspecified.
+- **Decision:** Analysis scripts run in the `ml/` uv project (`uv run python ../analysis/<script>.py` from `ml/`). Plotting and statistical libraries that the deployed `delphos_ml` wheel does not need (`matplotlib` 3.11.2, `scipy` 1.18.1, `seaborn` 0.13.2) live in an `analysis` dependency group in `ml/pyproject.toml`, listed alongside `dev` in `[tool.uv] default-groups` so `uv sync` installs both. `pandas` 3.1.0 joins `ml/`'s runtime dependencies because `clean` and later pipeline stages use it directly.
+- **Alternatives:** Give `analysis/` its own `pyproject.toml` and `uv.lock` (rejected: creates a second lockfile and virtual environment that must install `delphos_ml` from `../ml`, and shifts the `uv.lock` project-root anchor away from `ml/`, which breaks the default `DELPHOS_DATA_DIR` resolution to `ml/data/`); put plotting libraries in `[project].dependencies` (rejected: pulls `matplotlib` and `seaborn` into the `delphos_ml` runtime package that the backend container imports).
+- **Consequences:** One `uv sync` inside `ml/` prepares the pipeline, tests, linter, and analysis scripts. Running scripts from `ml/` resolves `DELPHOS_DATA_DIR` to `ml/data/` without extra environment variables and keeps plotting packages out of `delphos_ml`'s runtime dependencies.
 
 ## 11. Future work
 
