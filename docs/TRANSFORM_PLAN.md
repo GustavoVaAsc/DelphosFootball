@@ -29,6 +29,8 @@ The work is split into two layers so that no statistic learned from the data can
 
 ## 3. Modules and classes
 
+Planned layout, implemented in steps 2 to 5 of §8. None of these modules exists yet at the time of writing.
+
 ```
 ml/src/delphos_ml/
   pipeline/
@@ -45,7 +47,7 @@ ml/src/delphos_ml/
   - `strict_before=False`: window `[as_of_date - 365 days, as_of_date]` (valuation rows);
   - `strict_before=True`: window `[transfer_date - 365 days, transfer_date - 1 day]` (transfer rows).
 
-  `analysis/eda.py` then imports it instead of keeping its own copy (ADR-009).
+  `analysis/eda.py` will import it instead of keeping its own copy (ADR-009).
 - **`snapshots.py`**:
   - `season_of(date)`: season start year, `year` when `month >= 7`, otherwise `year - 1`.
   - `assign_split(season)`: `train` for 2017 to 2023, `validation` for 2024, `test` for 2025.
@@ -64,7 +66,7 @@ ml/src/delphos_ml/
   - numeric: impute, `log1p` on skewed volumes, then `StandardScaler`;
   - categorical: `OneHotEncoder(handle_unknown="ignore")`.
 
-**New dependency:** `scikit-learn` 1.9.1 and `joblib` 1.6.0 are runtime dependencies of `ml/` as of 2026-10-31, together with `numpy` 2.5.4 and `scipy` 1.18.1, which the serialized artifacts depend on. All four are pinned in the alignment list in [docs/ARCHITECTURE.md](ARCHITECTURE.md) §4.3 (ADR-013), because `delphos_ml.load_model()` refuses to load an artifact whose recorded versions differ from the installed ones.
+**New dependency:** `scikit-learn` 1.9.1 and `joblib` 1.6.0 are runtime dependencies of `ml/` as of 2026-10-31, together with `numpy` 2.5.4, `scipy` 1.18.1, `cloudpickle` 3.1.2 and `threadpoolctl` 3.7.0, which the serialized artifacts depend on. All six are in the alignment list in [docs/ARCHITECTURE.md](ARCHITECTURE.md) §4.3 (ADR-013), because `delphos_ml.load_model()` refuses to load an artifact whose recorded versions differ from the installed ones.
 
 ## 4. Pipeline addition
 
@@ -78,7 +80,7 @@ ml/src/delphos_ml/
 
 `all` becomes `ingest`, `clean`, `transform`.
 
-The manifest carries every parameter that `train` would otherwise hard-code, so the fitted preprocessor and the stage that produced the rows cannot drift apart: `window_days` (`365`), `minutes_floor` (`180`), `empirical_bayes_m` (`5`), `prior_grouping` (`position`), `season_month_start` (`7`), and the per-split row counts. The fitted prior values themselves belong to the preprocessor artifact written by `train` ([docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.11), not to this manifest.
+The manifest carries every parameter that `train` would otherwise hard-code, so the fitted preprocessor and the stage that produced the rows cannot drift apart: `window_days` (`365`), `minutes_floor` (`180`), `empirical_bayes_m` (`5`), `prior_grouping` (`position`), `season_month_start` (`7`), and the per-split row counts. The fitted prior values themselves belong to the preprocessor artifact written by `train` ([docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.11), not to this transform manifest.
 
 **Acceptance.** The stage is accepted when its output row counts equal the population fixed in [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.2 and §3.3: `107,456` outfield player-season snapshots before the minutes floor, `47,359` after it, `14,692` distinct players, and `5,325` paid transfer rows. Per-season and per-split counts go into `_transform.json`. A run whose counts disagree is a defect, not a variant.
 
@@ -124,7 +126,7 @@ In `CLUSTER`, `sub_position` is collapsed before encoding: the levels below `1%`
 4. Check interpretability: no cluster below about 3% of rows, and centroid profiles that can be named.
 5. **Decision rule:** the candidates are the values of `k` in `3` to `15` whose silhouette is within 5% of the maximum, that have a silhouette of at least `0.25` in absolute terms, that have no cluster below about 3% of rows, and that pass both stability checks. From the candidates, take the elbow candidate if it is among them; otherwise take the largest `k` in the candidate set. The smallest candidate is not taken: silhouette peaks at small `k` by construction, so "smallest within 5% of the maximum" resolves to `k = 2` and yields archetypes that carry no information for the archetype explorer.
 
-The chosen `k` is written into §3.8 as a constant. `train` does not re-select it on each run, to keep runs reproducible.
+The chosen `k` will be written into §3.8 as a constant once E6 runs, and `train` will not re-select it on each run, to keep runs reproducible.
 
 ## 7. Experiments
 
@@ -157,7 +159,7 @@ Each step has a gate: the next step starts only when the gate passes.
 | # | Step | Gate |
 | --- | --- | --- |
 | 0 | Toolchain: put `uv` on `PATH` and run `uv sync` in `ml/` | done: `uv` 0.12.0 on `PATH`, `uv run pytest` runs the suite |
-| 1 | Add `scikit-learn` and `joblib` to `ml/pyproject.toml`, pin them in [docs/ARCHITECTURE.md](ARCHITECTURE.md) §4.3 (§3) | done on 2026-10-31: `scikit-learn` 1.9.1, `joblib` 1.6.0, `numpy` 2.5.4 and `scipy` 1.18.1 pinned, lockfile updated, §4.3 alignment list and manifest fields extended |
+| 1 | Add `scikit-learn` and `joblib` to `ml/pyproject.toml`, align their versions in [docs/ARCHITECTURE.md](ARCHITECTURE.md) §4.3 (§3) | done on 2026-10-31: `scikit-learn` 1.9.1, `joblib` 1.6.0, `numpy` 2.5.4, `scipy` 1.18.1, `cloudpickle` 3.1.2 and `threadpoolctl` 3.7.0 declared and aligned, lockfile updated, §4.3 alignment list and manifest fields extended |
 | 2 | Implement `features/windows.py`; point `analysis/eda.py` at it and drop its private copy (§3) | `eda.py` re-runs and reproduces the recorded figures: `107,456`, `47,359`, `14,692`, `5,325`, the `42.4%` RMSE reduction from `m = 5` (`0.3143` to `0.1809`) over `2,378` transitions, the `97.82%` season agreement, and the `30.91` / `30.90` appearances per game |
 | 3 | Extract `pipeline/_staging.py` from `clean.py`, parameterizing the staging prefix by stage name (§3) | `ml/tests/test_clean.py` unchanged and green |
 | 4 | Implement `features/snapshots.py`, `pipeline/transform.py`, the CLI wiring and the tests from §4 | the six boundary tests green; the manifest matches the §4 spec |
