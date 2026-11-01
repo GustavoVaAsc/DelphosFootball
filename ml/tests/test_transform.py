@@ -2,8 +2,9 @@
 
 The fixture writes typed Parquet tables shaped exactly like `clean`'s output (date32 dates,
 explicit Arrow types) plus `_clean.json`, then drives the registered CLI subcommand. Match
-dates are chosen around the 2024-05-15 anchor so the half-open valuation window and the
-strict-before transfer window are pinned by the aggregated minute counts.
+dates are chosen around the 2024-09-15 anchor (July-to-June season 2024, so the anchor row
+lands in the validation split) so the half-open valuation window `(as_of - 365, as_of]` and
+the strict-before transfer window are pinned by the aggregated minute counts.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ runner = CliRunner()
 RowDict = dict[str, Any]
 TableSpec = tuple[list[tuple[str, pa.DataType]], list[RowDict]]
 
-AS_OF = "2024-05-15"
+AS_OF = "2024-09-15"
 
 BASE_TABLES: dict[str, TableSpec] = {
     "appearances": (
@@ -47,45 +48,160 @@ BASE_TABLES: dict[str, TableSpec] = {
             ("red_cards", pa.int64()),
         ],
         [
-            # Player 1, anchored at 2024-05-15 (valuation window is (as_of - 365, as_of]):
-            # exactly 365 days before is IN, 366 is OUT, and matches after as_of are OUT.
-            {"game_id": 101, "player_id": 1, "player_club_id": 10, "date": "2023-05-15",
-             "competition_id": "L1", "minutes_played": 90, "goals": 1, "assists": 0,
-             "yellow_cards": 0, "red_cards": 0},
-            {"game_id": 102, "player_id": 1, "player_club_id": 10, "date": "2023-05-14",
-             "competition_id": "L1", "minutes_played": 120, "goals": 0, "assists": 0,
-             "yellow_cards": 0, "red_cards": 0},
-            {"game_id": 103, "player_id": 1, "player_club_id": 10, "date": "2023-08-01",
-             "competition_id": "L1", "minutes_played": 90, "goals": 0, "assists": 0,
-             "yellow_cards": 0, "red_cards": 0},
-            {"game_id": 104, "player_id": 1, "player_club_id": 10, "date": "2024-05-12",
-             "competition_id": "L1", "minutes_played": 60, "goals": 0, "assists": 0,
-             "yellow_cards": 0, "red_cards": 0},
-            {"game_id": 105, "player_id": 1, "player_club_id": 10, "date": "2024-05-14",
-             "competition_id": "CUP1", "minutes_played": 30, "goals": 0, "assists": 0,
-             "yellow_cards": 0, "red_cards": 0},
-            {"game_id": 106, "player_id": 1, "player_club_id": 10, "date": "2024-06-01",
-             "competition_id": "L1", "minutes_played": 120, "goals": 0, "assists": 0,
-             "yellow_cards": 0, "red_cards": 0},
-            # On the transfer day itself; the strict-before transfer window excludes it.
-            {"game_id": 107, "player_id": 1, "player_club_id": 10, "date": "2024-07-15",
-             "competition_id": "L1", "minutes_played": 90, "goals": 0, "assists": 0,
-             "yellow_cards": 0, "red_cards": 0},
+            # Player 1, anchored at AS_OF = 2024-09-15; the valuation window is the
+            # half-open (as_of - 365, as_of] = (2023-09-16, 2024-09-15]. 101/102 predate
+            # the window and 112 falls after the anchor, so none of them counts; 103 sits
+            # on the earliest counted day (2023-09-17 = as_of - 364) and does count.
+            {
+                "game_id": 101,
+                "player_id": 1,
+                "player_club_id": 10,
+                "date": "2023-05-15",
+                "competition_id": "L1",
+                "minutes_played": 90,
+                "goals": 1,
+                "assists": 0,
+                "yellow_cards": 0,
+                "red_cards": 0,
+            },
+            {
+                "game_id": 102,
+                "player_id": 1,
+                "player_club_id": 10,
+                "date": "2023-05-14",
+                "competition_id": "L1",
+                "minutes_played": 120,
+                "goals": 0,
+                "assists": 0,
+                "yellow_cards": 0,
+                "red_cards": 0,
+            },
+            {
+                "game_id": 103,
+                "player_id": 1,
+                "player_club_id": 10,
+                "date": "2023-09-17",
+                "competition_id": "L1",
+                "minutes_played": 90,
+                "goals": 0,
+                "assists": 0,
+                "yellow_cards": 0,
+                "red_cards": 0,
+            },
+            {
+                "game_id": 104,
+                "player_id": 1,
+                "player_club_id": 10,
+                "date": "2024-05-12",
+                "competition_id": "L1",
+                "minutes_played": 60,
+                "goals": 1,
+                "assists": 0,
+                "yellow_cards": 0,
+                "red_cards": 0,
+            },
+            {
+                "game_id": 105,
+                "player_id": 1,
+                "player_club_id": 10,
+                "date": "2024-05-14",
+                "competition_id": "CUP1",
+                "minutes_played": 30,
+                "goals": 0,
+                "assists": 0,
+                "yellow_cards": 0,
+                "red_cards": 0,
+            },
+            {
+                "game_id": 106,
+                "player_id": 1,
+                "player_club_id": 10,
+                "date": "2024-06-01",
+                "competition_id": "L1",
+                "minutes_played": 120,
+                "goals": 0,
+                "assists": 0,
+                "yellow_cards": 0,
+                "red_cards": 0,
+            },
+            # On the transfer day itself; the strict-before transfer window excludes it
+            # (it still counts in the later valuation window).
+            {
+                "game_id": 107,
+                "player_id": 1,
+                "player_club_id": 10,
+                "date": "2024-07-15",
+                "competition_id": "L1",
+                "minutes_played": 90,
+                "goals": 0,
+                "assists": 0,
+                "yellow_cards": 0,
+                "red_cards": 0,
+            },
+            # Ten days after the valuation anchor: outside the valuation and transfer windows.
+            {
+                "game_id": 112,
+                "player_id": 1,
+                "player_club_id": 10,
+                "date": "2024-09-25",
+                "competition_id": "L1",
+                "minutes_played": 120,
+                "goals": 0,
+                "assists": 0,
+                "yellow_cards": 0,
+                "red_cards": 0,
+            },
             # Player 2: 179 trailing minutes, below the floor.
-            {"game_id": 108, "player_id": 2, "player_club_id": 10, "date": "2024-03-15",
-             "competition_id": "L1", "minutes_played": 179, "goals": 0, "assists": 0,
-             "yellow_cards": 0, "red_cards": 0},
+            {
+                "game_id": 108,
+                "player_id": 2,
+                "player_club_id": 10,
+                "date": "2024-03-15",
+                "competition_id": "L1",
+                "minutes_played": 179,
+                "goals": 0,
+                "assists": 0,
+                "yellow_cards": 0,
+                "red_cards": 0,
+            },
             # Player 3 is a goalkeeper; player 4 plays for an uncovered club.
-            {"game_id": 109, "player_id": 3, "player_club_id": 10, "date": "2024-04-01",
-             "competition_id": "L1", "minutes_played": 300, "goals": 0, "assists": 0,
-             "yellow_cards": 0, "red_cards": 0},
-            {"game_id": 110, "player_id": 4, "player_club_id": 30, "date": "2024-02-10",
-             "competition_id": "MX1", "minutes_played": 300, "goals": 0, "assists": 0,
-             "yellow_cards": 0, "red_cards": 0},
+            {
+                "game_id": 109,
+                "player_id": 3,
+                "player_club_id": 10,
+                "date": "2024-04-01",
+                "competition_id": "L1",
+                "minutes_played": 300,
+                "goals": 0,
+                "assists": 0,
+                "yellow_cards": 0,
+                "red_cards": 0,
+            },
+            {
+                "game_id": 110,
+                "player_id": 4,
+                "player_club_id": 30,
+                "date": "2024-02-10",
+                "competition_id": "MX1",
+                "minutes_played": 300,
+                "goals": 0,
+                "assists": 0,
+                "yellow_cards": 0,
+                "red_cards": 0,
+            },
             # Player 5: a train-season row with no club_games history.
-            {"game_id": 111, "player_id": 5, "player_club_id": 20, "date": "2019-04-01",
-             "competition_id": "ES1", "minutes_played": 200, "goals": 0, "assists": 0,
-             "yellow_cards": 0, "red_cards": 0},
+            {
+                "game_id": 111,
+                "player_id": 5,
+                "player_club_id": 20,
+                "date": "2019-04-01",
+                "competition_id": "ES1",
+                "minutes_played": 200,
+                "goals": 0,
+                "assists": 0,
+                "yellow_cards": 0,
+                "red_cards": 0,
+            },
         ],
     ),
     "club_games": (
@@ -98,10 +214,22 @@ BASE_TABLES: dict[str, TableSpec] = {
             ("is_win", pa.bool_()),
         ],
         [
-            {"game_id": 103, "club_id": 10, "own_position": 5, "own_goals": 1,
-             "opponent_goals": 1, "is_win": False},
-            {"game_id": 104, "club_id": 10, "own_position": 3, "own_goals": 2,
-             "opponent_goals": 0, "is_win": True},
+            {
+                "game_id": 103,
+                "club_id": 10,
+                "own_position": 5,
+                "own_goals": 1,
+                "opponent_goals": 1,
+                "is_win": False,
+            },
+            {
+                "game_id": 104,
+                "club_id": 10,
+                "own_position": 3,
+                "own_goals": 2,
+                "opponent_goals": 0,
+                "is_win": True,
+            },
         ],
     ),
     "clubs": (
@@ -133,14 +261,13 @@ BASE_TABLES: dict[str, TableSpec] = {
             ("team_captain", pa.bool_()),
         ],
         [
-            {"player_id": 1, "date": "2024-05-12", "type": "starting_lineup",
-             "team_captain": True},
+            {"player_id": 1, "date": "2024-05-12", "type": "starting_lineup", "team_captain": True},
         ],
     ),
     "games": (
         [("game_id", pa.int64()), ("date", pa.date32())],
         [
-            {"game_id": 103, "date": "2023-08-01"},
+            {"game_id": 103, "date": "2023-09-17"},
             {"game_id": 104, "date": "2024-05-12"},
         ],
     ),
@@ -153,18 +280,49 @@ BASE_TABLES: dict[str, TableSpec] = {
             ("player_club_domestic_competition_id", pa.string()),
         ],
         [
-            {"player_id": 1, "date": "2024-02-01", "market_value_in_eur": 1_000_000.0,
-             "current_club_id": 10, "player_club_domestic_competition_id": "L1"},
-            {"player_id": 1, "date": AS_OF, "market_value_in_eur": 2_000_000.0,
-             "current_club_id": 10, "player_club_domestic_competition_id": "L1"},
-            {"player_id": 2, "date": "2024-04-01", "market_value_in_eur": 500_000.0,
-             "current_club_id": 10, "player_club_domestic_competition_id": "L1"},
-            {"player_id": 3, "date": "2024-04-01", "market_value_in_eur": 700_000.0,
-             "current_club_id": 10, "player_club_domestic_competition_id": "L1"},
-            {"player_id": 4, "date": "2024-02-01", "market_value_in_eur": 300_000.0,
-             "current_club_id": 30, "player_club_domestic_competition_id": "MX1"},
-            {"player_id": 5, "date": "2019-05-20", "market_value_in_eur": 400_000.0,
-             "current_club_id": 20, "player_club_domestic_competition_id": "ES1"},
+            # An earlier season-2024 valuation; the anchor takes the latest one (AS_OF).
+            {
+                "player_id": 1,
+                "date": "2024-08-01",
+                "market_value_in_eur": 1_000_000.0,
+                "current_club_id": 10,
+                "player_club_domestic_competition_id": "L1",
+            },
+            {
+                "player_id": 1,
+                "date": AS_OF,
+                "market_value_in_eur": 2_000_000.0,
+                "current_club_id": 10,
+                "player_club_domestic_competition_id": "L1",
+            },
+            {
+                "player_id": 2,
+                "date": "2024-04-01",
+                "market_value_in_eur": 500_000.0,
+                "current_club_id": 10,
+                "player_club_domestic_competition_id": "L1",
+            },
+            {
+                "player_id": 3,
+                "date": "2024-04-01",
+                "market_value_in_eur": 700_000.0,
+                "current_club_id": 10,
+                "player_club_domestic_competition_id": "L1",
+            },
+            {
+                "player_id": 4,
+                "date": "2024-02-01",
+                "market_value_in_eur": 300_000.0,
+                "current_club_id": 30,
+                "player_club_domestic_competition_id": "MX1",
+            },
+            {
+                "player_id": 5,
+                "date": "2019-05-20",
+                "market_value_in_eur": 400_000.0,
+                "current_club_id": 20,
+                "player_club_domestic_competition_id": "ES1",
+            },
         ],
     ),
     "players": (
@@ -178,21 +336,51 @@ BASE_TABLES: dict[str, TableSpec] = {
             ("country_of_citizenship", pa.string()),
         ],
         [
-            {"player_id": 1, "date_of_birth": "1997-06-20", "position": "Attack",
-             "sub_position": "Centre-Forward", "foot": "right", "height_in_cm": 180,
-             "country_of_citizenship": "AR"},
-            {"player_id": 2, "date_of_birth": "1995-01-01", "position": "Midfield",
-             "sub_position": "Central Midfield", "foot": "left", "height_in_cm": 175,
-             "country_of_citizenship": "DE"},
-            {"player_id": 3, "date_of_birth": "1990-02-02", "position": "Goalkeeper",
-             "sub_position": "Goalkeeper", "foot": "right", "height_in_cm": 190,
-             "country_of_citizenship": "IT"},
-            {"player_id": 4, "date_of_birth": "1998-08-08", "position": "Attack",
-             "sub_position": "Centre-Forward", "foot": "right", "height_in_cm": 182,
-             "country_of_citizenship": "BR"},
-            {"player_id": 5, "date_of_birth": "2000-12-12", "position": "Defender",
-             "sub_position": "Centre-Back", "foot": None, "height_in_cm": None,
-             "country_of_citizenship": "IT"},
+            {
+                "player_id": 1,
+                "date_of_birth": "1997-06-20",
+                "position": "Attack",
+                "sub_position": "Centre-Forward",
+                "foot": "right",
+                "height_in_cm": 180,
+                "country_of_citizenship": "AR",
+            },
+            {
+                "player_id": 2,
+                "date_of_birth": "1995-01-01",
+                "position": "Midfield",
+                "sub_position": "Central Midfield",
+                "foot": "left",
+                "height_in_cm": 175,
+                "country_of_citizenship": "DE",
+            },
+            {
+                "player_id": 3,
+                "date_of_birth": "1990-02-02",
+                "position": "Goalkeeper",
+                "sub_position": "Goalkeeper",
+                "foot": "right",
+                "height_in_cm": 190,
+                "country_of_citizenship": "IT",
+            },
+            {
+                "player_id": 4,
+                "date_of_birth": "1998-08-08",
+                "position": "Attack",
+                "sub_position": "Centre-Forward",
+                "foot": "right",
+                "height_in_cm": 182,
+                "country_of_citizenship": "BR",
+            },
+            {
+                "player_id": 5,
+                "date_of_birth": "2000-12-12",
+                "position": "Defender",
+                "sub_position": "Centre-Back",
+                "foot": None,
+                "height_in_cm": None,
+                "country_of_citizenship": "IT",
+            },
         ],
     ),
     "transfers": (
@@ -205,15 +393,31 @@ BASE_TABLES: dict[str, TableSpec] = {
             ("market_value_in_eur", pa.float64()),
         ],
         [
-            {"player_id": 1, "transfer_date": "2024-07-15", "from_club_id": 10,
-             "to_club_id": 30, "transfer_fee": 5_000_000.0,
-             "market_value_in_eur": 2_500_000.0},
+            {
+                "player_id": 1,
+                "transfer_date": "2024-07-15",
+                "from_club_id": 10,
+                "to_club_id": 30,
+                "transfer_fee": 5_000_000.0,
+                "market_value_in_eur": 2_500_000.0,
+            },
             # Free transfer and a move between two uncovered clubs: both drop out.
-            {"player_id": 2, "transfer_date": "2024-01-10", "from_club_id": 10,
-             "to_club_id": 20, "transfer_fee": 0.0, "market_value_in_eur": 1_000_000.0},
-            {"player_id": 2, "transfer_date": "2024-02-10", "from_club_id": 30,
-             "to_club_id": 40, "transfer_fee": 9_000_000.0,
-             "market_value_in_eur": 1_000_000.0},
+            {
+                "player_id": 2,
+                "transfer_date": "2024-01-10",
+                "from_club_id": 10,
+                "to_club_id": 20,
+                "transfer_fee": 0.0,
+                "market_value_in_eur": 1_000_000.0,
+            },
+            {
+                "player_id": 2,
+                "transfer_date": "2024-02-10",
+                "from_club_id": 30,
+                "to_club_id": 40,
+                "transfer_fee": 9_000_000.0,
+                "market_value_in_eur": 1_000_000.0,
+            },
         ],
     ),
 }
@@ -257,8 +461,7 @@ EXPECTED_PLAYER_SEASON_TYPES = [
     ("log10_market_value", "double"),
 ]
 EXPECTED_TRANSFER_EVENT_TYPES = [
-    *EXPECTED_PLAYER_SEASON_TYPES[:EXPECTED_PLAYER_SEASON_TYPES.index(("transfer_date", "date32[day]"))
-                                   if False else len(EXPECTED_PLAYER_SEASON_TYPES)],
+    *EXPECTED_PLAYER_SEASON_TYPES,
     ("transfer_date", "date32[day]"),
     ("transfer_fee", "double"),
     ("pre_transfer_market_value", "double"),
@@ -286,17 +489,16 @@ def write_clean_fixture(
     for table_name, (schema, default_rows) in sorted(BASE_TABLES.items()):
         if table_name in omit_tables:
             continue
-        rows = list(overrides[table_name]) if overrides and table_name in default_rows[:0] + [] else []
-        rows = list(overrides[table_name]) if overrides and table_name in overrides else list(
-            default_rows
+        rows = (
+            list(overrides[table_name])
+            if overrides and table_name in overrides
+            else list(default_rows)
         )
         arrays = []
         for column_name, column_type in schema:
             values = [row.get(column_name) for row in rows]
             if column_type == pa.date32():
-                values = [
-                    None if value is None else pd.Timestamp(value).date() for value in values
-                ]
+                values = [None if value is None else pd.Timestamp(value).date() for value in values]
             arrays.append(pa.array(values, type=column_type, from_pandas=True))
         pq.write_table(
             pa.Table.from_arrays(arrays, names=[name for name, _ in schema]),
@@ -312,9 +514,7 @@ def write_clean_fixture(
         "cleaned_at": "2026-10-29T00:00:00Z",
         "tables": tables_meta,
     }
-    (clean_path / "_clean.json").write_text(
-        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
-    )
+    (clean_path / "_clean.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return clean_path
 
 
@@ -337,19 +537,20 @@ def test_transform_writes_three_outputs_with_expected_schema_and_manifest(
     out = project_dir / "data" / "transform"
     player_seasons = pq.ParquetFile(out / "player_seasons.parquet").schema_arrow
     transfer_events = pq.ParquetFile(out / "transfer_events.parquet").schema_arrow
-    assert list(zip(player_seasons.names, map(str, player_seasons.types))) == (
+    assert list(zip(player_seasons.names, map(str, player_seasons.types), strict=True)) == (
         EXPECTED_PLAYER_SEASON_TYPES
     )
-    assert list(zip(transfer_events.names, map(str, transfer_events.types))) == (
+    assert list(zip(transfer_events.names, map(str, transfer_events.types), strict=True)) == (
         EXPECTED_TRANSFER_EVENT_TYPES
     )
 
     manifest = json.loads((out / "_transform.json").read_text(encoding="utf-8"))
     assert manifest["dataset"] == "davidcariboo/player-scores"
     assert manifest["version"] == 679
-    assert manifest["clean_manifest_sha256"] == hashlib.sha256(
-        (clean_path / "_clean.json").read_bytes()
-    ).hexdigest()
+    assert (
+        manifest["clean_manifest_sha256"]
+        == hashlib.sha256((clean_path / "_clean.json").read_bytes()).hexdigest()
+    )
     assert manifest["window_days"] == 365
     assert manifest["minutes_floor"] == 180
     assert manifest["empirical_bayes_m"] == 5
@@ -387,10 +588,11 @@ def test_transform_player_season_rows_match_the_synthetic_fixture(project_dir: P
     assert row["split"] == "validation"
     assert row["club_id"] == 10
     assert row["league_id"] == "L1"
-    # (2023-05-15, 2024-05-15]: the match exactly 365 days before counts, the one 366 days
-    # before and the two after the anchor do not.
-    assert row["minutes"] == 270.0
-    assert row["apps"] == 4.0
+    # (2023-09-16, 2024-09-15]: 103 (2023-09-17 = as_of - 364, the earliest counted day),
+    # 104, 105, 106 and 107 count; 101/102 (May 2023), 112 (after the anchor) and 101's
+    # goal do not — 104's goal is the one that lands in the aggregates.
+    assert row["minutes"] == 390.0
+    assert row["apps"] == 5.0
     assert row["goals"] == 1.0
     assert row["starts"] == 1.0
     assert row["captain"] == 1.0
@@ -399,15 +601,15 @@ def test_transform_player_season_rows_match_the_synthetic_fixture(project_dir: P
     assert row["clean_sheet_flag"] == 1.0
     assert row["goals_conceded"] == 1.0
     assert row["uefa_minutes"] == 0.0
-    assert row["starter_ratio"] == 0.25
+    assert row["starter_ratio"] == 0.2
     assert row["captain_ratio"] == 1.0
-    assert row["win_rate"] == 0.25
-    assert row["clean_sheet_rate"] == 0.25
-    assert row["goals_conceded_per_match"] == 0.25
+    assert row["win_rate"] == 0.2
+    assert row["clean_sheet_rate"] == 0.2
+    assert row["goals_conceded_per_match"] == 0.2
     assert row["uefa_share"] == 0.0
-    assert row["cup_share"] == pytest.approx(30.0 / 270.0)
+    assert row["cup_share"] == pytest.approx(30.0 / 390.0)
     assert row["league_position"] == 3.0
-    assert row["league_position_missing"] == (not row["league_position_missing"])
+    assert bool(row["league_position_missing"]) is False
     assert row["age"] == pytest.approx(_age_days("1997-06-20", AS_OF))
     assert row["age_sq"] == pytest.approx(row["age"] ** 2)
     assert row["height_in_cm"] == 180.0
@@ -426,19 +628,40 @@ def test_transform_player_season_rows_match_the_synthetic_fixture(project_dir: P
     assert bool(row["league_position_missing"]) is True
     assert pd.isna(row["height_in_cm"])
     assert pd.isna(row["foot"])
-    assert pd.isna(row["sub_position"])
+    assert row["sub_position"] == "Centre-Back"
     assert row["country_group"] == "IT"
 
 
 def test_valuation_window_includes_day_365_and_excludes_day_366(project_dir: Path) -> None:
     """A closed window would count both 200-minute matches; the half-open window counts one."""
+    # Window day 365 (as_of - 364 = 2023-09-17) is the last counted day of the trailing
+    # 365-day window; day 366 (as_of - 365 = 2023-09-16) is the excluded boundary of the
+    # half-open window (a closed window would count it too).
     extra_apps = [
-        {"game_id": 201, "player_id": 6, "player_club_id": 10, "date": "2023-05-15",
-         "competition_id": "L1", "minutes_played": 200, "goals": 0, "assists": 0,
-         "yellow_cards": 0, "red_cards": 0},
-        {"game_id": 202, "player_id": 6, "player_club_id": 10, "date": "2023-05-14",
-         "competition_id": "L1", "minutes_played": 200, "goals": 0, "assists": 0,
-         "yellow_cards": 0, "red_cards": 0},
+        {
+            "game_id": 201,
+            "player_id": 6,
+            "player_club_id": 10,
+            "date": "2023-09-17",
+            "competition_id": "L1",
+            "minutes_played": 200,
+            "goals": 0,
+            "assists": 0,
+            "yellow_cards": 0,
+            "red_cards": 0,
+        },
+        {
+            "game_id": 202,
+            "player_id": 6,
+            "player_club_id": 10,
+            "date": "2023-09-16",
+            "competition_id": "L1",
+            "minutes_played": 200,
+            "goals": 0,
+            "assists": 0,
+            "yellow_cards": 0,
+            "red_cards": 0,
+        },
     ]
     write_clean_fixture(
         project_dir / "data",
@@ -446,14 +669,25 @@ def test_valuation_window_includes_day_365_and_excludes_day_366(project_dir: Pat
             "appearances": [*_BASE("appearances"), *extra_apps],
             "player_valuations": [
                 *_BASE("player_valuations"),
-                {"player_id": 6, "date": AS_OF, "market_value_in_eur": 100_000.0,
-                 "current_club_id": 10, "player_club_domestic_competition_id": "L1"},
+                {
+                    "player_id": 6,
+                    "date": AS_OF,
+                    "market_value_in_eur": 100_000.0,
+                    "current_club_id": 10,
+                    "player_club_domestic_competition_id": "L1",
+                },
             ],
             "players": [
                 *_BASE("players"),
-                {"player_id": 6, "date_of_birth": "1999-01-01", "position": "Midfield",
-                 "sub_position": None, "foot": None, "height_in_cm": None,
-                 "country_of_citizenship": None},
+                {
+                    "player_id": 6,
+                    "date_of_birth": "1999-01-01",
+                    "position": "Midfield",
+                    "sub_position": None,
+                    "foot": None,
+                    "height_in_cm": None,
+                    "country_of_citizenship": None,
+                },
             ],
         },
     )
@@ -472,9 +706,9 @@ def test_transfer_window_excludes_matches_on_the_transfer_date(project_dir: Path
     df = read_table(project_dir / "data" / "transform" / "transfer_events.parquet")
 
     (row,) = df.itertuples(index=False)
-    # The strict-before window [2023-07-15, 2024-07-14] holds the 2023-08-01, 2024-05-12,
+    # The strict-before window [2023-07-15, 2024-07-14] holds the 2023-09-17, 2024-05-12,
     # 2024-05-14 and 2024-06-01 matches (300 minutes); leaking the transfer-day match would
-    # make it 390, and admitting the 2023-05-15 match would too.
+    # make it 390, admitting the 2023-05-15 match would too, and 112 (2024-09-25) postdates it.
     assert row.minutes == 300.0
     assert row.apps == 4.0
     assert row.transfer_date == dt.date(2024, 7, 15)

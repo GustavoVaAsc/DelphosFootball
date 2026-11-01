@@ -24,12 +24,12 @@ import numpy as np
 import pandas as pd
 
 from delphos_ml.features.snapshots.build_player_seasons import (
+    _BIO_COLUMNS,
     COVERED_LEAGUE_IDS,
     FIRST_SEASON,
     LAST_SEASON,
     OUTFIELD_POSITIONS,
     WINDOW_METRIC_COLUMNS,
-    _BIO_COLUMNS,
     _LatestClubPositions,
     _window_row_metrics,
 )
@@ -74,9 +74,7 @@ def build_transfer_events(
 
     leagues = clubs[["club_id", "domestic_competition_id"]]
     tr = tr.merge(
-        leagues.rename(
-            columns={"club_id": "to_club_id", "domestic_competition_id": "_to_league"}
-        ),
+        leagues.rename(columns={"club_id": "to_club_id", "domestic_competition_id": "_to_league"}),
         on="to_club_id",
         how="left",
     )

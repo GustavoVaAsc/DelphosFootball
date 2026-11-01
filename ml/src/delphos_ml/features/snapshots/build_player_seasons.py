@@ -26,7 +26,22 @@ from delphos_ml.features.windows import TrailingWindowIndex
 from delphos_ml.features.windows.trailing_window_index import EPOCH_ANCHOR
 
 COVERED_LEAGUE_IDS: frozenset[str] = frozenset(
-    {"IT1", "ES1", "GB1", "FR1", "TR1", "L1", "NL1", "PO1", "BE1", "RU1", "GR1", "SC1", "UKR1", "DK1"}
+    {
+        "IT1",
+        "ES1",
+        "GB1",
+        "FR1",
+        "TR1",
+        "L1",
+        "NL1",
+        "PO1",
+        "BE1",
+        "RU1",
+        "GR1",
+        "SC1",
+        "UKR1",
+        "DK1",
+    }
 )
 OUTFIELD_POSITIONS: frozenset[str] = frozenset({"Defender", "Midfield", "Attack"})
 FIRST_SEASON = 2017
@@ -114,9 +129,7 @@ class _LatestClubPositions:
             club_days, positions = entry
             idx = np.searchsorted(club_days, group["day"].to_numpy(dtype=np.int64), side="right")
             hit = idx > 0
-            out[group.index.to_numpy()] = np.where(
-                hit, positions[np.maximum(idx - 1, 0)], np.nan
-            )
+            out[group.index.to_numpy()] = np.where(hit, positions[np.maximum(idx - 1, 0)], np.nan)
         return out
 
 

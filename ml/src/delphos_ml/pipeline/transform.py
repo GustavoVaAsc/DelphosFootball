@@ -1,8 +1,8 @@
 """Pipeline stage `transform`: builds the deterministic modeling rows from the cleaned tables.
 
 Input: `<data dir>/clean/_clean.json` and the typed Parquet tables written by `clean`.
-Output: `<data dir>/transform/player_seasons.parquet`, `<data dir>/transform/transfer_events.parquet`
-and `<data dir>/transform/_transform.json`.
+Output: `<data dir>/transform/player_seasons.parquet`,
+`<data dir>/transform/transfer_events.parquet` and `<data dir>/transform/_transform.json`.
 Responsibility: assemble the Option A end-of-season player-season snapshots and the
 paid-transfer event rows of docs/ML_ARCHITECTURE.md sections 3.2, 3.3 and 3.4 from the cleaned
 tables, computing only deterministic raw counts, ratios and groupings. No statistic is learned
@@ -115,6 +115,13 @@ _DATETIME_COLUMNS: dict[str, tuple[str, ...]] = {
 _TEXT_DATE_COLUMNS: dict[str, tuple[str, ...]] = {
     "appearances": ("date",),
     "game_lineups": ("date",),
+}
+# The window index keeps the ingest text contract (ADR-012) and compares these binary flags
+# as "1"/"0", but `clean` writes them as Arrow bool — normalize on load like the text dates
+# above, or `win_flag` and `captain` would silently stay 0 for every row.
+_TEXT_FLAG_COLUMNS: dict[str, tuple[str, ...]] = {
+    "club_games": ("is_win",),
+    "game_lineups": ("team_captain",),
 }
 
 _WINDOW_METRIC_FIELDS: tuple[pa.Field, ...] = tuple(
@@ -258,7 +265,9 @@ def _run(settings: Settings) -> dict[str, Any]:
     try:
         staging = Path(tempfile.mkdtemp(prefix=_staging_prefix(STAGE_DIR_NAME), dir=data_dir))
     except OSError as exc:
-        raise TransformError(f"could not create a temporary directory in {data_dir}: {exc}") from exc
+        raise TransformError(
+            f"could not create a temporary directory in {data_dir}: {exc}"
+        ) from exc
     try:
         _write_table(
             player_seasons_out, staging / f"{TABLE_PLAYER_SEASONS}.parquet", TABLE_PLAYER_SEASONS
@@ -361,6 +370,8 @@ def _load_tables(clean_dir: Path) -> dict[str, pd.DataFrame]:
             frame[column] = pd.to_datetime(frame[column])
         for column in _TEXT_DATE_COLUMNS.get(name, ()):
             frame[column] = frame[column].astype(str)
+        for column in _TEXT_FLAG_COLUMNS.get(name, ()):
+            frame[column] = frame[column].map({True: "1", False: "0"})
         tables[name] = frame
     return tables
 
@@ -379,11 +390,12 @@ def _build_indexes(
         tables["appearances"], tables["club_games"], tables["game_lineups"], competitions
     )
     cup_ids = set(competitions.loc[competitions["type"] == "domestic_cup", "competition_id"])
-    cup_apps = tables["appearances"].loc[
-        tables["appearances"]["competition_id"].isin(cup_ids)
-    ]
+    cup_apps = tables["appearances"].loc[tables["appearances"]["competition_id"].isin(cup_ids)]
     empty_lineups = pd.DataFrame(
-        {column: pd.Series(dtype="object") for column in ("player_id", "date", "type", "team_captain")}
+        {
+            column: pd.Series(dtype="object")
+            for column in ("player_id", "date", "type", "team_captain")
+        }
     )
     cup_window = TrailingWindowIndex(cup_apps, tables["club_games"], empty_lineups, competitions)
     return window, cup_window
@@ -408,9 +420,7 @@ def _ratio(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
     return (num / den.where(den > 0.0)).fillna(0.0)
 
 
-def _with_deterministic_columns(
-    frame: pd.DataFrame, country_map: dict[str, str]
-) -> pd.DataFrame:
+def _with_deterministic_columns(frame: pd.DataFrame, country_map: dict[str, str]) -> pd.DataFrame:
     """Add the deterministic ratios and groupings; drop the internal helper columns."""
     derived = pd.DataFrame(
         {
@@ -448,7 +458,9 @@ def _to_arrow(frame: pd.DataFrame, schema: pa.Schema) -> pa.Table:
         ]
         return pa.Table.from_arrays(arrays, schema=schema)
     except (ValueError, TypeError, pa.ArrowException) as exc:
-        raise TransformError(f"could not cast the derived rows to the output schema: {exc}") from exc
+        raise TransformError(
+            f"could not cast the derived rows to the output schema: {exc}"
+        ) from exc
 
 
 def _write_table(table: pa.Table, path: Path, name: str) -> None:

@@ -144,7 +144,9 @@ def _empty_club_games() -> pd.DataFrame:
 
 
 def _empty_games() -> pd.DataFrame:
-    return pd.DataFrame({"game_id": pd.Series(dtype="int64"), "date": pd.Series(dtype="datetime64[s]")})
+    return pd.DataFrame(
+        {"game_id": pd.Series(dtype="int64"), "date": pd.Series(dtype="datetime64[s]")}
+    )
 
 
 def _build_player_seasons(
@@ -265,9 +267,7 @@ def test_transfer_events_use_the_covered_club_and_strict_before_window() -> None
             _app(3, 1, AS_OF, 90.0),
         ]
     )
-    clubs = pd.DataFrame(
-        {"club_id": [10, 20, 30], "domestic_competition_id": ["L1", "ES1", "MX1"]}
-    )
+    clubs = pd.DataFrame({"club_id": [10, 20, 30], "domestic_competition_id": ["L1", "ES1", "MX1"]})
     transfers = pd.DataFrame(
         {
             "player_id": [1, 1],

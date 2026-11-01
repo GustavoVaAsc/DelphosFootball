@@ -34,9 +34,7 @@ def season_of(dates: pd.Series) -> pd.Series:
     season 2023 and 2024-07-01 is season 2024.
     """
     parsed = pd.Series(dates)
-    return (parsed.dt.year - (parsed.dt.month < SEASON_MONTH_START).astype("int64")).astype(
-        "int64"
-    )
+    return (parsed.dt.year - (parsed.dt.month < SEASON_MONTH_START).astype("int64")).astype("int64")
 
 
 def assign_split(season: int | pd.Series) -> str | pd.Series:
