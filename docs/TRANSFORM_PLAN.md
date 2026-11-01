@@ -82,7 +82,7 @@ ml/src/delphos_ml/
 
 The transform manifest (`_transform.json`) carries every parameter that `train` would otherwise hard-code, so the fitted preprocessor and the stage that produced the rows cannot drift apart: `window_days` (`365`), `minutes_floor` (`180`), `empirical_bayes_m` (`5`), `prior_grouping` (`position`), `season_month_start` (`7`), and the per-split row counts. The fitted prior values themselves belong to the preprocessor artifact written by `train` ([docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.11), not to this transform manifest.
 
-**Acceptance.** The stage is accepted when its output row counts equal the population fixed in [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.2 and §3.3: `107,456` outfield player-season snapshots before the minutes floor, `47,359` after it, `14,692` distinct players, and `5,325` paid transfer rows. Per-season and per-split counts go into `_transform.json`. A run whose counts disagree is a defect, not a variant.
+**Acceptance.** The stage is accepted when its output row counts equal the population fixed in [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.2 and §3.3, measured over `ml/data/clean/`: `107,395` outfield player-season snapshots before the minutes floor, `47,350` after it, `14,688` distinct players, and `5,325` paid transfer rows. Per-season and per-split counts go into `_transform.json`. A run whose counts disagree is a defect, not a variant. The exploratory analysis over `ml/data/ingest/` reports `107,456` / `47,359` / `14,692`, which is the same funnel measured before `clean` drops the `4` outfield players with null `date_of_birth` (§3.5).
 
 **Tests**, with small synthetic fixtures, focused on the boundaries:
 
@@ -164,7 +164,7 @@ Each step has a gate: the next step starts only when the gate passes.
 | 3 | Extract `pipeline/_staging.py` from `clean.py`, parameterizing the staging prefix by stage name (§3) | `ml/tests/test_clean.py` unchanged and green |
 | 4 | Implement `features/snapshots.py`, `pipeline/transform.py`, the CLI wiring and the tests from §4 | the six boundary tests green; the manifest matches the §4 spec |
 | 5 | Implement `features/preprocess.py` and `features/feature_sets.py` with provisional sets (§3) | unit tests for the Empirical Bayes formula, the grouped imputer, and fold-scoped fitting |
-| 6 | Run `ingest` to `clean` to `transform` on version `679` | row counts equal `47,359`, `14,692` and `5,325`; per-split counts as expected |
+| 6 | Run `ingest` to `clean` to `transform` on version `679` | row counts equal `47,350`, `14,688` and `5,325`; per-split counts as expected |
 | 7 | Run E1, E2, E4 and E6 (§7) | decisions recorded in [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.6 to §3.8, findings in [docs/REPORT_NOTES.md](REPORT_NOTES.md), progress in [docs/WORK_PLAN.md](WORK_PLAN.md) |
 | 8 | Run E3, E5 and E7 as week-6 side work | E3's VIF outcome applied to `FULL` before `train` freezes it |
 
