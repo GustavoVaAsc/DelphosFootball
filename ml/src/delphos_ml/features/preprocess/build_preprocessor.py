@@ -20,6 +20,8 @@ pickles - a file each would wrap one expression.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
@@ -39,6 +41,11 @@ from delphos_ml.features.preprocess.group_median_imputer import GroupMedianImput
 
 #: Numeric columns imputed with the position-grouped median instead of the plain one.
 GROUP_MEDIAN_COLUMNS = frozenset({"height_in_cm"})
+
+#: The grouping columns `prior_grouping` may name. Mirrors the manifest's allowlist, so a
+#: forged `_transform.json` cannot regroup the shrinkage priors over an arbitrary column.
+#: The two are the position-like columns the prior can sensibly be fit over (H-10).
+PRIOR_GROUPING_ALLOWLIST = frozenset({DEFAULT_GROUP_COLUMN, "sub_position"})
 
 Branch = tuple[str, BaseEstimator, list[str]]
 
@@ -101,7 +108,23 @@ def build_preprocessor(
     `empirical_bayes_m` and `prior_grouping` default to the shared Empirical Bayes
     constants; `train` passes the values `_transform.json` records so the fitted
     preprocessor cannot drift from the rows' manifest.
+
+    Raises `ValueError` when the manifest-supplied parameters are not usable, so a forged
+    `_transform.json` fails here rather than reaching estimator construction: this is the
+    sink-side counterpart of the read-back rules in docs/TRANSFORM_PLAN.md section 4.
     """
+    if isinstance(empirical_bayes_m, bool) or not isinstance(empirical_bayes_m, (int, float)):
+        raise ValueError(f"empirical_bayes_m must be a number, got {empirical_bayes_m!r}")
+    if not math.isfinite(empirical_bayes_m) or empirical_bayes_m <= 0:
+        raise ValueError(
+            f"empirical_bayes_m must be positive and finite, got {empirical_bayes_m!r}"
+        )
+    if prior_grouping not in PRIOR_GROUPING_ALLOWLIST:
+        raise ValueError(
+            f"prior_grouping must be one of {sorted(PRIOR_GROUPING_ALLOWLIST)}, "
+            f"got {prior_grouping!r}"
+        )
+
     rates = tuple(feature_set.rates)
     rates_branch = EmpiricalBayesRates(
         count_columns=rates, m=empirical_bayes_m, group_column=prior_grouping

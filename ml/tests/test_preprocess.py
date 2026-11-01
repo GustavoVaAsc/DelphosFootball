@@ -426,6 +426,42 @@ def test_build_preprocessor_defaults_to_the_shared_eb_constants() -> None:
     assert rates.group_column == DEFAULT_GROUP_COLUMN
 
 
+@pytest.mark.parametrize(
+    "empirical_bayes_m",
+    [0, -1, -0.5, float("nan"), float("inf"), float("-inf"), True, False, "5", None],
+    ids=[
+        "zero",
+        "negative",
+        "neg-fraction",
+        "nan",
+        "inf",
+        "-inf",
+        "true",
+        "false",
+        "string",
+        "none",
+    ],
+)
+def test_build_preprocessor_refuses_an_unusable_m(
+    empirical_bayes_m: object,
+) -> None:
+    # A forged _transform.json must fail at the sink, not reach estimator construction.
+    with pytest.raises(ValueError, match="empirical_bayes_m"):
+        build_preprocessor(FULL, empirical_bayes_m=empirical_bayes_m)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "prior_grouping",
+    ["market_value_in_eur", "player_id", "", "Position", "goals", None],
+    ids=["target", "id", "empty", "wrong-case", "a-count", "none"],
+)
+def test_build_preprocessor_refuses_a_prior_grouping_outside_the_allowlist(
+    prior_grouping: object,
+) -> None:
+    with pytest.raises(ValueError, match="prior_grouping"):
+        build_preprocessor(FULL, prior_grouping=prior_grouping)  # type: ignore[arg-type]
+
+
 def test_fitted_preprocessor_survives_a_joblib_round_trip(tmp_path: Path) -> None:
     train = _full_train()
     preprocessor = build_preprocessor(FULL).fit(train)

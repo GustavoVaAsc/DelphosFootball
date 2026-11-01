@@ -36,8 +36,18 @@ def _prepare(data_dir: Path, stage: str) -> None:
 
 @pytest.mark.parametrize(
     "stage",
-    ["..", "../outside", "a/b", "a*b", "a[b", "Transform", "", "with space"],
-    ids=["dotdot", "dotdot-prefix", "slash", "star", "bracket", "uppercase", "empty", "space"],
+    ["..", "../outside", "a/b", "a*b", "a[b", "Transform", "", "with space", "transform\n"],
+    ids=[
+        "dotdot",
+        "dotdot-prefix",
+        "slash",
+        "star",
+        "bracket",
+        "upper",
+        "empty",
+        "space",
+        "trailing-nl",
+    ],
 )
 def test_invalid_stage_names_are_refused_before_any_path_is_touched(
     tmp_path: Path, stage: str
