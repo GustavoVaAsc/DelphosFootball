@@ -3,9 +3,10 @@
 Input: the column names of the `transform` stage's row schema.
 Output: the `FULL`, `POLY_REDUCED` and `CLUSTER` constants, re-exported by
 `delphos_ml.features.feature_sets`.
-Responsibility: declare what each model family consumes. Experiments E1, E2, E4 and E6
-(docs/TRANSFORM_PLAN.md section 7) finalise the sets; until then every tuple here is
-provisional and a change belongs in the experiment's decision record.
+Responsibility: declare what each model family consumes. E1, E2 and E1b/E2b finalised
+`FULL`; `POLY_REDUCED` and `CLUSTER` stay provisional until E4 and E6
+(docs/TRANSFORM_PLAN.md section 7) close them, and a change belongs in the experiment's
+decision record.
 
 These are kept together rather than one module per set because each set is a single
 constructor call: splitting them would add two import-only modules without shortening
@@ -16,9 +17,16 @@ from __future__ import annotations
 
 from delphos_ml.features.feature_sets.feature_set import FeatureSet
 
-#: Linear regression, Random Forest and Decision Tree: the full candidate panel.
-#: Raw production counts carry season volume, the shrunk per-90 rates carry efficiency
-#: (E1 decides whether the rate columns earn their place alongside the raw counts).
+#: Linear regression, Random Forest and Decision Tree. Finalised by E1 and E2
+#: (docs/TRANSFORM_PLAN.md section 7): every group in the ladder earned its place except
+#: `league_id`, which is excluded deliberately. It was the single largest gain in the
+#: ladder (R^2 0.578 -> 0.810), but it is a pricing variable rather than a performance
+#: one, so including it would make the undervaluation residual measure "price versus the
+#: league's typical price" instead of "price versus performance" - the reasoning that
+#: already excludes prior market value (REPORT_NOTES.md H-09) and league from CLUSTER.
+#: Raw production counts are excluded too: E1b measured them alongside the rates at a
+#: 0.05% RMSE gain, which does not pay for four more columns. The four counts enter only
+#: through the Empirical-Bayes per-90 rates.
 FULL = FeatureSet(
     name="full",
     numeric=(
@@ -27,10 +35,6 @@ FULL = FeatureSet(
         "starts",
         "starter_ratio",
         "captain_ratio",
-        "goals",
-        "assists",
-        "yellow_cards",
-        "red_cards",
         "age",
         "age_sq",
         "height_in_cm",
@@ -41,9 +45,9 @@ FULL = FeatureSet(
         "cup_share",
         "league_position",
     ),
-    categorical=("foot", "position", "sub_position", "country_group", "league_id"),
-    log1p=("minutes", "apps", "goals", "assists"),
-    rates=("goals", "assists"),
+    categorical=("foot", "position", "sub_position", "country_group"),
+    log1p=("minutes", "apps"),
+    rates=("goals", "assists", "yellow_cards", "red_cards"),
 )
 
 #: Polynomial regression on about six features. `age`/`age_sq` span the age curve with

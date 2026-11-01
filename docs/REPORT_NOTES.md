@@ -141,6 +141,31 @@ Como `eda.py` es la procedencia de todas las cifras citadas en este documento, e
 
 La refactorización destapó además una imprecisión en la documentación que conviene dejar escrita porque afecta a cómo se describe la metodología. La ventana de valuación se implementa como semientrada `(as_of_date - 365, as_of_date]`: el día de la valuación sí entra y el partido fechado exactamente 365 días antes no. La documentación la describía como cerrada `[as_of_date - 365, as_of_date]`, que abarca 366 días naturales mientras se la llama ventana de 365. En la versión `679` hay `6,904` colisiones exactas en la frontera de los 365 días, de modo que las dos definiciones no son intercambiables: cerrar el intervalo habría movido los minutos agregados y con ellos el número de filas que superan el piso de `180` minutos. Se decidió mantener el comportamiento del código, que es el que produjo todas las cifras registradas, y corregir la documentación para que describa la ventana semientrada.
 
+### H-13. Ablación de grupos de atributos y elección de la fuerza del suavizado (`m`)
+
+Ejecutamos la ablación de grupos de atributos sobre la regresión lineal de `log10(market_value_in_eur)`, con cinco pliegues de ventana expansiva dentro de `train` y `validation` (`2017-2019` a validar en `2020`, y así hasta `2017-2023` a validar en `2024`), reajustando el preprocesador en cada pliegue solo con las temporadas de entrenamiento de ese pliegue y sin tocar jamás la partición `test` de `2025`. La muestra son `26,373` filas de validación.
+
+| Rung | `RMSE` | `R^2` | `MdAPE` | `ΔRMSE` |
+| --- | ---: | ---: | ---: | ---: |
+| 1. Biográfico | `0.6010` | `0.1895` | `79.8%` | — |
+| 2. + volumen | `0.4886` | `0.4644` | `69.2%` | `−0.1124` |
+| 3. + tasas crudas por 90 | `0.4724` | `0.4992` | `67.1%` | `−0.0161` |
+| 3. + tasas Empirical Bayes | `0.4693` | `0.5058` | `67.0%` | `−0.0193` |
+| 4. + contexto de equipo | `0.4337` | `0.5780` | `61.3%` | `−0.0356` |
+| 5. + `league_id` | `0.2909` | `0.8102` | `40.4%` | `−0.1428` |
+
+Cada rung mejora el anterior en **todos los pliegues**, no solo agregado. El suavizado Empirical Bayes gana a las tasas crudas en los cinco pliegues, aunque por poco (`−0.0032` de `RMSE`), lo que confirma que conviene estabilizar las tasas de los jugadores con pocos minutos en lugar de descartarlos.
+
+**Exclusión de `league_id`.** El quinto rung es, con diferencia, la mayor ganancia de toda la escalera: `league_id` por sí solo sube el `R^2` de `0.578` a `0.810`. Lo excluimos igualmente. La liga es una variable de precio, no de rendimiento: un jugador de la Premier League vale más por dónde juega que por cómo juega. Con la liga dentro del modelo, el residuo deja de medir la distancia entre rendimiento y precio y pasa a medir el precio frente al precio típico de su liga, que es exactamente el argumento que ya llevó a excluir el valor de mercado previo (H-09) y a excluir la liga del conjunto `CLUSTER`, donde se quiso agrupar jugadores parecidos en el terreno y no por su liga. Aceptamos el costo de un `R^2` más bajo por la misma razón que en H-09. La escalera quedó así internamente coherente.
+
+**Recuentos crudos, un resultado nulo.** Añadir `goals`, `assists`, `yellow_cards` y `red_cards` como recuentos crudos junto a las tasas mejora el `RMSE` en `0.00024` (`0.05%`) y gana en 4 de 5 pliegues. La diferencia está dentro de cualquier banda de razonable de ruido: las tasas ya transportan la señal de producción. Decidimos dejar los recuentos fuera del conjunto final y mantener la parquedad, de modo que cada columna del modelo tenga que ganarse su lugar con evidencia.
+
+**La fuerza del suavizado `m`.** Barajamos `m ∈ {0, 2, 5, 10, 20}` sobre el conjunto final sin liga y repetimos la baraja tras excluir la liga, porque el óptimo puede moverse cuando cambia el conjunto de atributos. No se movió: en ambas barajas el mínimo está en `m = 20` (`0.43311` frente a `0.43342` en `m = 5`), una diferencia del `0.07%`. Ambos óptimos quedan además en el borde de la rejilla, con la curva todavía descendiendo, de modo que `20` es lo mejor medido y no un máximo probado.
+
+Mantuvimos `m = 5`. El parámetro `m` se mide en partidos de 90 minutos, así que `m = 20` equivale a `1,800` minutos de previo posicional frente a un piso de `180`: un jugador en el piso quedaría estimado en un `91%` por el previo y solo un `9%` por sus propios datos, frente al `71%` de `m = 5`. El piso de minutos existe precisamente para conservar a suplentes jóvenes y prospectos en rotación, donde suelen aparecer activos subvaluados (H-05), y un encogimiento tan fuerte aplana justo esas filas hacia la media posicional, desactivando la señal que el proyecto busca. A cambio de un `0.07%` de `RMSE` que no aporta nada al reporte, preferimos conservar la señal individual. Con ello `m = 5` coincide con el valor que H-05 midió para la pregunta distinta de la producción de la temporada siguiente, y las dos evidencias dejan de competir por una constante única.
+
+Las salidas de estas cuatro corridas quedan en `analysis/output/feature_ablation/` (`e1_ablation.csv`, `e1_rate_variant.csv`, `e1b_raw_counts.csv`, `e2_m_sweep.csv`, `e2b_m_sweep.csv`, dos figuras y `summary.json`).
+
 ## 6. Referencias internas
 
 - [docs/CONTEXT.md](CONTEXT.md): propuesta base, estrategia KDD y calendario original.

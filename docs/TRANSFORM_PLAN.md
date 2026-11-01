@@ -145,7 +145,9 @@ Every fold fits its own preprocessor: the Empirical Bayes priors, the height imp
 | # | Experiment | Script | Decides | Metrics |
 | --- | --- | --- | --- | --- |
 | E1 | Feature-group ablation on the linear model: biographical, then + volume, then + per-90 raw vs Empirical Bayes, then + team context, then + league | `analysis/feature_ablation.py` | §3.6: which feature groups enter `FULL` | RMSE and MAE on `log10`, MdAPE in EUR, R² |
+| E1b | Supplementary rung: raw production counts alongside the rates, on the no-league set | `analysis/feature_ablation.py` | §3.6: whether raw counts earn a place beside the rates | RMSE and MAE on `log10`, MdAPE in EUR, R² |
 | E2 | Empirical Bayes strength `m` in {0, 2, 5, 10, 20} on the market-value regression | `analysis/feature_ablation.py` | §3.6: confirm `m = 5` for valuation (the EDA validated it for next-season output, not for value) | RMSE on `log10` |
+| E2b | The `m` sweep repeated on the final no-league set, since the optimum can move when the feature set does | `analysis/feature_ablation.py` | §3.6: `m` on the set that ships | RMSE on `log10` |
 | E3 | Multicollinearity (VIF) on the linear feature set | `analysis/feature_ablation.py` | §3.6: drop or combine redundant features so OLS coefficients stay interpretable | VIF < 10 |
 | E4 | Polynomial degree in {1, 2, 3}, plus interaction-only, on `POLY_REDUCED` | `analysis/poly_degree.py` | §3.7: the degree, and whether polynomial beats linear | Cross-validated RMSE with the one-standard-error rule |
 | E5 | Residual diagnostics, `log10` vs raw target: heteroscedasticity and residuals by value quantile | `analysis/poly_degree.py` | §3.7: evidence for the report on the already decided `log10` target | Residual plots, Breusch-Pagan test |
@@ -171,7 +173,7 @@ Each step has a gate: the next step starts only when the gate passes.
 | 4 | Implement `features/snapshots.py`, `pipeline/transform.py`, the CLI wiring and the tests from §4 | the six boundary tests green; the manifest matches the §4 spec |
 | 5 | Implement `features/preprocess.py` and `features/feature_sets.py` with provisional sets (§3) | unit tests for the Empirical Bayes formula, the grouped imputer, and fold-scoped fitting |
 | 6 | Run `ingest` to `clean` to `transform` on version `679` | row counts equal `47,350`, `14,688` and `5,325`; per-split counts as expected |
-| 7 | Run E1, E2, E4 and E6 (§7) | decisions recorded in [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.6 to §3.8, findings in [docs/REPORT_NOTES.md](REPORT_NOTES.md), progress in [docs/WORK_PLAN.md](WORK_PLAN.md) |
+| 7 | Run E1, E2, E4 and E6 (§7) | decisions recorded in [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.6 to §3.8, findings in [docs/REPORT_NOTES.md](REPORT_NOTES.md), progress in [docs/WORK_PLAN.md](WORK_PLAN.md). **E1, E2 and the E1b/E2b supplements done 2026-11-01** (`FULL` fixed, `m` confirmed at 5, REPORT_NOTES H-13). **E4 and E6 remain** |
 | 8 | Run E3, E5 and E7 as week-6 side work | E3's VIF outcome applied to `FULL` before `train` freezes it |
 
 Step 2 moves code that produced every number quoted in the project documentation, so the gate is a diff of re-run outputs against the recorded figures, not a green test run.
