@@ -327,6 +327,20 @@ def test_leak_guard_changed_validation_rows_do_not_change_fitted_parameters() ->
     assert parameters_a == parameters_b
 
 
+def test_numeric_branch_applies_log1p_before_scaling() -> None:
+    train = _full_train()
+    preprocessor = build_preprocessor(FULL).fit(train)
+    names = list(preprocessor.get_feature_names_out())
+    numeric_names = [name for name in names if name.startswith("numeric__")]
+    scaler = preprocessor.named_transformers_["numeric"]["scale"]
+    scaler_index = numeric_names.index("numeric__minutes")
+    row = pd.DataFrame([_full_row(minutes=900.0)])
+    transformed = _dense(preprocessor.transform(row))
+    # minutes is declared in FULL.log1p, so the scaler must see log1p(minutes)
+    expected = (np.log1p(900.0) - scaler.mean_[scaler_index]) / scaler.scale_[scaler_index]
+    assert transformed[0, names.index("numeric__minutes")] == pytest.approx(expected)
+
+
 def test_unknown_categories_encode_as_all_zeros() -> None:
     preprocessor = build_preprocessor(FULL).fit(_full_train())
     row = pd.DataFrame(
