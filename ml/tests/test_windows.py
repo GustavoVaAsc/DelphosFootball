@@ -142,10 +142,9 @@ def test_window_excludes_matches_at_or_before_day_minus_365() -> None:
 
     result = _query(index, 1, as_of, strict_before=False)
 
-    # The valuation window as implemented is `(as_of - 365, as_of]`: half-open at the low
-    # end. docs/TRANSFORM_PLAN.md describes it as closed `[as_of - 365, as_of]`; the code
-    # that produced the recorded EDA figures excludes the exact boundary, so the refactor
-    # preserves that behaviour.
+    # Settled rule: the valuation window is half-open, `(as_of - 365, as_of]` — the as-of
+    # day is included and a match exactly 365 days before it is not. Documented in
+    # docs/ML_ARCHITECTURE.md sections 3.3/3.4 and docs/TRANSFORM_PLAN.md section 3.
     assert result["minutes_played"] == 60.0
 
 

@@ -8,7 +8,7 @@ and the fitted transforms that consume a set live in `delphos_ml.features.prepro
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -21,8 +21,9 @@ class FeatureSet:
     columns the polynomial model expands (the expansion itself is a `train` concern).
     `collapse` maps a categorical column to the rare levels that become `"other"`
     before encoding. Tuples keep the declaration order-stable for the artifact's
-    recorded feature names; the frozen dataclass blocks assignment, though the dict in
-    `collapse` keeps the instance unhashable.
+    recorded feature names; `collapse` is a tuple of `(column, rare levels)` pairs
+    rather than a dict, so the frozen dataclass blocks assignment and the instance
+    stays hashable.
     """
 
     name: str
@@ -31,11 +32,18 @@ class FeatureSet:
     log1p: tuple[str, ...] = ()
     poly: tuple[str, ...] = ()
     rates: tuple[str, ...] = ()
-    collapse: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    collapse: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
     def columns(self) -> tuple[str, ...]:
         """Every raw schema column this set declares, in declaration order, deduplicated."""
         seen: dict[str, None] = {}
-        for column in (*self.numeric, *self.categorical, *self.rates, *self.poly, *self.collapse):
+        collapse_columns = (column for column, _levels in self.collapse)
+        for column in (
+            *self.numeric,
+            *self.categorical,
+            *self.rates,
+            *self.poly,
+            *collapse_columns,
+        ):
             seen.setdefault(column, None)
         return tuple(seen)

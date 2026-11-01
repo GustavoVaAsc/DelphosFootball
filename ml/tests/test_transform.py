@@ -557,6 +557,8 @@ def test_transform_writes_three_outputs_with_expected_schema_and_manifest(
     assert manifest["prior_grouping"] == "position"
     assert manifest["season_month_start"] == 7
     assert manifest["country_top_n"] == 10
+    # The vocabulary is fitted on the training split's rows only (player 5, IT).
+    assert manifest["country_groups"] == ["IT"]
     assert manifest["rows_per_split"] == {"train": 1, "validation": 1}
     assert manifest["rows_per_season"] == {"2018": 1, "2024": 1}
     player_meta = manifest["tables"]["player_seasons"]
@@ -616,7 +618,9 @@ def test_transform_player_season_rows_match_the_synthetic_fixture(project_dir: P
     assert row["foot"] == "right"
     assert row["position"] == "Attack"
     assert row["sub_position"] == "Centre-Forward"
-    assert row["country_group"] == "AR"
+    # The validation row's AR never entered the vocabulary: the training split (player 5)
+    # carries only IT, so every other citizenship collapses to "other".
+    assert row["country_group"] == "other"
     assert row["log10_market_value"] == pytest.approx(float(np.log10(2_000_000.0)))
 
     row = df.loc[5]
@@ -770,6 +774,107 @@ def test_country_group_keeps_the_top_n_and_sends_the_rest_to_other() -> None:
     assert derived["country_group"].tolist() == ["other", "other", "C00"]
     assert "cup_minutes" not in derived.columns
     assert "country_of_citizenship" not in derived.columns
+
+
+def test_country_group_vocabulary_is_fitted_on_training_rows_only(project_dir: Path) -> None:
+    """Changing a validation-only or test-only citizenship must not move the vocabulary."""
+    data_dir = project_dir / "data"
+    write_clean_fixture(data_dir)
+    assert invoke_transform().exit_code == 0
+    manifest_path = data_dir / "transform" / "_transform.json"
+    baseline = json.loads(manifest_path.read_text(encoding="utf-8"))
+    # Only the train row (player 5) carries IT; the validation row's AR must not enter.
+    assert baseline["country_groups"] == ["IT"]
+
+    # Change the validation row's citizenship (AR -> ZZ) and add a test-split row (season
+    # 2025, citizenship YY): neither may move the vocabulary, and both must score as
+    # "other".
+    players_after = [
+        {
+            **row,
+            "country_of_citizenship": (
+                "ZZ" if row["player_id"] == 1 else row["country_of_citizenship"]
+            ),
+        }
+        for row in _BASE("players")
+    ]
+    players_after.append(
+        {
+            "player_id": 6,
+            "date_of_birth": "1999-03-03",
+            "position": "Midfield",
+            "sub_position": "Central Midfield",
+            "foot": "right",
+            "height_in_cm": 177,
+            "country_of_citizenship": "YY",
+        }
+    )
+    write_clean_fixture(
+        data_dir,
+        overrides={
+            "players": players_after,
+            "player_valuations": [
+                *_BASE("player_valuations"),
+                {
+                    "player_id": 6,
+                    "date": "2025-08-01",
+                    "market_value_in_eur": 900_000.0,
+                    "current_club_id": 10,
+                    "player_club_domestic_competition_id": "L1",
+                },
+            ],
+            "appearances": [
+                *_BASE("appearances"),
+                {
+                    "game_id": 301,
+                    "player_id": 6,
+                    "player_club_id": 10,
+                    "date": "2025-07-10",
+                    "competition_id": "L1",
+                    "minutes_played": 120,
+                    "goals": 0,
+                    "assists": 0,
+                    "yellow_cards": 0,
+                    "red_cards": 0,
+                },
+                {
+                    "game_id": 302,
+                    "player_id": 6,
+                    "player_club_id": 10,
+                    "date": "2025-07-20",
+                    "competition_id": "L1",
+                    "minutes_played": 90,
+                    "goals": 0,
+                    "assists": 0,
+                    "yellow_cards": 0,
+                    "red_cards": 0,
+                },
+            ],
+        },
+    )
+    assert invoke_transform().exit_code == 0
+    after = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert after["country_groups"] == baseline["country_groups"]
+    rows = read_table(data_dir / "transform" / "player_seasons.parquet")
+    rows.index = rows["player_id"]
+    assert rows.loc[1]["country_group"] == "other"  # validation row, now citizenship ZZ
+    assert rows.loc[6]["country_group"] == "other"  # test row, citizenship YY
+
+    # Positive control: change the *training* row's citizenship (IT -> DE) and only then
+    # the vocabulary follows, proving the mapping tracks the training split alone.
+    train_players = [
+        {
+            **row,
+            "country_of_citizenship": (
+                "DE" if row["player_id"] == 5 else row["country_of_citizenship"]
+            ),
+        }
+        for row in players_after
+    ]
+    write_clean_fixture(data_dir, overrides={"players": train_players})
+    assert invoke_transform().exit_code == 0
+    third = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert third["country_groups"] == ["DE"]
 
 
 def _BASE(table_name: str) -> list[RowDict]:

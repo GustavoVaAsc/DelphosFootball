@@ -323,6 +323,8 @@ def _run(settings: Settings) -> dict[str, Any]:
         manifest_file_name=MANIFEST_FILE_NAME,
         expected_table_names={spec.name for spec in TABLE_SPECS},
         error=CleanError,
+        rename_attempts=_RENAME_ATTEMPTS,
+        rename_delay_seconds=_RENAME_RETRY_DELAY_SECONDS,
     )
     _check_ownership(
         target, stage=STAGE_DIR_NAME, manifest_file_name=MANIFEST_FILE_NAME, error=CleanError

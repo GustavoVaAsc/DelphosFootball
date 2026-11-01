@@ -1,7 +1,8 @@
 """End-of-season player-season snapshots and paid-transfer event rows for the `transform` stage.
 
-Input: the typed `player_valuations`, `players`, `transfers`, `clubs`, `club_games` and `games`
-frames from `data/clean/` plus the trailing-window indexes over the appearance frames.
+Input: the typed `player_valuations`, `players`, `transfers` and `clubs` frames from
+`data/clean/`, the point-in-time club league-position lookup the stage builds from `club_games`
+and `games`, plus the trailing-window indexes over the appearance frames.
 Output: one DataFrame per population — the Option A player-season rows and the paid-transfer
 event rows — carrying the raw window counts and deterministic derived columns of the
 `ml/data/transform/` schema.

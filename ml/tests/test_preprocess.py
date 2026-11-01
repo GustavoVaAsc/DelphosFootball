@@ -22,6 +22,7 @@ from delphos_ml.features.preprocess import (
     GroupMedianImputer,
     build_preprocessor,
 )
+from delphos_ml.features.preprocess.empirical_bayes_rates import DEFAULT_GROUP_COLUMN, DEFAULT_M
 
 
 def _dense(matrix: object) -> np.ndarray:
@@ -406,6 +407,23 @@ def test_poly_reduced_preprocessor_has_no_rate_columns() -> None:
     assert names
     assert not any(name.startswith("empirical_bayes__") for name in names)
     assert _dense(preprocessor.transform(frame)).shape == (1, len(names))
+
+
+def test_build_preprocessor_passes_manifest_parameters_into_the_eb_transformer() -> None:
+    """`train` must be able to feed `_transform.json`'s values through to the transformer."""
+    fitted = build_preprocessor(FULL, empirical_bayes_m=7.5, prior_grouping="sub_position").fit(
+        _full_train()
+    )
+    rates = fitted.named_transformers_["empirical_bayes"]
+    assert rates.m == 7.5
+    assert rates.group_column == "sub_position"
+
+
+def test_build_preprocessor_defaults_to_the_shared_eb_constants() -> None:
+    default = build_preprocessor(FULL).fit(_full_train())
+    rates = default.named_transformers_["empirical_bayes"]
+    assert rates.m == DEFAULT_M
+    assert rates.group_column == DEFAULT_GROUP_COLUMN
 
 
 def test_fitted_preprocessor_survives_a_joblib_round_trip(tmp_path: Path) -> None:

@@ -18,6 +18,7 @@ from delphos_ml.features.snapshots import (
     build_transfer_events,
     season_of,
 )
+from delphos_ml.features.snapshots.build_player_seasons import _LatestClubPositions
 from delphos_ml.features.windows import TrailingWindowIndex
 from delphos_ml.features.windows.trailing_window_index import EPOCH_ANCHOR
 
@@ -149,6 +150,16 @@ def _empty_games() -> pd.DataFrame:
     )
 
 
+def _positions(
+    club_games: pd.DataFrame | None = None, games: pd.DataFrame | None = None
+) -> _LatestClubPositions:
+    """The point-in-time league-position lookup the stage prebuilds for both builders."""
+    return _LatestClubPositions(
+        club_games if club_games is not None else _empty_club_games(),
+        games if games is not None else _empty_games(),
+    )
+
+
 def _build_player_seasons(
     app_rows: list[dict[str, object]],
     valuation_rows: list[dict[str, object]],
@@ -160,8 +171,7 @@ def _build_player_seasons(
     return build_player_seasons(
         _valuations(valuation_rows),
         _players(player_rows),
-        _empty_club_games(),
-        _empty_games(),
+        _positions(),
         window,
         cup_window,
         minutes_floor=minutes_floor,
@@ -283,8 +293,7 @@ def test_transfer_events_use_the_covered_club_and_strict_before_window() -> None
         transfers,
         _players([_player_row(1, "Attack")]),
         clubs,
-        _empty_club_games(),
-        _empty_games(),
+        _positions(),
         window,
         cup_window,
         minutes_floor=180,
@@ -318,8 +327,7 @@ def test_transfer_events_drop_free_transfers_and_uncovered_only_moves() -> None:
         transfers,
         _players([_player_row(1, "Attack")]),
         clubs,
-        _empty_club_games(),
-        _empty_games(),
+        _positions(),
         window,
         cup_window,
         minutes_floor=180,
@@ -347,8 +355,7 @@ def test_league_position_uses_the_latest_game_on_or_before_the_anchor() -> None:
     rows = build_player_seasons(
         _valuations([_valuation_row(1, AS_OF)]),
         _players([_player_row(1, "Attack")]),
-        club_games,
-        games,
+        _positions(club_games, games),
         window,
         cup_window,
         minutes_floor=180,
@@ -357,3 +364,39 @@ def test_league_position_uses_the_latest_game_on_or_before_the_anchor() -> None:
     (row,) = rows.itertuples(index=False)
     assert row.league_position == 3.0
     assert not row.league_position_missing
+
+
+def test_transfer_rows_follow_the_documented_sort_order() -> None:
+    window, cup_window = _index(
+        [
+            _app(1, 1, AS_OF - 300, 90.0),
+            _app(2, 1, AS_OF - 10, 90.0),
+            _app(3, 1, AS_OF, 90.0),
+        ]
+    )
+    clubs = pd.DataFrame({"club_id": [10, 20, 30], "domestic_competition_id": ["L1", "ES1", "MX1"]})
+    transfers = pd.DataFrame(
+        {
+            "player_id": [1, 1],
+            "transfer_date": pd.to_datetime([_date(AS_OF), _date(AS_OF)]),
+            # Same player, same day: from_club_id breaks the tie, so the row moving from
+            # club 10 must come first whatever order the input lists them in.
+            "from_club_id": [30, 10],
+            "to_club_id": [10, 30],
+            "transfer_fee": [5_000_000.0, 5_000_000.0],
+            "market_value_in_eur": [2_500_000.0, 1_500_000.0],
+        }
+    )
+
+    rows = build_transfer_events(
+        transfers,
+        _players([_player_row(1, "Attack")]),
+        clubs,
+        _positions(),
+        window,
+        cup_window,
+        minutes_floor=180,
+    )
+
+    # Documented order: (player_id, transfer_date, from_club_id, to_club_id).
+    assert rows["pre_transfer_market_value"].tolist() == [1_500_000.0, 2_500_000.0]

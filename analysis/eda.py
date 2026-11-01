@@ -31,6 +31,7 @@ from scipy import stats
 
 from delphos_ml.config import ConfigError, find_project_root, load_settings
 from delphos_ml.features.windows import TrailingWindowIndex
+from delphos_ml.features.windows.trailing_window_index import EPOCH_ANCHOR
 
 EXPECTED_TABLES: tuple[str, ...] = (
     "appearances",
@@ -81,7 +82,6 @@ CORE_14_LEAGUE_IDS: frozenset[str] = frozenset(
         "UKR1",
     }
 )
-EPOCH_ANCHOR = pd.Timestamp("1900-01-01")
 
 
 def _fail(reason: str) -> None:

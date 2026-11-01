@@ -7,6 +7,10 @@ of the aggregated appearance and lineup metrics over the trailing 365-day window
 Responsibility: own the sorted `(player_id * KEY_STRIDE + day)` prefix-sum encoding so
 callers answer any batch of window queries with `searchsorted` in O(N log M), with no
 per-player Python loop.
+
+The module passes the ~130-line guidance because the frame preparation, the prefix-sum build
+and the batched query are one algorithm that only makes sense read together: splitting the
+encoding from its readers would hide the invariant `query()` depends on.
 """
 
 from __future__ import annotations

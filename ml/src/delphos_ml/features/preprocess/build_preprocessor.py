@@ -1,6 +1,8 @@
 """Assemble the fitted preprocessor for a `FeatureSet`.
 
-Input: a `FeatureSet` declaration (docs/TRANSFORM_PLAN.md section 3).
+Input: a `FeatureSet` declaration (docs/TRANSFORM_PLAN.md section 3) plus the optional
+`empirical_bayes_m` and `prior_grouping` parameters the transform manifest records, so
+`train` passes the manifest's values instead of the transformer's hard-coded ones.
 Output: a scikit-learn `ColumnTransformer` with three branches: (1) the Empirical-Bayes
 per-90 rates over the set's `rates` counts, (2) numerics imputed - `height_in_cm` with
 the position-grouped median, the rest with the plain training median - then log1p'd
@@ -29,6 +31,7 @@ from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardSc
 from delphos_ml.features.feature_sets import FeatureSet
 from delphos_ml.features.preprocess.empirical_bayes_rates import (
     DEFAULT_GROUP_COLUMN,
+    DEFAULT_M,
     DEFAULT_MINUTES_COLUMN,
     EmpiricalBayesRates,
 )
@@ -84,16 +87,26 @@ def _imputation_transformers(feature_set: FeatureSet) -> list[Branch]:
     return transformers
 
 
-def build_preprocessor(feature_set: FeatureSet) -> ColumnTransformer:
+def build_preprocessor(
+    feature_set: FeatureSet,
+    *,
+    empirical_bayes_m: float = DEFAULT_M,
+    prior_grouping: str = DEFAULT_GROUP_COLUMN,
+) -> ColumnTransformer:
     """Return the three-branch ColumnTransformer this feature set consumes.
 
     Fitted on the training split by `train` and serialized with the model artifact;
     every branch is a real estimator, so `get_params` / `set_params` and the fitted
     trailing-underscore attributes survive a joblib round trip to the serving backend.
+    `empirical_bayes_m` and `prior_grouping` default to the shared Empirical Bayes
+    constants; `train` passes the values `_transform.json` records so the fitted
+    preprocessor cannot drift from the rows' manifest.
     """
     rates = tuple(feature_set.rates)
-    rates_branch = EmpiricalBayesRates(count_columns=rates)
-    rates_columns = [DEFAULT_GROUP_COLUMN, DEFAULT_MINUTES_COLUMN, *rates] if rates else []
+    rates_branch = EmpiricalBayesRates(
+        count_columns=rates, m=empirical_bayes_m, group_column=prior_grouping
+    )
+    rates_columns = [prior_grouping, DEFAULT_MINUTES_COLUMN, *rates] if rates else []
     branches: list[Branch] = [("empirical_bayes", rates_branch, rates_columns)]
 
     numeric_columns = list(feature_set.numeric)

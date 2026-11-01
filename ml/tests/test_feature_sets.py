@@ -60,6 +60,15 @@ ALL_SETS = (FULL, POLY_REDUCED, CLUSTER)
 def test_feature_set_is_frozen() -> None:
     with pytest.raises(FrozenInstanceError):
         FULL.name = "other"
+    with pytest.raises(FrozenInstanceError):
+        FULL.collapse = ()
+
+
+def test_collapse_is_immutable_and_the_declaration_stays_hashable() -> None:
+    # The one field encoding a measured rarity decision must not be reassignable in place.
+    with pytest.raises(TypeError):
+        FULL.collapse["foot"] = ("left",)
+    assert isinstance(hash(FULL), int)
 
 
 @pytest.mark.parametrize("feature_set", ALL_SETS, ids=lambda feature_set: feature_set.name)
@@ -92,8 +101,8 @@ def test_cluster_carries_no_league_feature() -> None:
 
 
 def test_cluster_collapses_rare_sub_position_levels() -> None:
-    assert set(CLUSTER.collapse) <= set(CLUSTER.categorical)
-    assert CLUSTER.collapse["sub_position"] == (
+    assert {column for column, _levels in CLUSTER.collapse} <= set(CLUSTER.categorical)
+    assert dict(CLUSTER.collapse)["sub_position"] == (
         "Left Midfield",
         "Right Midfield",
         "Second Striker",
@@ -101,6 +110,6 @@ def test_cluster_collapses_rare_sub_position_levels() -> None:
 
 
 def test_only_cluster_declares_collapse() -> None:
-    assert FULL.collapse == {}
-    assert POLY_REDUCED.collapse == {}
-    assert CLUSTER.collapse != {}
+    assert FULL.collapse == ()
+    assert POLY_REDUCED.collapse == ()
+    assert CLUSTER.collapse != ()

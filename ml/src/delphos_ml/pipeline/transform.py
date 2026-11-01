@@ -10,8 +10,17 @@ from the data here: the Empirical Bayes priors, imputers and scalers belong to t
 preprocessor that `train` fits on the training split, and the parameters both stages must
 agree on (`window_days`, `minutes_floor`, `empirical_bayes_m`, `prior_grouping`,
 `season_month_start`) are recorded in `_transform.json` so `train` reads them instead of
-hard-coding them. Top-level `rows_per_split` and `rows_per_season` count the `player_seasons`
-table; each entry under `tables` repeats them for its own table.
+hard-coding them. The one data-derived selection this stage makes — the top-N citizenship
+vocabulary behind `country_group` — is fitted on the training split's rows only, and the
+resulting level list is recorded as `country_groups` next to `country_top_n` in
+`_transform.json` so downstream scoring can validate against it. Top-level `rows_per_split`
+and `rows_per_season` count the `player_seasons` table; each entry under `tables` repeats
+them for its own table.
+
+The module carries the whole stage contract — input column lists, the authoritative output
+schemas, the manifest and the staging swap — past the ~130-line guidance because a stage is
+one module with one entry function (ml/AGENTS.md section 4); the reusable row builders and
+the window index already live under `features/`.
 
 Each run writes into a temporary directory next to `transform/` and swaps it in after both
 tables and `_transform.json` are written. A failed run leaves any previous `transform/` output
@@ -34,6 +43,7 @@ import typer
 
 from delphos_ml.config import ConfigError, Settings, load_settings
 from delphos_ml.features.snapshots import build_player_seasons, build_transfer_events
+from delphos_ml.features.snapshots.build_player_seasons import _LatestClubPositions
 from delphos_ml.features.snapshots.season import SEASON_MONTH_START
 from delphos_ml.features.windows import TrailingWindowIndex
 from delphos_ml.features.windows.trailing_window_index import WINDOW_DAYS
@@ -221,6 +231,8 @@ def _run(settings: Settings) -> dict[str, Any]:
         manifest_file_name=MANIFEST_FILE_NAME,
         expected_table_names={TABLE_PLAYER_SEASONS, TABLE_TRANSFER_EVENTS},
         error=TransformError,
+        rename_attempts=_RENAME_ATTEMPTS,
+        rename_delay_seconds=_RENAME_RETRY_DELAY_SECONDS,
     )
     _check_ownership(
         target, stage=STAGE_DIR_NAME, manifest_file_name=MANIFEST_FILE_NAME, error=TransformError
@@ -228,23 +240,27 @@ def _run(settings: Settings) -> dict[str, Any]:
     clean_manifest, clean_manifest_sha256 = _load_clean_manifest(clean_dir, settings)
     tables = _load_tables(clean_dir)
     window, cup_window = _build_indexes(tables)
+    positions = _LatestClubPositions(tables["club_games"], tables["games"])
 
     player_seasons = build_player_seasons(
         tables["player_valuations"],
         tables["players"],
-        tables["club_games"],
-        tables["games"],
+        positions,
         window,
         cup_window,
         minutes_floor=MINUTES_FLOOR,
     )
-    country_map = _country_group_map(player_seasons["country_of_citizenship"])
+    # The vocabulary decides which countries keep their own level in every split, so it is
+    # fitted on the training split's rows alone: no validation-only or test-only citizenship
+    # may move it across the split boundary (docs/TRANSFORM_PLAN.md section 2).
+    country_map = _country_group_map(
+        player_seasons.loc[player_seasons["split"] == "train", "country_of_citizenship"]
+    )
     transfer_events = build_transfer_events(
         tables["transfers"],
         tables["players"],
         tables["clubs"],
-        tables["club_games"],
-        tables["games"],
+        positions,
         window,
         cup_window,
         minutes_floor=MINUTES_FLOOR,
@@ -289,6 +305,7 @@ def _run(settings: Settings) -> dict[str, Any]:
             "prior_grouping": PRIOR_GROUPING,
             "season_month_start": SEASON_MONTH_START,
             "country_top_n": COUNTRY_TOP_N,
+            "country_groups": list(country_map),
             "rows_per_split": _counts_by(player_seasons, "split"),
             "rows_per_season": _counts_by(player_seasons, "season"),
             "tables": {
@@ -402,11 +419,14 @@ def _build_indexes(
 
 
 def _country_group_map(citizenship: pd.Series) -> dict[str, str]:
-    """Map the top-N citizenships of the player-season population to themselves.
+    """Map the top-N citizenships of the training player-season rows to themselves.
 
-    Ranked by row count, ties broken alphabetically for determinism; every other country
-    (including a missing citizenship) becomes `"other"` downstream. The same mapping is
-    applied to the transfer rows.
+    `citizenship` must hold training-split rows only: the top-N selection is a data-derived
+    choice, so it is fitted on the split `train` owns and the resulting level list is
+    recorded as `country_groups` in `_transform.json` for downstream scoring to validate
+    against. Ranked by row count, ties broken alphabetically for determinism; every other
+    country (including a missing citizenship) becomes `"other"` downstream. The same
+    mapping is applied to the transfer rows.
     """
     counts = citizenship.dropna().value_counts()
     ranked = sorted(counts.items(), key=lambda item: (-item[1], str(item[0])))

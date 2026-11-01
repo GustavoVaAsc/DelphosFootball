@@ -1,7 +1,8 @@
 """Option A end-of-season player-season snapshot rows for the `transform` stage.
 
-Input: the typed `player_valuations` and `players` frames from `data/clean/`, the `club_games`
-and `games` frames for point-in-time league position, and the shared trailing-window indexes.
+Input: the typed `player_valuations` and `players` frames from `data/clean/`, the prebuilt
+point-in-time club league-position lookup (built by the stage from `club_games` and `games`),
+and the shared trailing-window indexes.
 Output: one row per `(player_id, season)` holding the anchor date and split, the point-in-time
 club and league, the raw trailing-window counts (plus domestic-cup minutes), the biography
 fields, and the log10 market-value target — ready for the stage's deterministic derivations.
@@ -136,8 +137,7 @@ class _LatestClubPositions:
 def build_player_seasons(
     valuations: pd.DataFrame,
     players: pd.DataFrame,
-    club_games: pd.DataFrame,
-    games: pd.DataFrame,
+    positions: _LatestClubPositions,
     window: TrailingWindowIndex,
     cup_window: TrailingWindowIndex,
     *,
@@ -149,7 +149,8 @@ def build_player_seasons(
     within that July-to-June season (`as_of_date`), restricted to the 14 covered leagues and
     outfield players, requiring `>= minutes_floor` trailing minutes in the valuation window
     `(as_of_date - 365, as_of_date]`. Club and league come only from the anchor valuation row;
-    biography only from `players`. Rows are sorted by `(player_id, season)`.
+    biography only from `players`; league position from the shared `positions` lookup the stage
+    builds once for both row builders. Rows are sorted by `(player_id, season)`.
     """
     vals = valuations[
         [
@@ -187,12 +188,12 @@ def build_player_seasons(
     )
     out = out.loc[out["minutes"] >= minutes_floor].reset_index(drop=True)
 
-    positions = _LatestClubPositions(club_games, games).position_at(
+    league_position = positions.position_at(
         out["current_club_id"].to_numpy(dtype=np.int64),
         out["day"].to_numpy(dtype=np.int64),
     )
-    out["league_position"] = positions
-    out["league_position_missing"] = np.isnan(positions)
+    out["league_position"] = league_position
+    out["league_position_missing"] = np.isnan(league_position)
     out["age"] = (out["date"] - out["date_of_birth"]).dt.days / 365.25
     out["log10_market_value"] = np.log10(out["market_value_in_eur"].astype("float64"))
 

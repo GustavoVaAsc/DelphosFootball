@@ -69,5 +69,5 @@ CLUSTER = FeatureSet(
     numeric=("minutes", "starter_ratio", "uefa_share", "cup_share"),
     categorical=("sub_position",),
     rates=("goals", "assists", "yellow_cards", "red_cards"),
-    collapse={"sub_position": ("Left Midfield", "Right Midfield", "Second Striker")},
+    collapse=(("sub_position", ("Left Midfield", "Right Midfield", "Second Striker")),),
 )

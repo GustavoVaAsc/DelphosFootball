@@ -4,15 +4,18 @@ Input: the caller stage's name, its manifest file name, the table names its mani
 the exception class it reports expected failures with, and the pipeline data directory.
 Output: `<data dir>/<stage>/` atomically replaced by the fully written staging directory next to
 it, with leftovers from interrupted runs restored or removed.
-Responsibility: implement the one swap protocol every stage uses — prepare the data directory,
-check target ownership, retire the previous output, swap the new one in with retries and
-rollback, restore a complete retired copy when the target is missing, and remove leftovers
-best-effort. The helpers implement a single protocol and only make sense read together, so they
-stay in one module instead of one file per helper. Each stage passes its own name and gets
-`.<stage>-staging-` and `.<stage>-retired-` directory names.
+Responsibility: implement the one swap protocol every stage uses — refuse a stage name that is
+not a plain lowercase identifier, prepare the data directory, check target ownership, retire
+the previous output, swap the new one in with retries and rollback, restore a complete retired
+copy when the target is missing, and remove leftovers best-effort. The helpers implement a
+single protocol and only make sense read together, so they stay in one module instead of one
+file per helper. Each stage passes its own name and gets `.<stage>-staging-` and
+`.<stage>-retired-` directory names.
 """
 
+import glob
 import json
+import re
 import shutil
 import time
 import uuid
@@ -23,6 +26,16 @@ import typer
 
 _RENAME_ATTEMPTS = 3
 _RENAME_RETRY_DELAY_SECONDS = 0.5
+
+#: A stage name becomes directory names, path components and glob patterns, so only plain
+#: lowercase identifiers get that far (`/`, `..`, `*` and `[` would escape or widen them).
+_STAGE_NAME_PATTERN = re.compile(r"[a-z][a-z0-9_]*\Z")
+
+
+def _validate_stage(stage: str, error: type[Exception]) -> None:
+    """Raise the caller's error class unless `stage` is a plain lowercase identifier."""
+    if _STAGE_NAME_PATTERN.fullmatch(stage) is None:
+        raise error(f"invalid stage name {stage!r}: must match ^[a-z][a-z0-9_]*$")
 
 
 def _staging_prefix(stage: str) -> str:
@@ -40,12 +53,15 @@ def _prepare_data_dir(
     manifest_file_name: str,
     expected_table_names: set[str],
     error: type[Exception],
+    rename_attempts: int | None = None,
+    rename_delay_seconds: float | None = None,
 ) -> None:
+    _validate_stage(stage, error)
     target = data_dir / stage
     try:
         data_dir.mkdir(parents=True, exist_ok=True)
-        retired = sorted(data_dir.glob(f"{_retired_prefix(stage)}*"))
-        staging = sorted(data_dir.glob(f"{_staging_prefix(stage)}*"))
+        retired = sorted(data_dir.glob(glob.escape(_retired_prefix(stage)) + "*"))
+        staging = sorted(data_dir.glob(glob.escape(_staging_prefix(stage)) + "*"))
     except OSError as exc:
         raise error(f"could not prepare {data_dir}: {exc}") from exc
     if not target.exists() and retired:
@@ -62,7 +78,12 @@ def _prepare_data_dir(
             )
         else:
             try:
-                _rename(candidate, target)
+                _rename(
+                    candidate,
+                    target,
+                    attempts=rename_attempts,
+                    delay_seconds=rename_delay_seconds,
+                )
             except OSError as exc:
                 raise error(
                     f"could not restore {target} from {candidate}: {exc}; close programs or "
@@ -97,7 +118,7 @@ def _restore_candidate(
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
             continue
         complete.append((age, directory))
-    return max(complete)[1] if complete else None
+    return max(complete, key=lambda item: item[0])[1] if complete else None
 
 
 def _check_ownership(
@@ -144,6 +165,7 @@ def _swap_in(
     rename_attempts: int | None = None,
     rename_delay_seconds: float | None = None,
 ) -> None:
+    _validate_stage(stage, error)
     retired = None
     if target.exists():
         retired = target.with_name(f"{_retired_prefix(stage)}{uuid.uuid4().hex}")

@@ -1,8 +1,8 @@
 """Paid-transfer event rows for the `transform` stage.
 
-Input: the typed `transfers`, `players` and `clubs` frames from `data/clean/`, the
-`club_games` and `games` frames for point-in-time league position, and the shared
-trailing-window indexes.
+Input: the typed `transfers`, `players` and `clubs` frames from `data/clean/`, the prebuilt
+point-in-time club league-position lookup (built by the stage from `club_games` and `games`),
+and the shared trailing-window indexes.
 Output: one row per paid outfield transfer with the pre-transfer window counts and biography,
 on the player-season feature schema plus `transfer_date`, `transfer_fee` and
 `pre_transfer_market_value`.
@@ -16,6 +16,10 @@ The row's `club_id` and `league_id` are the covered side of the transfer: the bu
 its domestic league is covered, otherwise the selling club, so `league_id` is always one of the
 14 covered codes. `as_of_date` duplicates `transfer_date` so both transform tables share one
 feature schema. Window and league-position helpers are shared with `build_player_seasons`.
+
+The module passes the ~130-line guidance because the population filters, the covered-side
+league join, the strict-before window rows and the schema assembly are one row contract that
+must stay readable in one place; the shared helpers live in `build_player_seasons`.
 """
 
 from __future__ import annotations
@@ -42,8 +46,7 @@ def build_transfer_events(
     transfers: pd.DataFrame,
     players: pd.DataFrame,
     clubs: pd.DataFrame,
-    club_games: pd.DataFrame,
-    games: pd.DataFrame,
+    positions: _LatestClubPositions,
     window: TrailingWindowIndex,
     cup_window: TrailingWindowIndex,
     *,
@@ -54,7 +57,8 @@ def build_transfer_events(
     One row per paid (`transfer_fee > 0`) outfield transfer in seasons 2017 to 2025 that
     involves at least one club in the 14 covered leagues and has a positive pre-transfer
     valuation, requiring `>= minutes_floor` trailing minutes in the strict-before window
-    `[transfer_date - 365, transfer_date - 1]`. Rows are sorted by
+    `[transfer_date - 365, transfer_date - 1]`. League position comes from the shared
+    `positions` lookup the stage builds once for both row builders. Rows are sorted by
     `(player_id, transfer_date, from_club_id, to_club_id)`.
     """
     tr = transfers[
@@ -93,6 +97,9 @@ def build_transfer_events(
 
     tr = tr.merge(players[list(_BIO_COLUMNS)], on="player_id", how="inner")
     tr = tr.loc[tr["position"].isin(OUTFIELD_POSITIONS)]
+    # Deterministic artifact order, as the docstring promises: the window metrics and every
+    # derived column below follow this order into the output rows.
+    tr = tr.sort_values(["player_id", "transfer_date", "from_club_id", "to_club_id"])
     tr["day"] = (tr["transfer_date"] - EPOCH_ANCHOR).dt.days
     tr = tr.reset_index(drop=True)
 
@@ -111,12 +118,12 @@ def build_transfer_events(
     )
     out = out.loc[out["minutes"] >= minutes_floor].reset_index(drop=True)
 
-    positions = _LatestClubPositions(club_games, games).position_at(
+    league_position = positions.position_at(
         out["club_id"].to_numpy(dtype=np.int64),
         out["day"].to_numpy(dtype=np.int64),
     )
-    out["league_position"] = positions
-    out["league_position_missing"] = np.isnan(positions)
+    out["league_position"] = league_position
+    out["league_position_missing"] = np.isnan(league_position)
     out["age"] = (out["transfer_date"] - out["date_of_birth"]).dt.days / 365.25
     out["log10_market_value"] = np.log10(out["market_value_in_eur"].astype("float64"))
 
