@@ -3,14 +3,17 @@
 Input: `ml/data/transform/player_seasons.parquet` resolved through `delphos_ml.config` like
 `analysis/eda.py`, read with a predicate that keeps only the `train` and `validation` splits -
 the 2025 `test` split is never read.
-Output: `e1_ablation.csv`, `e1_rate_variant.csv`, `e2_m_sweep.csv`, `fig_e1_ablation.png`,
-`fig_e2_m_sweep.png` and `summary.json` under `<repo root>/analysis/output/feature_ablation/`.
-Responsibility: run the two experiments that decide docs/ML_ARCHITECTURE.md section 3.6 - E1,
-the feature-group ablation on OLS market-value regression, and E2, the `m` sweep that confirms
-or changes the provisional `m = 5` for valuation. The script reports evidence only; the
+Output: `e1_ablation.csv`, `e1_rate_variant.csv`, `e1b_raw_counts.csv`, `e2_m_sweep.csv`,
+`e2b_m_sweep.csv`, `fig_e1_ablation.png`, `fig_e2_m_sweep.png` and `summary.json` under
+`<repo root>/analysis/output/feature_ablation/`.
+Responsibility: run the four runs that decide docs/ML_ARCHITECTURE.md section 3.6 - E1, the
+feature-group ablation on OLS market-value regression; E2, the `m` sweep that confirms or
+changes the provisional `m = 5` for valuation; E1b, the raw production-count comparison rung
+with `league_id` kept out of both sides; and E2b, the `m` re-sweep on E1b's winning variant,
+because E2 ran on rung 5 with `league_id` in the set. The script reports evidence only; the
 decisions belong in the architecture docs, not here.
 
-Both experiments share one protocol and therefore one scoring core: expanding-window season
+All four runs share one protocol and therefore one scoring core: expanding-window season
 folds inside `train` + `validation` (train 2017-2019 validate 2020, and so on up to train
 2017-2023 validate 2024), and every fold fits its own preprocessor - Empirical Bayes priors,
 height medians, scalers, one-hot vocabularies - on that fold's training seasons only before OLS
@@ -18,6 +21,14 @@ scores that fold's validation season (the leak discipline pinned in `ml/tests/te
 The module is longer than a screen because it is one experiment script per ADR-014: splitting
 the shared fold, metric and figure code into a second analysis module would break the
 one-script-one-output-dir convention without shortening anything.
+
+The ladder's rung 5 (`league_id`) was measured but is rejected on methodological grounds:
+league is a pricing variable, not a performance variable, so with it in the model the
+undervaluation residual measures price versus the league's typical price instead of price
+versus performance - the same reasoning that excluded prior market value
+(docs/REPORT_NOTES.md H-09) and that keeps league out of `CLUSTER`. Predictive accuracy is
+deliberately traded away: `summary.json` records `league_excluded: true`, and E1b and E2b
+run on the ladder without it.
 
 E2's `m = 0` point cannot pass through `build_preprocessor`, whose sink refuses `m <= 0`
 (pinned by `test_build_preprocessor_refuses_an_unusable_m`); it is scored as the raw-rate
@@ -110,6 +121,17 @@ LEAGUE = replace(
     categorical=(*TEAM_CONTEXT.categorical, "league_id"),
 )
 
+#: E1b variant B: variant A plus the raw production counts, carried the way the
+#: provisional `FULL` declares them - `log1p` on the skewed goals and assists, plain on
+#: the cards - so a win maps straight onto `FULL` and a null result cannot be blamed on
+#: the encoding.
+RAW_COUNTS = replace(
+    TEAM_CONTEXT,
+    name="e1b_raw_counts",
+    numeric=(*TEAM_CONTEXT.numeric, *RATE_COUNTS),
+    log1p=(*TEAM_CONTEXT.log1p, "goals", "assists"),
+)
+
 #: The E1 ladder as `(rung key, previous rung key, feature set)`; rung 3 is a fork, so both
 #: branches name rung 2 as their predecessor and rung 4 builds on the EB branch.
 LADDER: tuple[tuple[str, str | None, FeatureSet], ...] = (
@@ -193,11 +215,13 @@ def _metrics(y_true: np.ndarray, pred: np.ndarray) -> dict[str, float | int]:
     }
 
 
-def _score_rungs(folds: list[FoldFrame]) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Score every ladder rung on every fold; return the ablation and rate-fork tables."""
+def _score_variants(
+    variants: list[tuple[str, FeatureSet]], folds: list[FoldFrame]
+) -> dict[str, dict[str, dict[str, float | int]]]:
+    """Score every `(key, feature set)` on every fold plus the pooled concatenation."""
     metrics_by_key: dict[str, dict[str, dict[str, float | int]]] = {}
-    for rung_key, _prev, feature_set in LADDER:
-        metrics_by_key[rung_key] = {}
+    for key, feature_set in variants:
+        metrics_by_key[key] = {}
         pooled_true: list[np.ndarray] = []
         pooled_pred: list[np.ndarray] = []
         # The rates branch is a no-op when `rates` is empty, so DEFAULT_M is inert there.
@@ -205,10 +229,18 @@ def _score_rungs(folds: list[FoldFrame]) -> tuple[pd.DataFrame, pd.DataFrame]:
             y_true, pred = _fit_score(feature_set, train, val, DEFAULT_M)
             pooled_true.append(y_true)
             pooled_pred.append(pred)
-            metrics_by_key[rung_key][fold_key] = _metrics(y_true, pred)
-        metrics_by_key[rung_key]["pooled"] = _metrics(
+            metrics_by_key[key][fold_key] = _metrics(y_true, pred)
+        metrics_by_key[key]["pooled"] = _metrics(
             np.concatenate(pooled_true), np.concatenate(pooled_pred)
         )
+    return metrics_by_key
+
+
+def _score_rungs(folds: list[FoldFrame]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Score every ladder rung on every fold; return the ablation and rate-fork tables."""
+    metrics_by_key = _score_variants(
+        [(key, feature_set) for key, _prev, feature_set in LADDER], folds
+    )
 
     records: list[dict[str, Any]] = []
     pooled_n_val = sum(len(val) for _key, _train, val, _seasons in folds)
@@ -272,8 +304,54 @@ def _score_rungs(folds: list[FoldFrame]) -> tuple[pd.DataFrame, pd.DataFrame]:
     return ablation, pd.DataFrame(fork)
 
 
+def _score_e1b(ablation: pd.DataFrame, folds: list[FoldFrame]) -> pd.DataFrame:
+    """Score E1b: the rung-4 set without league (A) against it plus raw counts (B).
+
+    Variant A needs no refit - it is exactly the `4_team_context` rung the ladder already
+    scored at the same folds and the same `m`, so its metrics are read off `ablation`
+    and only variant B is fitted. One row per fold plus the pooled row, wide with both
+    sides and the B-minus-A deltas.
+    """
+    metrics_b = _score_variants([("b", RAW_COUNTS)], folds)["b"]
+    rung_rows = ablation[ablation["rung"] == "4_team_context"].set_index("fold")
+    fold_keys = [fold_key for fold_key, _train, _val, _seasons in folds]
+    records: list[dict[str, Any]] = []
+    for fold_key in [*fold_keys, "pooled"]:
+        a = rung_rows.loc[fold_key]
+        b = metrics_b[fold_key]
+        records.append(
+            {
+                "variant_a": TEAM_CONTEXT.name,
+                "variant_b": RAW_COUNTS.name,
+                "fold": fold_key,
+                "train_seasons": a["train_seasons"],
+                "val_season": a["val_season"],
+                "n_val": int(a["n_val"]),
+                "rmse_a": float(a["rmse"]),
+                "rmse_b": float(b["rmse"]),
+                "delta_rmse_b_minus_a": float(b["rmse"]) - float(a["rmse"]),
+                "mae_a": float(a["mae"]),
+                "mae_b": float(b["mae"]),
+                "delta_mae_b_minus_a": float(b["mae"]) - float(a["mae"]),
+                "r2_a": float(a["r2"]),
+                "r2_b": float(b["r2"]),
+                "delta_r2_b_minus_a": float(b["r2"]) - float(a["r2"]),
+                "mdape_a_pct": float(a["mdape_eur_pct"]),
+                "mdape_b_pct": float(b["mdape_eur_pct"]),
+                "delta_mdape_eur_pct_b_minus_a": float(b["mdape_eur_pct"])
+                - float(a["mdape_eur_pct"]),
+                "floored_rows_a": int(a["floored_rows"]),
+                "floored_rows_b": int(b["floored_rows"]),
+            }
+        )
+    return pd.DataFrame(records)
+
+
 def _sweep_m(winning: FeatureSet, folds: list[FoldFrame]) -> pd.DataFrame:
-    """Rescore the winning rung at each `m`; `m = 0` goes through the raw-rate variant."""
+    """Rescore a feature set at each `m`; `m = 0` goes through the raw-rate variant.
+
+    Used by E2 on the ladder winner and by E2b on E1b's winning variant.
+    """
     records: list[dict[str, Any]] = []
     for m in M_SWEEP:
         use_raw = m == 0.0 and winning.rates == RATE_COUNTS
@@ -312,36 +390,67 @@ def _sweep_m(winning: FeatureSet, folds: list[FoldFrame]) -> pd.DataFrame:
     return pd.DataFrame(records)
 
 
-def _render_figures(out_dir: Path, ablation: pd.DataFrame, sweep: pd.DataFrame) -> list[str]:
-    """Write the two figures; pooled metrics bold, per-fold metrics as thin context lines."""
-    labels = [key for key, _prev, _set in LADDER]
+def _render_figures(
+    out_dir: Path,
+    ablation: pd.DataFrame,
+    e1b: pd.DataFrame,
+    sweep: pd.DataFrame,
+    e2b: pd.DataFrame,
+    optimum_m: float,
+) -> list[str]:
+    """Write the two figures; pooled metrics bold, per-fold metrics as thin context lines.
+
+    E1 shows the no-league ladder (rungs 1 to 4) plus E1b's raw-count variant B; rung 5
+    was measured but rejected (see `league_excluded` in `summary.json`). E2 shows E2b's
+    re-swept curve with the reference line at the new optimum, and the E2 curve on rung
+    5 as grey context for what the league exclusion moved.
+    """
     fold_keys = [str(i) for i in range(1, len(FOLDS) + 1)]
-    pooled = ablation[ablation["fold"] == "pooled"].set_index("rung").loc[labels]
+    rungs_no_league = ["1_biographical", "2_volume", "3_rates_raw", "3_rates_eb", "4_team_context"]
+    labels = [*rungs_no_league, "4b_raw_counts"]
+    variant_b = e1b.assign(rung="4b_raw_counts", rmse=e1b["rmse_b"], r2=e1b["r2_b"])
+    ladder = pd.concat(
+        [
+            ablation[ablation["rung"].isin(rungs_no_league)][["rung", "fold", "rmse", "r2"]],
+            variant_b[["rung", "fold", "rmse", "r2"]],
+        ],
+        ignore_index=True,
+    )
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.2), constrained_layout=True)
     for axis, metric, title in ((axes[0], "rmse", "RMSE (log10 EUR)"), (axes[1], "r2", "R$^2$")):
         for fold_key in fold_keys:
-            fold_rows = ablation[ablation["fold"] == fold_key].set_index("rung").loc[labels]
+            fold_rows = ladder[ladder["fold"] == fold_key].set_index("rung").loc[labels]
             axis.plot(range(len(labels)), fold_rows[metric], color="steelblue", alpha=0.35, lw=1)
+        pooled = ladder[ladder["fold"] == "pooled"].set_index("rung").loc[labels]
         axis.plot(range(len(labels)), pooled[metric], "o-", color="navy", lw=2, label="pooled")
         axis.set_xticks(range(len(labels)), labels, rotation=30, ha="right")
         axis.set_title(title)
         axis.legend()
-    fig.suptitle("E1: feature-group ablation on the OLS market-value regression")
+    fig.suptitle("E1/E1b: feature-group ablation without league_id")
     fig.savefig(out_dir / "fig_e1_ablation.png", dpi=240)
     plt.close(fig)
 
     fig, axis = plt.subplots(figsize=(6.8, 4.2), constrained_layout=True)
     for fold_key in fold_keys:
-        fold_rows = sweep[sweep["fold"] == fold_key]
+        fold_rows = e2b[e2b["fold"] == fold_key]
         axis.plot(fold_rows["m"], fold_rows["rmse"], color="darkorange", alpha=0.35, lw=1)
-    pooled_sweep = sweep[sweep["fold"] == "pooled"]
-    axis.plot(pooled_sweep["m"], pooled_sweep["rmse"], "o-", color="navy", lw=2, label="pooled")
+    previous_pooled = sweep[sweep["fold"] == "pooled"]
+    axis.plot(
+        previous_pooled["m"],
+        previous_pooled["rmse"],
+        "s--",
+        color="grey",
+        lw=1.5,
+        label="pooled E2 (rung 5, league)",
+    )
+    pooled_e2b = e2b[e2b["fold"] == "pooled"]
+    axis.plot(pooled_e2b["m"], pooled_e2b["rmse"], "o-", color="navy", lw=2, label="pooled E2b")
     axis.axvline(
-        DEFAULT_M, color="crimson", ls="--", lw=1.5, label=f"m = {DEFAULT_M:g} (provisional)"
+        optimum_m, color="crimson", ls="--", lw=1.5, label=f"m = {optimum_m:g} (E2b optimum)"
     )
     axis.set_xlabel("Empirical Bayes strength m (0 = raw per-90 rates)")
     axis.set_ylabel("RMSE (log10 EUR)")
-    axis.set_title("E2: EB strength sweep on the winning rung")
+    axis.set_title("E2b: EB strength sweep on the E1b winner (no league)")
     axis.legend()
     fig.savefig(out_dir / "fig_e2_m_sweep.png", dpi=240)
     plt.close(fig)
@@ -360,23 +469,60 @@ def _pooled_records(frame: pd.DataFrame) -> dict[str, dict[str, Any]]:
     return records
 
 
+def _side(row: pd.Series, side: str) -> dict[str, float | int]:
+    """JSON-safe pooled metrics for one side (`a` or `b`) of an E1b row."""
+    return {
+        "rmse": float(row[f"rmse_{side}"]),
+        "mae": float(row[f"mae_{side}"]),
+        "r2": float(row[f"r2_{side}"]),
+        "mdape_eur_pct": float(row[f"mdape_{side}_pct"]),
+        "floored_rows": int(row[f"floored_rows_{side}"]),
+    }
+
+
+def _m_gap(pooled: pd.DataFrame, optimum_m: float, reference_m: float) -> dict[str, float]:
+    """Pooled RMSE/R2 of `optimum_m` minus `reference_m`; a negative delta favours optimum."""
+    by_m = pooled.set_index("m")
+    return {
+        "rmse_optimum": float(by_m.loc[optimum_m, "rmse"]),
+        "rmse_reference": float(by_m.loc[reference_m, "rmse"]),
+        "delta_rmse": float(by_m.loc[optimum_m, "rmse"] - by_m.loc[reference_m, "rmse"]),
+        "delta_r2": float(by_m.loc[optimum_m, "r2"] - by_m.loc[reference_m, "r2"]),
+    }
+
+
 def run() -> dict[str, Any]:
-    """Run E1 and E2 and write the CSVs, figures and `summary.json`."""
+    """Run E1, E1b, E2 and E2b and write the CSVs, figures and `summary.json`."""
     rows, out_dir, manifest = _load_rows()
     out_dir.mkdir(parents=True, exist_ok=True)
     folds = _fold_frames(rows)
 
     ablation, rate_variant = _score_rungs(folds)
     pooled_rows = ablation[ablation["fold"] == "pooled"]
+    league_row = pooled_rows.set_index("rung").loc["5_league"]
     winning_key = str(pooled_rows.loc[pooled_rows["rmse"].idxmin(), "rung"])
     winning_set = next(feature_set for key, _prev, feature_set in LADDER if key == winning_key)
     sweep = _sweep_m(winning_set, folds)
     pooled_sweep = sweep[sweep["fold"] == "pooled"]
 
+    # E1b: variant A is rung 4 itself, already scored above; only variant B is refitted.
+    e1b = _score_e1b(ablation, folds)
+    pooled_e1b = e1b[e1b["fold"] == "pooled"].iloc[0]
+    e1b_winner = "a" if pooled_e1b["rmse_a"] <= pooled_e1b["rmse_b"] else "b"
+    e1b_winner_set = TEAM_CONTEXT if e1b_winner == "a" else RAW_COUNTS
+    # E2b: re-sweep `m` on the E1b winner, because the E2 sweep ran with league in the set.
+    e2b = _sweep_m(e1b_winner_set, folds)
+    e2b.insert(0, "feature_set", e1b_winner_set.name)
+    pooled_e2b = e2b[e2b["fold"] == "pooled"]
+    optimum_m = float(pooled_e2b.loc[pooled_e2b["rmse"].idxmin(), "m"])
+    previous_optimum_m = float(pooled_sweep.loc[pooled_sweep["rmse"].idxmin(), "m"])
+
     ablation.to_csv(out_dir / "e1_ablation.csv", index=False)
     rate_variant.to_csv(out_dir / "e1_rate_variant.csv", index=False)
+    e1b.to_csv(out_dir / "e1b_raw_counts.csv", index=False)
     sweep.to_csv(out_dir / "e2_m_sweep.csv", index=False)
-    figures = _render_figures(out_dir, ablation, sweep)
+    e2b.to_csv(out_dir / "e2b_m_sweep.csv", index=False)
+    figures = _render_figures(out_dir, ablation, e1b, sweep, e2b, optimum_m)
 
     summary = {
         "input": "data/transform/player_seasons.parquet",
@@ -417,6 +563,33 @@ def run() -> dict[str, Any]:
             },
             "winning_rung": winning_key,
         },
+        "e1b": {
+            "m": DEFAULT_M,
+            "variant_a": {
+                "feature_set": TEAM_CONTEXT.name,
+                "description": (
+                    "biographical + volume + EB per-90 rates + team context, no league_id "
+                    "(the E1 rung-4 set)"
+                ),
+            },
+            "variant_b": {
+                "feature_set": RAW_COUNTS.name,
+                "description": (
+                    "variant A plus the raw production counts goals, assists, yellow_cards, "
+                    "red_cards, carried the way the provisional FULL declares them (log1p on "
+                    "goals and assists, plain on the cards)"
+                ),
+            },
+            "pooled_metrics": {"a": _side(pooled_e1b, "a"), "b": _side(pooled_e1b, "b")},
+            "pooled_delta_b_minus_a": {
+                "delta_rmse": float(pooled_e1b["delta_rmse_b_minus_a"]),
+                "delta_mae": float(pooled_e1b["delta_mae_b_minus_a"]),
+                "delta_r2": float(pooled_e1b["delta_r2_b_minus_a"]),
+                "delta_mdape_eur_pct": float(pooled_e1b["delta_mdape_eur_pct_b_minus_a"]),
+            },
+            "winning_variant": e1b_winner,
+            "raw_counts_earned_place": bool(pooled_e1b["delta_rmse_b_minus_a"] < 0.0),
+        },
         "e2": {
             "m_values": list(M_SWEEP),
             "winning_rung": winning_key,
@@ -427,6 +600,34 @@ def run() -> dict[str, Any]:
                 "and count / (minutes / 90) is the EB formula at m = 0 exactly (minutes >= 180)."
             ),
         },
+        "e2b": {
+            "m_values": list(M_SWEEP),
+            "on_variant": e1b_winner,
+            "feature_set": e1b_winner_set.name,
+            "sweep_degenerate": not e1b_winner_set.rates,
+            "pooled_metrics_by_m": _pooled_records(pooled_e2b),
+            "optimum_m": optimum_m,
+            "optimum_rule": "grid minimum of pooled RMSE on the E1b winning variant",
+            "optimum_vs_m5": _m_gap(pooled_e2b, optimum_m, DEFAULT_M),
+            "optimum_vs_m20": _m_gap(pooled_e2b, optimum_m, 20.0),
+            "previous_e2_optimum_m": previous_optimum_m,
+            "league_exclusion_moved_optimum": optimum_m != previous_optimum_m,
+            "m0_note": (
+                "m = 0 is scored as the raw per-90 variant: build_preprocessor refuses m <= 0, "
+                "and count / (minutes / 90) is the EB formula at m = 0 exactly (minutes >= 180)."
+            ),
+        },
+        "league_excluded": True,
+        "league_exclusion_note": (
+            "Rung 5 (league_id) was measured - pooled RMSE "
+            f"{float(league_row['rmse']):.4f}, R2 {float(league_row['r2']):.4f}, the ladder's "
+            "largest single gain - but rejected on methodological grounds: league_id is a "
+            "pricing variable, not a performance variable, so with it in the model the "
+            "undervaluation residual measures price versus the league's typical price instead "
+            "of price versus performance (the same reasoning that excluded prior market value "
+            "in REPORT_NOTES H-09 and that keeps league out of CLUSTER). Predictive accuracy "
+            "is deliberately traded away; E1b and E2b run on the ladder without league_id."
+        ),
         "settings": {
             "eb_m_default": DEFAULT_M,
             "prior_grouping": PRIOR_GROUPING,
@@ -436,7 +637,9 @@ def run() -> dict[str, Any]:
         "outputs": [
             "e1_ablation.csv",
             "e1_rate_variant.csv",
+            "e1b_raw_counts.csv",
             "e2_m_sweep.csv",
+            "e2b_m_sweep.csv",
             *figures,
             "summary.json",
         ],
@@ -451,15 +654,40 @@ def run() -> dict[str, Any]:
     )
     print("\nE1 rung-3 fork pooled:")
     print(rate_variant[rate_variant["fold"] == "pooled"].to_string(index=False))
+    print("\nE1b (B minus A; negative favours the raw counts):")
+    print(
+        e1b[
+            [
+                "fold",
+                "rmse_a",
+                "rmse_b",
+                "delta_rmse_b_minus_a",
+                "r2_a",
+                "r2_b",
+                "delta_r2_b_minus_a",
+            ]
+        ].to_string(index=False, float_format=lambda value: f"{value:0.4f}")
+    )
     print("\nE2 pooled by m:")
     print(pooled_sweep[["m", "variant", "rmse"]].to_string(index=False))
+    print("\nE2b pooled by m (E1b winner, no league):")
+    print(
+        pooled_e2b[["m", "variant", "rmse", "r2"]].to_string(
+            index=False, float_format=lambda value: f"{value:0.4f}"
+        )
+    )
+    print(f"E2b optimum m = {optimum_m:g} (E2 optimum on rung 5: {previous_optimum_m:g})")
     print(f"\nOutputs written to {out_dir}")
     return summary
 
 
 def main() -> None:
     summary = run()
-    print(f"Feature ablation completed: winning rung {summary['e1']['winning_rung']}")
+    print(
+        f"Feature ablation completed: E1 winning rung {summary['e1']['winning_rung']}, "
+        f"E1b winner {summary['e1b']['winning_variant'].upper()}, "
+        f"E2b optimum m = {summary['e2b']['optimum_m']:g}"
+    )
 
 
 if __name__ == "__main__":
