@@ -44,7 +44,7 @@ ml/src/delphos_ml/
 ```
 
 - **`TrailingWindowIndex`** (`windows.py`): promotes `_build_window_index` and `_query_365d_window` from `analysis/eda.py` into the package. It keeps per-`(player_id, day)` prefix sums and answers window queries with `searchsorted`, in O(N log M) without per-player loops. One method, `query(pids, days, strict_before)`:
-  - `strict_before=False`: window `[as_of_date - 365 days, as_of_date]` (valuation rows);
+  - `strict_before=False`: window `(as_of_date - 365 days, as_of_date]`, half-open — the as-of day is included and a match exactly 365 days before it is not (valuation rows);
   - `strict_before=True`: window `[transfer_date - 365 days, transfer_date - 1 day]` (transfer rows).
 
   `analysis/eda.py` will import it instead of keeping its own copy (ADR-009).
@@ -80,9 +80,15 @@ ml/src/delphos_ml/
 
 `all` becomes `ingest`, `clean`, `transform`.
 
-The transform manifest (`_transform.json`) carries every parameter that `train` would otherwise hard-code, so the fitted preprocessor and the stage that produced the rows cannot drift apart: `window_days` (`365`), `minutes_floor` (`180`), `empirical_bayes_m` (`5`), `prior_grouping` (`position`), `season_month_start` (`7`), and the per-split row counts. The fitted prior values themselves belong to the preprocessor artifact written by `train` ([docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.11), not to this transform manifest.
+The transform manifest carries every parameter that `train` would otherwise hard-code, so the fitted preprocessor and the stage that produced the rows cannot drift apart: `window_days` (`365`), `minutes_floor` (`180`), `empirical_bayes_m` (`5`), `prior_grouping` (`position`), `season_month_start` (`7`), and the per-split row counts. The fitted prior values themselves belong to the preprocessor artifact written by `train` ([docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.11), not to this transform manifest.
 
-**Acceptance.** The stage is accepted when its output row counts equal the population fixed in [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.2 and §3.3: `107,456` outfield player-season snapshots before the minutes floor, `47,359` after it, `14,692` distinct players, and `5,325` paid transfer rows. Per-season and per-split counts go into `_transform.json`. A run whose counts disagree is a defect, not a variant.
+**Read-back rules.** `_transform.json` sits at the same trust level as the Parquet beside it, so `train` validates what it reads rather than trusting it: `window_days` and `minutes_floor` must be positive integers (not booleans — in Python `isinstance(True, int)` holds, so a naive check accepts a forged JSON `true`), `empirical_bayes_m` a positive finite number (`json` accepts `NaN` and `Infinity`, so finiteness is checked explicitly), `prior_grouping` in an allowlist (the two position-like columns, `"position"` and `"sub_position"`) and `season_month_start` in `1..12`; anything else fails with a clear error. `country_groups` must be a list of at most `country_top_n` strings. `train` hard-codes `player_seasons.parquet` and `transfer_events.parquet` and never opens a path taken from the manifest — `tables.*.parquet_file` is descriptive metadata, not an instruction.
+
+The same validation belongs at the sink, not only at the reader: `build_preprocessor` raises `ValueError` unless `empirical_bayes_m` is a positive finite number and `prior_grouping` is in the allowlist, so a forged manifest cannot reach estimator construction even if a caller skips the checks.
+
+**Where the country vocabulary travels.** `country_groups` lives in `_transform.json` for the batch path only. Live scoring does not mount `ml/data/`, so it takes the vocabulary from the fitted preprocessor artifact, not from the transform manifest and not from a new mount.
+
+**Acceptance.** The stage is accepted when its output row counts equal the population fixed in [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.2 and §3.3, measured over `ml/data/clean/`: `107,395` outfield player-season snapshots before the minutes floor, `47,350` after it, `14,688` distinct players, and `5,325` paid transfer rows. Per-season and per-split counts go into `_transform.json`. A run whose counts disagree is a defect, not a variant. The exploratory analysis over `ml/data/ingest/` reports `107,456` / `47,359` / `14,692`, which is the same funnel measured before `clean` drops the `4` outfield players with null `date_of_birth` (§3.5).
 
 **Tests**, with small synthetic fixtures, focused on the boundaries:
 
@@ -164,7 +170,7 @@ Each step has a gate: the next step starts only when the gate passes.
 | 3 | Extract `pipeline/_staging.py` from `clean.py`, parameterizing the staging prefix by stage name (§3) | `ml/tests/test_clean.py` unchanged and green |
 | 4 | Implement `features/snapshots.py`, `pipeline/transform.py`, the CLI wiring and the tests from §4 | the six boundary tests green; the manifest matches the §4 spec |
 | 5 | Implement `features/preprocess.py` and `features/feature_sets.py` with provisional sets (§3) | unit tests for the Empirical Bayes formula, the grouped imputer, and fold-scoped fitting |
-| 6 | Run `ingest` to `clean` to `transform` on version `679` | row counts equal `47,359`, `14,692` and `5,325`; per-split counts as expected |
+| 6 | Run `ingest` to `clean` to `transform` on version `679` | row counts equal `47,350`, `14,688` and `5,325`; per-split counts as expected |
 | 7 | Run E1, E2, E4 and E6 (§7) | decisions recorded in [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.6 to §3.8, findings in [docs/REPORT_NOTES.md](REPORT_NOTES.md), progress in [docs/WORK_PLAN.md](WORK_PLAN.md) |
 | 8 | Run E3, E5 and E7 as week-6 side work | E3's VIF outcome applied to `FULL` before `train` freezes it |
 

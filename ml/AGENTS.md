@@ -37,7 +37,8 @@ Run these from `ml/`.
 | `uv run delphos-pipeline --help` | List the pipeline stages |
 | `uv run delphos-pipeline ingest` | Download the pinned Kaggle dataset into `ml/data/ingest/` |
 | `uv run delphos-pipeline clean` | Cast, filter, and sanitize the 9 modeling tables into `ml/data/clean/` |
-| `uv run delphos-pipeline all` | Run every implemented pipeline stage in order (`ingest`, `clean`) |
+| `uv run delphos-pipeline transform` | Build the modeling rows from `ml/data/clean/` into `ml/data/transform/`: `player_seasons.parquet`, `transfer_events.parquet` and `_transform.json` |
+| `uv run delphos-pipeline all` | Run every implemented pipeline stage in order (`ingest`, `clean`, `transform`) |
 | `uv run python ../analysis/eda.py` | Run the exploratory data analysis over `ml/data/ingest/` and write outputs to `analysis/output/eda/` |
 | `uv run pytest` | Run the tests |
 | `uv run ruff check . ../analysis` | Lint `ml/` and `analysis/` |

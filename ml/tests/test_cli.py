@@ -53,15 +53,26 @@ def test_clean_help_states_input_output_and_override() -> None:
     assert "DELPHOS_DATA_DIR" in result.output
 
 
-def test_all_runs_ingest_then_clean_in_order(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_transform_help_states_input_output_and_parameters() -> None:
+    result = runner.invoke(app, ["transform", "--help"])
+
+    assert result.exit_code == 0
+    assert "data/clean" in result.output
+    assert "data/transform" in result.output
+    assert "_transform.json" in result.output
+    assert "DELPHOS_DATA_DIR" in result.output
+
+
+def test_all_runs_every_stage_in_order(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
     monkeypatch.setattr(cli_module, "ingest", lambda: calls.append("ingest"))
     monkeypatch.setattr(cli_module, "clean", lambda: calls.append("clean"))
+    monkeypatch.setattr(cli_module, "transform", lambda: calls.append("transform"))
 
     result = runner.invoke(app, ["all"])
 
     assert result.exit_code == 0, result.output
-    assert calls == ["ingest", "clean"]
+    assert calls == ["ingest", "clean", "transform"]
 
 
 def test_all_stops_at_first_stage_failure(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -94,3 +105,20 @@ def test_all_propagates_second_stage_failure(monkeypatch: pytest.MonkeyPatch) ->
 
     assert result.exit_code == 1
     assert calls == ["ingest", "clean"]
+
+
+def test_all_propagates_third_stage_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def fail_transform() -> None:
+        calls.append("transform")
+        raise typer.Exit(code=1)
+
+    monkeypatch.setattr(cli_module, "ingest", lambda: calls.append("ingest"))
+    monkeypatch.setattr(cli_module, "clean", lambda: calls.append("clean"))
+    monkeypatch.setattr(cli_module, "transform", fail_transform)
+
+    result = runner.invoke(app, ["all"])
+
+    assert result.exit_code == 1
+    assert calls == ["ingest", "clean", "transform"]

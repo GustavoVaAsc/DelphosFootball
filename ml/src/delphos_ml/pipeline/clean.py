@@ -14,10 +14,8 @@ Each run writes into a temporary directory next to `clean/` and swaps it in afte
 """
 
 import json
-import shutil
 import tempfile
 import time
-import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.metadata import version
@@ -31,6 +29,13 @@ import pyarrow.parquet as pq
 import typer
 
 from delphos_ml.config import ConfigError, Settings, load_settings
+from delphos_ml.pipeline._staging import (
+    _check_ownership,
+    _prepare_data_dir,
+    _remove_best_effort,
+    _staging_prefix,
+    _swap_in,
+)
 from delphos_ml.pipeline.ingest import SNAPSHOT_FILE_NAME
 from delphos_ml.pipeline.ingest import STAGE_DIR_NAME as INGEST_DIR_NAME
 
@@ -38,8 +43,7 @@ STAGE_DIR_NAME = "clean"
 MANIFEST_FILE_NAME = "_clean.json"
 EXCLUDED_TABLES: tuple[str, ...] = ("countries", "game_events", "national_teams")
 
-_STAGING_PREFIX = ".clean-staging-"
-_RETIRED_PREFIX = ".clean-retired-"
+# This stage's rename-retry policy, passed to the shared swap so a test can shorten it here.
 _RENAME_ATTEMPTS = 3
 _RENAME_RETRY_DELAY_SECONDS = 0.5
 
@@ -313,12 +317,22 @@ def _run(settings: Settings) -> dict[str, Any]:
     ingest_dir = data_dir / INGEST_DIR_NAME
     target = data_dir / STAGE_DIR_NAME
     typer.echo(f"Data directory: {data_dir}")
-    _prepare_data_dir(data_dir)
-    _check_ownership(target)
+    _prepare_data_dir(
+        data_dir,
+        stage=STAGE_DIR_NAME,
+        manifest_file_name=MANIFEST_FILE_NAME,
+        expected_table_names={spec.name for spec in TABLE_SPECS},
+        error=CleanError,
+        rename_attempts=_RENAME_ATTEMPTS,
+        rename_delay_seconds=_RENAME_RETRY_DELAY_SECONDS,
+    )
+    _check_ownership(
+        target, stage=STAGE_DIR_NAME, manifest_file_name=MANIFEST_FILE_NAME, error=CleanError
+    )
     snapshot = _load_ingest_snapshot(ingest_dir, settings)
 
     try:
-        staging = Path(tempfile.mkdtemp(prefix=_STAGING_PREFIX, dir=data_dir))
+        staging = Path(tempfile.mkdtemp(prefix=_staging_prefix(STAGE_DIR_NAME), dir=data_dir))
     except OSError as exc:
         raise CleanError(f"could not create a temporary directory in {data_dir}: {exc}") from exc
     try:
@@ -359,10 +373,17 @@ def _run(settings: Settings) -> dict[str, Any]:
             )
         except OSError as exc:
             raise CleanError(f"could not write {MANIFEST_FILE_NAME}: {exc}") from exc
-        _swap_in(staging, target)
+        _swap_in(
+            staging,
+            target,
+            stage=STAGE_DIR_NAME,
+            error=CleanError,
+            rename_attempts=_RENAME_ATTEMPTS,
+            rename_delay_seconds=_RENAME_RETRY_DELAY_SECONDS,
+        )
     finally:
         if staging.exists():
-            _remove_best_effort(staging, "the temporary directory")
+            _remove_best_effort(staging, "the temporary directory", stage=STAGE_DIR_NAME)
     return manifest
 
 
@@ -625,123 +646,3 @@ def _apply_row_rules(spec: TableSpec, df: pd.DataFrame) -> tuple[pd.DataFrame, i
         return df.loc[keep].copy(), 0
 
     return df, 0
-
-
-def _prepare_data_dir(data_dir: Path) -> None:
-    target = data_dir / STAGE_DIR_NAME
-    try:
-        data_dir.mkdir(parents=True, exist_ok=True)
-        retired = sorted(data_dir.glob(f"{_RETIRED_PREFIX}*"))
-        staging = sorted(data_dir.glob(f"{_STAGING_PREFIX}*"))
-    except OSError as exc:
-        raise CleanError(f"could not prepare {data_dir}: {exc}") from exc
-    if not target.exists() and retired:
-        candidate = _restore_candidate(retired)
-        if candidate is None:
-            typer.echo(
-                f"warning: {target} is missing and no leftover copy of it is complete; "
-                f"discarding {', '.join(path.name for path in retired)}",
-                err=True,
-            )
-        else:
-            try:
-                _rename(candidate, target)
-            except OSError as exc:
-                raise CleanError(
-                    f"could not restore {target} from {candidate}: {exc}; close programs or "
-                    f"terminals using {candidate} and retry"
-                ) from exc
-            typer.echo(f"restored {target} from {candidate.name}, left by an interrupted run")
-            retired.remove(candidate)
-    for leftover in [*staging, *retired]:
-        typer.echo(f"removing {leftover.name}, left by an interrupted run")
-        _remove_best_effort(leftover, "a leftover directory")
-
-
-def _restore_candidate(retired: list[Path]) -> Path | None:
-    complete: list[tuple[float, Path]] = []
-    expected_names = {spec.name for spec in TABLE_SPECS}
-    for directory in retired:
-        try:
-            manifest = json.loads((directory / MANIFEST_FILE_NAME).read_text(encoding="utf-8"))
-            tables = manifest["tables"]
-            if set(tables) != expected_names:
-                continue
-            files = [info["parquet_file"] for info in tables.values()]
-            if not all((directory / name).is_file() for name in files):
-                continue
-            cleaned_at = manifest.get("cleaned_at")
-            age = (
-                datetime.fromisoformat(cleaned_at).timestamp()
-                if isinstance(cleaned_at, str)
-                else directory.stat().st_mtime
-            )
-        except (OSError, ValueError, KeyError, TypeError, AttributeError):
-            continue
-        complete.append((age, directory))
-    return max(complete)[1] if complete else None
-
-
-def _check_ownership(target: Path) -> None:
-    if target.exists() and not (target / MANIFEST_FILE_NAME).is_file():
-        raise CleanError(
-            f"{target} exists but was not written by clean; refusing to replace it "
-            f"(it has no {MANIFEST_FILE_NAME})"
-        )
-
-
-def _rename(source: Path, target: Path) -> None:
-    for attempt in range(1, _RENAME_ATTEMPTS + 1):
-        try:
-            source.rename(target)
-            return
-        except OSError:
-            if attempt == _RENAME_ATTEMPTS:
-                raise
-            time.sleep(_RENAME_RETRY_DELAY_SECONDS)
-
-
-def _swap_in(staging: Path, target: Path) -> None:
-    retired = None
-    if target.exists():
-        retired = target.with_name(f"{_RETIRED_PREFIX}{uuid.uuid4().hex}")
-        try:
-            _rename(target, retired)
-        except OSError as exc:
-            raise CleanError(
-                f"could not move the previous output aside: {exc}; close programs or terminals "
-                f"using {target} and retry"
-            ) from exc
-    try:
-        _rename(staging, target)
-    except OSError as exc:
-        if retired is None:
-            raise CleanError(
-                f"could not move the new output into {target}: {exc}; close programs or "
-                f"terminals using {target.parent} and retry"
-            ) from exc
-        try:
-            _rename(retired, target)
-        except OSError as rollback_exc:
-            raise CleanError(
-                f"could not move the new output into {target} ({exc}), and putting the previous "
-                f"output back also failed ({rollback_exc}). The previous output is in {retired}; "
-                f"rename it to {target.name} to recover, or rerun clean, which restores it"
-            ) from exc
-        raise CleanError(
-            f"could not move the new output into {target}: {exc}. The previous output was put "
-            f"back; close programs or terminals using {target} and retry"
-        ) from exc
-    if retired is not None:
-        _remove_best_effort(retired, "the previous output")
-
-
-def _remove_best_effort(path: Path, description: str) -> None:
-    try:
-        shutil.rmtree(path)
-    except OSError as exc:
-        typer.echo(
-            f"warning: could not delete {description} at {path}: {exc}. The next clean run "
-            "removes it, or delete it by hand",
-            err=True,
-        )

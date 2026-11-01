@@ -1,0 +1,211 @@
+"""Atomic staging-directory swap shared by the pipeline stages.
+
+Input: the caller stage's name, its manifest file name, the table names its manifest must list,
+the exception class it reports expected failures with, and the pipeline data directory.
+Output: `<data dir>/<stage>/` atomically replaced by the fully written staging directory next to
+it, with leftovers from interrupted runs restored or removed.
+Responsibility: implement the one swap protocol every stage uses — refuse a stage name that is
+not a plain lowercase identifier, prepare the data directory, check target ownership, retire
+the previous output, swap the new one in with retries and rollback, restore a complete retired
+copy when the target is missing, and remove leftovers best-effort. The helpers implement a
+single protocol and only make sense read together, so they stay in one module instead of one
+file per helper. Each stage passes its own name and gets `.<stage>-staging-` and
+`.<stage>-retired-` directory names.
+"""
+
+import glob
+import json
+import re
+import shutil
+import time
+import uuid
+from datetime import datetime
+from pathlib import Path
+
+import typer
+
+_RENAME_ATTEMPTS = 3
+_RENAME_RETRY_DELAY_SECONDS = 0.5
+
+#: A stage name becomes directory names, path components and glob patterns, so only plain
+#: lowercase identifiers get that far (`/`, `..`, `*` and `[` would escape or widen them).
+_STAGE_NAME_PATTERN = re.compile(r"[a-z][a-z0-9_]*\Z")
+
+
+def _validate_stage(stage: str, error: type[Exception]) -> None:
+    """Raise the caller's error class unless `stage` is a plain lowercase identifier."""
+    if _STAGE_NAME_PATTERN.fullmatch(stage) is None:
+        raise error(f"invalid stage name {stage!r}: must match ^[a-z][a-z0-9_]*$")
+
+
+def _staging_prefix(stage: str) -> str:
+    return f".{stage}-staging-"
+
+
+def _retired_prefix(stage: str) -> str:
+    return f".{stage}-retired-"
+
+
+def _prepare_data_dir(
+    data_dir: Path,
+    *,
+    stage: str,
+    manifest_file_name: str,
+    expected_table_names: set[str],
+    error: type[Exception],
+    rename_attempts: int | None = None,
+    rename_delay_seconds: float | None = None,
+) -> None:
+    _validate_stage(stage, error)
+    target = data_dir / stage
+    try:
+        data_dir.mkdir(parents=True, exist_ok=True)
+        retired = sorted(data_dir.glob(glob.escape(_retired_prefix(stage)) + "*"))
+        staging = sorted(data_dir.glob(glob.escape(_staging_prefix(stage)) + "*"))
+    except OSError as exc:
+        raise error(f"could not prepare {data_dir}: {exc}") from exc
+    if not target.exists() and retired:
+        candidate = _restore_candidate(
+            retired,
+            manifest_file_name=manifest_file_name,
+            expected_table_names=expected_table_names,
+        )
+        if candidate is None:
+            typer.echo(
+                f"warning: {target} is missing and no leftover copy of it is complete; "
+                f"discarding {', '.join(path.name for path in retired)}",
+                err=True,
+            )
+        else:
+            try:
+                _rename(
+                    candidate,
+                    target,
+                    attempts=rename_attempts,
+                    delay_seconds=rename_delay_seconds,
+                )
+            except OSError as exc:
+                raise error(
+                    f"could not restore {target} from {candidate}: {exc}; close programs or "
+                    f"terminals using {candidate} and retry"
+                ) from exc
+            typer.echo(f"restored {target} from {candidate.name}, left by an interrupted run")
+            retired.remove(candidate)
+    for leftover in [*staging, *retired]:
+        typer.echo(f"removing {leftover.name}, left by an interrupted run")
+        _remove_best_effort(leftover, "a leftover directory", stage=stage)
+
+
+def _restore_candidate(
+    retired: list[Path], *, manifest_file_name: str, expected_table_names: set[str]
+) -> Path | None:
+    complete: list[tuple[float, Path]] = []
+    for directory in retired:
+        try:
+            manifest = json.loads((directory / manifest_file_name).read_text(encoding="utf-8"))
+            tables = manifest["tables"]
+            if set(tables) != expected_table_names:
+                continue
+            files = [info["parquet_file"] for info in tables.values()]
+            if not all((directory / name).is_file() for name in files):
+                continue
+            cleaned_at = manifest.get("cleaned_at")
+            age = (
+                datetime.fromisoformat(cleaned_at).timestamp()
+                if isinstance(cleaned_at, str)
+                else directory.stat().st_mtime
+            )
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue
+        complete.append((age, directory))
+    return max(complete, key=lambda item: item[0])[1] if complete else None
+
+
+def _check_ownership(
+    target: Path, *, stage: str, manifest_file_name: str, error: type[Exception]
+) -> None:
+    if target.exists() and not (target / manifest_file_name).is_file():
+        raise error(
+            f"{target} exists but was not written by {stage}; refusing to replace it "
+            f"(it has no {manifest_file_name})"
+        )
+
+
+def _rename(
+    source: Path,
+    target: Path,
+    *,
+    attempts: int | None = None,
+    delay_seconds: float | None = None,
+) -> None:
+    """Rename `source` to `target`, retrying on OSError.
+
+    `attempts` and `delay_seconds` default to this module's retry policy so a caller can pass its
+    own; the caller's values are read at call time, so a test can shorten them without patching
+    this module.
+    """
+    attempts = _RENAME_ATTEMPTS if attempts is None else attempts
+    delay_seconds = _RENAME_RETRY_DELAY_SECONDS if delay_seconds is None else delay_seconds
+    for attempt in range(1, attempts + 1):
+        try:
+            source.rename(target)
+            return
+        except OSError:
+            if attempt == attempts:
+                raise
+            time.sleep(delay_seconds)
+
+
+def _swap_in(
+    staging: Path,
+    target: Path,
+    *,
+    stage: str,
+    error: type[Exception],
+    rename_attempts: int | None = None,
+    rename_delay_seconds: float | None = None,
+) -> None:
+    _validate_stage(stage, error)
+    retired = None
+    if target.exists():
+        retired = target.with_name(f"{_retired_prefix(stage)}{uuid.uuid4().hex}")
+        try:
+            _rename(target, retired, attempts=rename_attempts, delay_seconds=rename_delay_seconds)
+        except OSError as exc:
+            raise error(
+                f"could not move the previous output aside: {exc}; close programs or terminals "
+                f"using {target} and retry"
+            ) from exc
+    try:
+        _rename(staging, target, attempts=rename_attempts, delay_seconds=rename_delay_seconds)
+    except OSError as exc:
+        if retired is None:
+            raise error(
+                f"could not move the new output into {target}: {exc}; close programs or "
+                f"terminals using {target.parent} and retry"
+            ) from exc
+        try:
+            _rename(retired, target, attempts=rename_attempts, delay_seconds=rename_delay_seconds)
+        except OSError as rollback_exc:
+            raise error(
+                f"could not move the new output into {target} ({exc}), and putting the previous "
+                f"output back also failed ({rollback_exc}). The previous output is in {retired}; "
+                f"rename it to {target.name} to recover, or rerun {stage}, which restores it"
+            ) from exc
+        raise error(
+            f"could not move the new output into {target}: {exc}. The previous output was put "
+            f"back; close programs or terminals using {target} and retry"
+        ) from exc
+    if retired is not None:
+        _remove_best_effort(retired, "the previous output", stage=stage)
+
+
+def _remove_best_effort(path: Path, description: str, *, stage: str) -> None:
+    try:
+        shutil.rmtree(path)
+    except OSError as exc:
+        typer.echo(
+            f"warning: could not delete {description} at {path}: {exc}. The next {stage} run "
+            "removes it, or delete it by hand",
+            err=True,
+        )
