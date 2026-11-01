@@ -1,19 +1,22 @@
-"""E6: the K-Means cluster-count sweep that decides the `k` of the player archetypes.
+"""E6/E7: the K-Means cluster-count sweep and the scaler comparison behind the archetypes.
 
 Input: `ml/data/transform/player_seasons.parquet` (dataset v679) resolved through
 `delphos_ml.config` like `analysis/feature_ablation.py`, read with a predicate that keeps
 only the `train` and `validation` splits - the 2025 `test` split is never read.
 Output: `e6_k_sweep.csv`, `e6_decision.csv`, `e6_cluster_profiles.csv`,
-`fig_e6_internal.png`, `fig_e6_stability.png` and `summary.json` under
+`e7_scaler_comparison.csv`, `e7_decision.csv`, `fig_e6_internal.png`,
+`fig_e6_stability.png`, `fig_e7_scaler_silhouette.png` and `summary.json` under
 `<repo root>/analysis/output/kmeans_selection/`.
 Responsibility: run experiment E6 of docs/ML_ARCHITECTURE.md section 3.8 (the procedure is
 docs/TRANSFORM_PLAN.md section 6): fit the `CLUSTER` feature space and one K-Means per `k`
 on the training split only, sweep `k = 2..15`, score four internal metrics and two
-stability measures, then apply the section-6 decision rule verbatim. The script reports
-evidence only; recording the chosen `k` in the architecture docs is a separate step. Like
-`feature_ablation.py` this is one experiment script per ADR-014, and it stays one module
-because every stage feeds the single decision table - splitting it would break the
-one-script-one-output-dir convention without shortening anything.
+stability measures, then apply the section-6 decision rule verbatim; and run E7, the same
+sweep under `StandardScaler` and `RobustScaler`, which decides the open scaler question of
+section 3.8 - the standard side reproduces E6, the robust side is the counterfactual. The
+script reports evidence only; recording the chosen `k` and scaler in the architecture docs
+is a separate step. Like `feature_ablation.py` this is one experiment script per ADR-014,
+and it stays one module because every stage feeds the single decision table - splitting it
+would break the one-script-one-output-dir convention without shortening anything.
 
 Protocol notes:
 
@@ -30,6 +33,10 @@ Protocol notes:
 - Bootstrap stability compares two refits only on the training rows both resamples
   contain (adjusted Rand on the intersection, as in Hubert and Arabie); comparing the
   assignments of two different row sets is not well defined.
+- E7 varies exactly one thing per side: the numeric branch's scaler. Both sides share the
+  folds, the silhouette sample, the K-Means hyper-parameters, the `random_state`, and the
+  bootstrap resamples (`default_rng([RANDOM_STATE, k])`), so a difference between the two
+  sweeps is attributable to the scaler alone.
 """
 
 from __future__ import annotations
@@ -54,6 +61,7 @@ from sklearn.metrics import (
     davies_bouldin_score,
     silhouette_score,
 )
+from sklearn.preprocessing import RobustScaler, StandardScaler
 
 from delphos_ml.config import ConfigError, find_project_root, load_settings
 from delphos_ml.features.feature_sets import CLUSTER
@@ -232,6 +240,137 @@ def _decide(sweep: pd.DataFrame, elbow_k: int) -> tuple[pd.DataFrame, dict[str, 
     return table, {"candidates": candidates, "selected_k": selected_k, "rule": rule}
 
 
+def _sweep_scaler(
+    label: str,
+    scaler: StandardScaler | RobustScaler,
+    train: pd.DataFrame,
+    validation: pd.DataFrame,
+    sample_index: np.ndarray,
+) -> dict[str, Any]:
+    """Fit one CLUSTER preprocessor under `scaler`, sweep `k`, apply the rule; log per `k`.
+
+    Everything the sweep touches besides the scaler is shared: the folds, the silhouette
+    sample, the K-Means hyper-parameters and the bootstrap resample seeds. The `label`
+    prefix on each progress line keeps the background run's log readable per side.
+    """
+    print(
+        f"E7: sweeping k = {min(K_VALUES)}..{max(K_VALUES)} with the {label} scaler",
+        flush=True,
+    )
+    pre = build_preprocessor(
+        CLUSTER,
+        empirical_bayes_m=EMPIRICAL_BAYES_M,
+        prior_grouping=PRIOR_GROUPING,
+        scaler=scaler,
+    )
+    X_train = pre.fit_transform(train)
+    X_val = pre.transform(validation)
+    records: list[dict[str, Any]] = []
+    for k in K_VALUES:
+        record = _sweep_k(X_train, X_val, k, sample_index)
+        print(
+            f"  [{label}] k={k:2d} silhouette={record['silhouette']:.4f} "
+            f"inertia={record['inertia']:.1f} temporal_ari={record['temporal_ari']:.3f} "
+            f"bootstrap_ari={record['bootstrap_ari_mean']:.3f} "
+            f"min_share={record['min_cluster_share']:.3f}",
+            flush=True,
+        )
+        records.append(record)
+    sweep = pd.DataFrame(records)
+    elbow_k = _elbow_k(sweep["inertia"].to_numpy())
+    decision, trace = _decide(sweep, elbow_k)
+    return {
+        "label": label,
+        "scaler": type(scaler).__name__,
+        "pre": pre,
+        "X_train": X_train,
+        "sweep": sweep,
+        "elbow_k": elbow_k,
+        "decision": decision,
+        "trace": trace,
+    }
+
+
+def _e7_comparison(runs: list[dict[str, Any]]) -> pd.DataFrame:
+    """One row per scaler x k: the two sweeps side by side."""
+    frames = [run["sweep"].assign(scaler=run["label"]) for run in runs]
+    comparison = pd.concat(frames, ignore_index=True)
+    return comparison[["scaler", *[column for column in comparison if column != "scaler"]]]
+
+
+def _e7_decisions(runs: list[dict[str, Any]]) -> pd.DataFrame:
+    """One row per scaler: maxima, floor gap, candidate set, selection or explicit refusal."""
+    records: list[dict[str, Any]] = []
+    for run in runs:
+        sweep, trace = run["sweep"], run["trace"]
+        max_silhouette = float(sweep["silhouette"].max())
+        selected_k = trace["selected_k"]
+        records.append(
+            {
+                "scaler": run["label"],
+                "max_silhouette": max_silhouette,
+                "max_silhouette_k": int(sweep.loc[sweep["silhouette"].idxmax(), "k"]),
+                "silhouette_floor": SILHOUETTE_MIN,
+                "floor_reached": bool(max_silhouette >= SILHOUETTE_MIN),
+                "gap_to_floor": float(SILHOUETTE_MIN - max_silhouette),
+                "candidate_set": ";".join(str(k) for k in trace["candidates"]),
+                "elbow_k": run["elbow_k"],
+                "selected_k": selected_k,
+                "outcome": "no selection" if selected_k is None else f"k={selected_k}",
+                "rule": trace["rule"],
+            }
+        )
+    frame = pd.DataFrame(records)
+    # None and an int land in a float64 column, which would serialise k=3 as "3.0".
+    frame["selected_k"] = frame["selected_k"].astype("Int64")
+    return frame
+
+
+def _e7_summary(runs: list[dict[str, Any]], decision_table: pd.DataFrame) -> dict[str, Any]:
+    """The `summary.json` `e7` block: both maxima, the floor outcome, both selections."""
+    scalers: dict[str, Any] = {}
+    for run, (_index, row) in zip(runs, decision_table.iterrows(), strict=True):
+        scalers[run["label"]] = {
+            "scaler": run["scaler"],
+            "max_silhouette": float(row["max_silhouette"]),
+            "max_silhouette_k": int(row["max_silhouette_k"]),
+            "floor_reached": bool(row["floor_reached"]),
+            "gap_to_floor": float(row["gap_to_floor"]),
+            "elbow_k": int(row["elbow_k"]),
+            "candidate_set": [int(k) for k in str(row["candidate_set"]).split(";") if k],
+            "selected_k": None if pd.isna(row["selected_k"]) else int(row["selected_k"]),
+            "rule_trace": str(row["rule"]),
+        }
+    return {
+        "experiment": "E7",
+        "decides": "docs/ML_ARCHITECTURE.md section 3.8 (the cluster scaler)",
+        "silhouette_floor": SILHOUETTE_MIN,
+        "gap_to_floor_sign": "positive means the maximum sampled silhouette is below the floor",
+        "scalers": scalers,
+        "floor_reached_by": [label for label, entry in scalers.items() if entry["floor_reached"]],
+    }
+
+
+def _render_e7_figure(out_dir: Path, runs: list[dict[str, Any]]) -> list[str]:
+    """Silhouette against `k` for both scalers with the 0.25 floor drawn."""
+    fig, axis = plt.subplots(figsize=(7.2, 4.4), constrained_layout=True)
+    for run in runs:
+        axis.plot(
+            run["sweep"]["k"],
+            run["sweep"]["silhouette"],
+            "o-",
+            label=f"{run['label']} scaler",
+        )
+    axis.axhline(SILHOUETTE_MIN, color="grey", ls=":", lw=1.5, label=f"floor {SILHOUETTE_MIN}")
+    axis.set_xlabel("k")
+    axis.set_ylabel("silhouette (10k-row sample)")
+    axis.set_title("E7: silhouette against k by scaler (train split only)")
+    axis.legend()
+    fig.savefig(out_dir / "fig_e7_scaler_silhouette.png", dpi=240)
+    plt.close(fig)
+    return ["fig_e7_scaler_silhouette.png"]
+
+
 def _profiles(train: pd.DataFrame, pre: ColumnTransformer, model: KMeans) -> pd.DataFrame:
     """One centroid profile per cluster at `k`, in original units, on the training rows."""
     rates = pre.named_transformers_["empirical_bayes"].transform(train).reset_index(drop=True)
@@ -294,34 +433,38 @@ def _render_figures(out_dir: Path, sweep: pd.DataFrame, elbow_k: int) -> list[st
 
 
 def run() -> dict[str, Any]:
-    """Run the E6 sweep and the decision rule, then write every output artefact."""
+    """Run the E6 sweep under both E7 scalers plus the decision rules, write every artefact."""
     train, validation, out_dir, manifest = _load_rows()
     out_dir.mkdir(parents=True, exist_ok=True)
-    pre = build_preprocessor(
-        CLUSTER, empirical_bayes_m=EMPIRICAL_BAYES_M, prior_grouping=PRIOR_GROUPING
-    )
-    X_train = pre.fit_transform(train)
-    X_val = pre.transform(validation)
     sample_index = np.random.default_rng(RANDOM_STATE).choice(
-        len(X_train), size=min(SILHOUETTE_SAMPLE, len(X_train)), replace=False
+        len(train), size=min(SILHOUETTE_SAMPLE, len(train)), replace=False
     )
-
-    records = [_sweep_k(X_train, X_val, k, sample_index) for k in K_VALUES]
-    sweep = pd.DataFrame(records)
-    elbow_k = _elbow_k(sweep["inertia"].to_numpy())
-    decision, trace = _decide(sweep, elbow_k)
+    runs = [
+        _sweep_scaler(label, scaler, train, validation, sample_index)
+        for label, scaler in (("standard", StandardScaler()), ("robust", RobustScaler()))
+    ]
+    # The E6 artefacts come from the standard side, which reproduces the original E6 run
+    # byte for byte; the E7 artefacts compare both sides.
+    standard = runs[0]
+    sweep, elbow_k = standard["sweep"], standard["elbow_k"]
+    decision, trace = standard["decision"], standard["trace"]
     profile_k = trace["selected_k"] if trace["selected_k"] is not None else elbow_k
     profile_source = (
         "selected k"
         if trace["selected_k"] is not None
         else ("elbow k (no candidate passed the rule)")
     )
-    profiles = _profiles(train, pre, _fit(X_train, profile_k))
+    profiles = _profiles(train, standard["pre"], _fit(standard["X_train"], profile_k))
 
     sweep.to_csv(out_dir / "e6_k_sweep.csv", index=False)
     decision.to_csv(out_dir / "e6_decision.csv", index=False)
     profiles.to_csv(out_dir / "e6_cluster_profiles.csv", index=False)
+    comparison = _e7_comparison(runs)
+    e7_decisions = _e7_decisions(runs)
+    comparison.to_csv(out_dir / "e7_scaler_comparison.csv", index=False)
+    e7_decisions.to_csv(out_dir / "e7_decision.csv", index=False)
     figures = _render_figures(out_dir, sweep, elbow_k)
+    e7_figures = _render_e7_figure(out_dir, runs)
 
     summary = {
         "experiment": "E6",
@@ -368,11 +511,15 @@ def run() -> dict[str, Any]:
         "rule_trace": trace["rule"],
         "profiles_at_k": profile_k,
         "profiles_source": profile_source,
+        "e7": _e7_summary(runs, e7_decisions),
         "outputs": [
             "e6_k_sweep.csv",
             "e6_decision.csv",
             "e6_cluster_profiles.csv",
+            "e7_scaler_comparison.csv",
+            "e7_decision.csv",
             *figures,
+            *e7_figures,
             "summary.json",
         ],
     }
@@ -392,6 +539,24 @@ def run() -> dict[str, Any]:
     print(f"\nelbow k = {elbow_k} ({summary['elbow_method']})")
     print(f"candidate set: {trace['candidates'] or 'empty'}")
     print(f"decision: {trace['rule']}")
+
+    print("\nE7 scaler comparison (train split only):")
+    print(
+        e7_decisions[
+            [
+                "scaler",
+                "max_silhouette",
+                "max_silhouette_k",
+                "floor_reached",
+                "gap_to_floor",
+                "candidate_set",
+                "elbow_k",
+                "selected_k",
+            ]
+        ].to_string(index=False, float_format=lambda value: f"{value:0.4f}")
+    )
+    for run in runs:
+        print(f"  {run['label']}: {run['trace']['rule']}")
     print(f"\nOutputs written to {out_dir}")
     return summary
 
@@ -399,10 +564,23 @@ def run() -> dict[str, Any]:
 def main() -> None:
     summary = run()
     selected = summary["selected_k"]
+    robust = summary["e7"]["scalers"]["robust"]
+    floor_note = (
+        f"robust max silhouette {robust['max_silhouette']:.4f} reaches the floor, "
+        + (
+            f"selected k = {robust['selected_k']}"
+            if robust["selected_k"] is not None
+            else "the rule still selects nothing"
+        )
+        if robust["floor_reached"]
+        else f"robust max silhouette {robust['max_silhouette']:.4f} stays "
+        f"{robust['gap_to_floor']:.4f} below the {SILHOUETTE_MIN} floor"
+    )
     print(
         "K-Means selection completed: "
         + (f"selected k = {selected}" if selected is not None else "no k selected by the rule")
-        + f" (elbow k = {summary['elbow_k']}, candidates {summary['candidate_set'] or 'none'})"
+        + f" (elbow k = {summary['elbow_k']}, candidates {summary['candidate_set'] or 'none'}); "
+        + f"E7: {floor_note}"
     )
 
 

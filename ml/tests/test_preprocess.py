@@ -15,6 +15,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.preprocessing import RobustScaler, StandardScaler
 
 from delphos_ml.features.feature_sets import CLUSTER, FULL, POLY_REDUCED
 from delphos_ml.features.preprocess import (
@@ -424,6 +425,35 @@ def test_build_preprocessor_defaults_to_the_shared_eb_constants() -> None:
     rates = default.named_transformers_["empirical_bayes"]
     assert rates.m == DEFAULT_M
     assert rates.group_column == DEFAULT_GROUP_COLUMN
+
+
+def test_build_preprocessor_honours_the_scaler_parameter() -> None:
+    """E7's scaler switch must reach the numeric branch; the default must not move."""
+    train = _full_train()
+    default = build_preprocessor(FULL).fit(train)
+    assert isinstance(default.named_transformers_["numeric"]["scale"], StandardScaler)
+
+    robust = build_preprocessor(FULL, scaler=RobustScaler()).fit(train)
+    robust_scaler = robust.named_transformers_["numeric"]["scale"]
+    assert isinstance(robust_scaler, RobustScaler)
+    # minutes is the first numeric column, so it indexes the scaler's fitted parameters.
+    # Its training median is log1p(900) while its mean is not, so the centring constant
+    # pins which estimator was fitted; the default row scales to a non-zero value.
+    default_names = list(default.get_feature_names_out())
+    robust_names = list(robust.get_feature_names_out())
+    robust_numeric = [name for name in robust_names if name.startswith("numeric__")]
+    assert robust_scaler.center_[robust_numeric.index("numeric__minutes")] == pytest.approx(
+        np.log1p(900.0)
+    )
+    row = pd.DataFrame([_full_row()])
+    robust_value = _dense(robust.transform(row))[0, robust_names.index("numeric__minutes")]
+    default_value = _dense(default.transform(row))[0, default_names.index("numeric__minutes")]
+    assert robust_value == pytest.approx(0.0)
+    assert default_value != pytest.approx(0.0)
+
+    # Passing the default explicitly must reproduce the default output exactly.
+    explicit = build_preprocessor(FULL, scaler=StandardScaler()).fit(train)
+    np.testing.assert_allclose(_dense(default.transform(train)), _dense(explicit.transform(train)))
 
 
 @pytest.mark.parametrize(

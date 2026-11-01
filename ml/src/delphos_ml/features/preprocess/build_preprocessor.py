@@ -1,14 +1,15 @@
 """Assemble the fitted preprocessor for a `FeatureSet`.
 
 Input: a `FeatureSet` declaration (docs/TRANSFORM_PLAN.md section 3) plus the optional
-`empirical_bayes_m` and `prior_grouping` parameters the transform manifest records, so
-`train` passes the manifest's values instead of the transformer's hard-coded ones.
+`empirical_bayes_m`, `prior_grouping` and `scaler` parameters, so `train` passes the
+manifest's values instead of the transformer's hard-coded ones and an experiment can
+swap the numeric branch's scaler without rebuilding the pipeline.
 Output: a scikit-learn `ColumnTransformer` with three branches: (1) the Empirical-Bayes
 per-90 rates over the set's `rates` counts, (2) numerics imputed - `height_in_cm` with
 the position-grouped median, the rest with the plain training median - then log1p'd
-where the set declares it and standard-scaled, (3) categoricals rare-level-collapsed
-where the set declares it, imputed with `"unknown"` and one-hot encoded with unknown
-levels ignored.
+where the set declares it and scaled (`StandardScaler` unless `scaler` says otherwise),
+(3) categoricals rare-level-collapsed where the set declares it, imputed with `"unknown"`
+and one-hot encoded with unknown levels ignored.
 Responsibility: wire the fitted layer of docs/TRANSFORM_PLAN.md section 2. Every learned
 statistic (priors, medians, scaler moments, one-hot vocabularies) is fitted inside the
 returned estimator on whatever rows `fit` receives, so `train` fits it on the training
@@ -99,6 +100,7 @@ def build_preprocessor(
     *,
     empirical_bayes_m: float = DEFAULT_M,
     prior_grouping: str = DEFAULT_GROUP_COLUMN,
+    scaler: BaseEstimator | None = None,
 ) -> ColumnTransformer:
     """Return the three-branch ColumnTransformer this feature set consumes.
 
@@ -107,7 +109,9 @@ def build_preprocessor(
     trailing-underscore attributes survive a joblib round trip to the serving backend.
     `empirical_bayes_m` and `prior_grouping` default to the shared Empirical Bayes
     constants; `train` passes the values `_transform.json` records so the fitted
-    preprocessor cannot drift from the rows' manifest.
+    preprocessor cannot drift from the rows' manifest. `scaler` selects the numeric
+    branch's scaling estimator and defaults to `StandardScaler()`, so existing callers
+    are unchanged; experiment E7 passes `RobustScaler()` to compare distance geometries.
 
     Raises `ValueError` when the manifest-supplied parameters are not usable, so a forged
     `_transform.json` fails here rather than reaching estimator construction: this is the
@@ -143,7 +147,7 @@ def build_preprocessor(
             _log1p_values, kw_args={"indices": log1p_indices}, feature_names_out="one-to-one"
         )
         numeric_steps.append(("log1p", log1p))
-    numeric_steps.append(("scale", StandardScaler()))
+    numeric_steps.append(("scale", scaler if scaler is not None else StandardScaler()))
     if any(column in GROUP_MEDIAN_COLUMNS for column in numeric_columns):
         numeric_columns.append(DEFAULT_GROUP_COLUMN)
     branches.append(("numeric", Pipeline(numeric_steps), numeric_columns))

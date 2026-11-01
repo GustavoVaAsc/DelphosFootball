@@ -4,16 +4,18 @@ Input: `ml/data/transform/player_seasons.parquet` resolved through `delphos_ml.c
 `analysis/eda.py`, read with a predicate that keeps only the `train` and `validation` splits -
 the 2025 `test` split is never read.
 Output: `e1_ablation.csv`, `e1_rate_variant.csv`, `e1b_raw_counts.csv`, `e2_m_sweep.csv`,
-`e2b_m_sweep.csv`, `fig_e1_ablation.png`, `fig_e2_m_sweep.png` and `summary.json` under
-`<repo root>/analysis/output/feature_ablation/`.
-Responsibility: run the four runs that decide docs/ML_ARCHITECTURE.md section 3.6 - E1, the
-feature-group ablation on OLS market-value regression; E2, the `m` sweep that confirms or
-changes the provisional `m = 5` for valuation; E1b, the raw production-count comparison rung
-with `league_id` kept out of both sides; and E2b, the `m` re-sweep on E1b's winning variant,
-because E2 ran on rung 5 with `league_id` in the set. The script reports evidence only; the
-decisions belong in the architecture docs, not here.
+`e2b_m_sweep.csv`, `e3_vif.csv`, `fig_e1_ablation.png`, `fig_e2_m_sweep.png` and
+`summary.json` under `<repo root>/analysis/output/feature_ablation/`.
+Responsibility: run the five runs that decide docs/ML_ARCHITECTURE.md section 3.6 - E1,
+the feature-group ablation on OLS market-value regression; E2, the `m` sweep that confirms
+or changes the provisional `m = 5` for valuation; E1b, the raw production-count comparison
+rung with `league_id` kept out of both sides; E2b, the `m` re-sweep on E1b's winning
+variant, because E2 ran on rung 5 with `league_id` in the set; and E3, the variance
+inflation factors over the finalised `FULL` design matrix, which say whether any column
+must be dropped or combined for the OLS coefficients to stay interpretable. The script
+reports evidence only; the decisions belong in the architecture docs, not here.
 
-All four runs share one protocol and therefore one scoring core: expanding-window season
+The four fold-based runs share one protocol and therefore one scoring core: expanding-window season
 folds inside `train` + `validation` (train 2017-2019 validate 2020, and so on up to train
 2017-2023 validate 2024), and every fold fits its own preprocessor - Empirical Bayes priors,
 height medians, scalers, one-hot vocabularies - on that fold's training seasons only before OLS
@@ -56,7 +58,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from delphos_ml.config import ConfigError, find_project_root, load_settings
-from delphos_ml.features.feature_sets import FeatureSet
+from delphos_ml.features.feature_sets import FULL, FeatureSet
 from delphos_ml.features.preprocess import build_preprocessor
 
 TARGET = "log10_market_value"
@@ -72,6 +74,18 @@ FOLDS: tuple[tuple[int, int], ...] = (
 
 RATE_COUNTS: tuple[str, ...] = ("goals", "assists", "yellow_cards", "red_cards")
 PER90_COLUMNS: tuple[str, ...] = tuple(f"{count}_per90" for count in RATE_COUNTS)
+
+#: E3: a VIF above this leaves OLS coefficients uninterpretable (TRANSFORM_PLAN section 7).
+VIF_FLAG_THRESHOLD = 10.0
+#: Auxiliary R^2 within this distance of 1 is exact collinearity, reported as VIF = infinity
+#: instead of a floating-point artefact of the least-squares solve.
+VIF_EXACT_TOL = 1e-12
+#: Pairwise |r| at or above which another design column is listed as a collinear partner.
+VIF_STRONG_CORR = 0.5
+VIF_METHOD = (
+    "1 / (1 - R^2) computed directly: each design column regressed on the remaining ones "
+    "with an intercept (statsmodels is not a dependency of the analysis dependency group)"
+)
 
 #: E2 sweep; `0.0` is the unsmoothed raw per-90 rates, not a neutral baseline.
 M_SWEEP: tuple[float, ...] = (0.0, 2.0, 5.0, 10.0, 20.0)
@@ -491,8 +505,117 @@ def _m_gap(pooled: pd.DataFrame, optimum_m: float, reference_m: float) -> dict[s
     }
 
 
+def _dense(matrix: Any) -> np.ndarray:
+    """Dense float64 array from either the sparse or dense preprocessor output."""
+    toarray = getattr(matrix, "toarray", None)
+    return np.asarray(toarray() if toarray is not None else matrix, dtype="float64")
+
+
+def _vif_table(design: np.ndarray, names: list[str]) -> pd.DataFrame:
+    """One VIF row per design column, with the partners that make it redundant.
+
+    VIF is `1 / (1 - R^2)`, with `R^2` from an OLS of the column on every other design
+    column plus an intercept; `R^2` within `VIF_EXACT_TOL` of 1 is exact collinearity and
+    is reported as infinity rather than a floating-point artefact. `statsmodels` is not in
+    the analysis dependency group, so the regression is scikit-learn's `LinearRegression`.
+    `max_abs_corr_with` and `strong_corr_partners` name the block a flagged column is
+    redundant with: every other column at pairwise |r| >= `VIF_STRONG_CORR`.
+    """
+    correlation = np.corrcoef(design, rowvar=False)
+    records: list[dict[str, Any]] = []
+    for index, name in enumerate(names):
+        target = design[:, index]
+        others = np.delete(design, index, axis=1)
+        ss_tot = float(((target - target.mean()) ** 2).sum())
+        if ss_tot == 0.0:
+            records.append(
+                {
+                    "column": name,
+                    "vif": np.nan,
+                    "aux_r2": np.nan,
+                    "flagged_gt_10": False,
+                    "exact_collinear": False,
+                    "max_abs_corr": np.nan,
+                    "max_abs_corr_with": "",
+                    "strong_corr_partners": "",
+                }
+            )
+            continue
+        residual = target - LinearRegression().fit(others, target).predict(others)
+        one_minus_r2 = float((residual**2).sum()) / ss_tot
+        exact = one_minus_r2 <= VIF_EXACT_TOL
+        vif = float("inf") if exact else 1.0 / one_minus_r2
+        corr_abs = np.abs(correlation[index])
+        corr_abs[index] = np.nan
+        known = np.flatnonzero(~np.isnan(corr_abs))
+        best = int(known[np.argmax(corr_abs[known])]) if known.size else -1
+        strong = [names[j] for j in known if corr_abs[j] >= VIF_STRONG_CORR]
+        records.append(
+            {
+                "column": name,
+                "vif": vif,
+                "aux_r2": min(1.0, 1.0 - one_minus_r2),
+                "flagged_gt_10": bool(vif > VIF_FLAG_THRESHOLD),
+                "exact_collinear": exact,
+                "max_abs_corr": float(corr_abs[best]) if best >= 0 else np.nan,
+                "max_abs_corr_with": names[best] if best >= 0 else "",
+                "strong_corr_partners": ";".join(strong),
+            }
+        )
+    table = pd.DataFrame.from_records(records)
+    table.insert(1, "branch", table["column"].str.split("__").str[0])
+    return table
+
+
+def _run_e3(rows: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """E3: VIF over the finalised `FULL` design matrix, fitted on `train` only.
+
+    The matrix is what the linear model actually sees: `build_preprocessor(FULL,
+    empirical_bayes_m=5, prior_grouping="position")` fitted on the 2017-2023 training
+    seasons and applied to those rows, one-hot and Empirical-Bayes rate columns included.
+    The 2024 rows never touch the fit, matching the leak discipline of the fold runs above.
+    """
+    train = rows[rows["split"] == "train"]
+    if int(train["season"].max()) > 2023:
+        raise ValueError(
+            f"E3 must fit on train seasons only, got {sorted(train['season'].unique())}"
+        )
+    preprocessor = build_preprocessor(
+        FULL, empirical_bayes_m=DEFAULT_M, prior_grouping=PRIOR_GROUPING
+    )
+    design = _dense(preprocessor.fit_transform(train))
+    names = list(preprocessor.get_feature_names_out())
+    table = _vif_table(design, names)
+    flagged = table[table["flagged_gt_10"]]
+    unflagged = table[table["vif"].notna() & ~table["flagged_gt_10"]]
+    summary = {
+        "feature_set": FULL.name,
+        "decides": "docs/ML_ARCHITECTURE.md section 3.6 (drop or combine redundant features)",
+        "split_fit": "train (2017-2023)",
+        "rows_fit": int(len(train)),
+        "design_columns": int(len(names)),
+        "method": VIF_METHOD,
+        "flag_threshold": VIF_FLAG_THRESHOLD,
+        "n_flagged": int(len(flagged)),
+        "n_exact_collinear": int(table["exact_collinear"].sum()),
+        "max_vif_unflagged": (float(unflagged["vif"].max()) if not unflagged.empty else None),
+        "flagged_detail": [
+            {
+                "column": str(row["column"]),
+                "vif": "inf" if np.isinf(row["vif"]) else float(row["vif"]),
+                "exact_collinear": bool(row["exact_collinear"]),
+                "strong_corr_partners": [
+                    partner for partner in str(row["strong_corr_partners"]).split(";") if partner
+                ],
+            }
+            for _index, row in flagged.iterrows()
+        ],
+    }
+    return table, summary
+
+
 def run() -> dict[str, Any]:
-    """Run E1, E1b, E2 and E2b and write the CSVs, figures and `summary.json`."""
+    """Run E1, E1b, E2, E2b and E3 and write the CSVs, figures and `summary.json`."""
     rows, out_dir, manifest = _load_rows()
     out_dir.mkdir(parents=True, exist_ok=True)
     folds = _fold_frames(rows)
@@ -522,6 +645,8 @@ def run() -> dict[str, Any]:
     e1b.to_csv(out_dir / "e1b_raw_counts.csv", index=False)
     sweep.to_csv(out_dir / "e2_m_sweep.csv", index=False)
     e2b.to_csv(out_dir / "e2b_m_sweep.csv", index=False)
+    e3, e3_summary = _run_e3(rows)
+    e3.to_csv(out_dir / "e3_vif.csv", index=False)
     figures = _render_figures(out_dir, ablation, e1b, sweep, e2b, optimum_m)
 
     summary = {
@@ -617,6 +742,7 @@ def run() -> dict[str, Any]:
                 "and count / (minutes / 90) is the EB formula at m = 0 exactly (minutes >= 180)."
             ),
         },
+        "e3": e3_summary,
         "league_excluded": True,
         "league_exclusion_note": (
             "Rung 5 (league_id) was measured - pooled RMSE "
@@ -640,6 +766,7 @@ def run() -> dict[str, Any]:
             "e1b_raw_counts.csv",
             "e2_m_sweep.csv",
             "e2b_m_sweep.csv",
+            "e3_vif.csv",
             *figures,
             "summary.json",
         ],
@@ -677,6 +804,19 @@ def run() -> dict[str, Any]:
         )
     )
     print(f"E2b optimum m = {optimum_m:g} (E2 optimum on rung 5: {previous_optimum_m:g})")
+    e3_flagged = e3[e3["flagged_gt_10"]]
+    print(
+        f"\nE3 VIF on the FULL design matrix ({e3_summary['design_columns']} columns, "
+        f"train split only, flagged > {VIF_FLAG_THRESHOLD:g}):"
+    )
+    if e3_flagged.empty:
+        print("no column flagged")
+    else:
+        print(
+            e3_flagged[["column", "vif", "exact_collinear", "max_abs_corr_with"]].to_string(
+                index=False
+            )
+        )
     print(f"\nOutputs written to {out_dir}")
     return summary
 
@@ -686,7 +826,8 @@ def main() -> None:
     print(
         f"Feature ablation completed: E1 winning rung {summary['e1']['winning_rung']}, "
         f"E1b winner {summary['e1b']['winning_variant'].upper()}, "
-        f"E2b optimum m = {summary['e2b']['optimum_m']:g}"
+        f"E2b optimum m = {summary['e2b']['optimum_m']:g}, "
+        f"E3 flagged {summary['e3']['n_flagged']} of {summary['e3']['design_columns']} columns"
     )
 
 
