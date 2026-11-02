@@ -5,6 +5,10 @@ only the validation rows and refitting on the training rows must leave every fit
 parameter (priors, medians, scaler moments, one-hot vocabularies) identical, because
 nothing learned from data may cross the split. Fixtures are small synthetic frames
 shaped like the `transform` stage's row schema.
+
+This module is well past the ~130-line ceiling and is deliberately not split: the tests
+read as one argument about a single object, and cutting them into per-estimator files
+would scatter the leak guard away from the transformers it constrains.
 """
 
 from __future__ import annotations
@@ -370,7 +374,13 @@ def test_leak_guard_changed_validation_rows_do_not_change_fitted_parameters() ->
 
 
 def test_leak_guard_validation_rows_do_not_change_the_centring_mean() -> None:
-    """`center_` is a training statistic: only the rows `fit` receives may set it."""
+    """`center_` is a training statistic: only the rows `fit` receives may set it.
+
+    The equality below is the weak half of the check — both arms fit the same training
+    subset, so it holds for any implementation. The anchor that carries the weight is
+    `center_ == 25.0`, and the last assertion shows the statistic does move when the
+    training rows it receives actually differ.
+    """
     train = _full_train()
     validation_a = pd.DataFrame([_full_row(split="validation", age=40.0, age_sq=1600.0)])
     validation_b = pd.DataFrame([_full_row(split="validation", age=18.0, age_sq=324.0)])
@@ -384,6 +394,14 @@ def test_leak_guard_validation_rows_do_not_change_the_centring_mean() -> None:
     assert center_a == center_b
     # The training rows are all 25 here; a leaked validation row would move the mean.
     assert center_a == pytest.approx(25.0)
+    # And the statistic is genuinely fitted: different training rows give a different one.
+    moved = build_preprocessor(FULL).fit(
+        pd.concat([train, validation_a], ignore_index=True).assign(
+            age=lambda d: d["age"].where(d["split"] != "train", 35.0),
+            age_sq=lambda d: d["age_sq"].where(d["split"] != "train", 1225.0),
+        )
+    )
+    assert moved.named_transformers_["numeric"]["center"].center_ != pytest.approx(25.0)
 
 
 def test_build_preprocessor_full_replaces_the_age_pair_at_the_expected_width() -> None:
