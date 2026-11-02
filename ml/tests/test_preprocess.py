@@ -15,7 +15,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import pytest
-from sklearn.preprocessing import RobustScaler, StandardScaler
+from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
 from delphos_ml.features.feature_sets import CLUSTER, FULL, POLY_REDUCED
 from delphos_ml.features.preprocess import (
@@ -575,3 +575,21 @@ def test_fitted_preprocessor_survives_a_joblib_round_trip(tmp_path: Path) -> Non
     joblib.dump(preprocessor, path)
     loaded = joblib.load(path)
     np.testing.assert_allclose(_dense(loaded.transform(train)), before)
+
+
+def test_build_preprocessor_refuses_a_scaler_outside_the_allowlist() -> None:
+    # A forged manifest must not be able to substitute an arbitrary estimator class.
+    with pytest.raises(ValueError, match="scaler must be one of"):
+        build_preprocessor(FULL, scaler=object())
+    with pytest.raises(ValueError, match="scaler must be one of"):
+        build_preprocessor(FULL, scaler=MinMaxScaler())
+
+
+def test_centered_polynomial_refuses_a_non_finite_center() -> None:
+    # An empty or all-null age column must fail at fit time, not ship NaN predictions.
+    empty = pd.DataFrame({"age": [], "age_sq": []})
+    with pytest.raises(ValueError, match="center_ must be finite"):
+        CenteredPolynomial().fit(empty)
+    all_null = pd.DataFrame({"age": [float("nan"), float("nan")], "age_sq": [float("nan")] * 2})
+    with pytest.raises(ValueError, match="center_ must be finite"):
+        CenteredPolynomial().fit(all_null)

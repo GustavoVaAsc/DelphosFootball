@@ -19,6 +19,8 @@ exactly the two columns, because it has no names to select by.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -48,9 +50,15 @@ class CenteredPolynomial(BaseEstimator, TransformerMixin):
         self.square_column = square_column
 
     def fit(self, X: pd.DataFrame | np.ndarray, y: object = None) -> CenteredPolynomial:
-        """Learn the centre of the `age` column from `X` (training rows only)."""
+        """Learn the centre of the `age` column from `X` (training rows only).
+
+        Raises `ValueError` when the mean is not finite, so a degenerate or all-null `age`
+        column fails at fit time rather than shipping NaN valuations from a green pipeline.
+        """
         age = self._as_pair(X)[:, 0]
         self.center_ = float(pd.Series(age, dtype="float64").mean())
+        if not math.isfinite(self.center_):
+            raise ValueError(f"center_ must be finite; {self.age_column!r} is empty or all-null")
         return self
 
     def transform(

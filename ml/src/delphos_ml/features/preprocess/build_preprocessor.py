@@ -31,7 +31,7 @@ from sklearn.base import BaseEstimator
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, RobustScaler, StandardScaler
 
 from delphos_ml.features.feature_sets import FeatureSet
 from delphos_ml.features.preprocess.centered_polynomial import CenteredPolynomial
@@ -50,6 +50,11 @@ GROUP_MEDIAN_COLUMNS = frozenset({"height_in_cm"})
 #: forged `_transform.json` cannot regroup the shrinkage priors over an arbitrary column.
 #: The two are the position-like columns the prior can sensibly be fit over (H-10).
 PRIOR_GROUPING_ALLOWLIST = frozenset({DEFAULT_GROUP_COLUMN, "sub_position"})
+
+#: The scaling estimators `scaler` may be. Same reasoning as the allowlist above: a forged
+#: manifest must not be able to substitute an arbitrary estimator class, which would then be
+#: pickled into the artifact and executed at unpickle time in the serving backend.
+SCALER_ALLOWLIST = (StandardScaler, RobustScaler)
 
 Branch = tuple[str, BaseEstimator, list[str]]
 
@@ -130,6 +135,11 @@ def build_preprocessor(
         raise ValueError(
             f"prior_grouping must be one of {sorted(PRIOR_GROUPING_ALLOWLIST)}, "
             f"got {prior_grouping!r}"
+        )
+    if scaler is not None and not isinstance(scaler, SCALER_ALLOWLIST):
+        raise ValueError(
+            f"scaler must be one of {tuple(cls.__name__ for cls in SCALER_ALLOWLIST)}, "
+            f"got {type(scaler).__name__}"
         )
 
     rates = tuple(feature_set.rates)
