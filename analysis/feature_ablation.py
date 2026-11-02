@@ -4,8 +4,9 @@ Input: `ml/data/transform/player_seasons.parquet` resolved through `delphos_ml.c
 `analysis/eda.py`, read with a predicate that keeps only the `train` and `validation` splits -
 the 2025 `test` split is never read.
 Output: `e1_ablation.csv`, `e1_rate_variant.csv`, `e1b_raw_counts.csv`, `e2_m_sweep.csv`,
-`e2b_m_sweep.csv`, `e3_vif.csv`, `fig_e1_ablation.png`, `fig_e2_m_sweep.png` and
-`summary.json` under `<repo root>/analysis/output/feature_ablation/`.
+`e2b_m_sweep.csv`, `e3_vif.csv`, `e3b_age_basis.csv`, `fig_e1_ablation.png`,
+`fig_e2_m_sweep.png`, `fig_e3b_age_basis.png` and `summary.json` under
+`<repo root>/analysis/output/feature_ablation/`.
 Responsibility: run the five runs that decide docs/ML_ARCHITECTURE.md section 3.6 - E1,
 the feature-group ablation on OLS market-value regression; E2, the `m` sweep that confirms
 or changes the provisional `m = 5` for valuation; E1b, the raw production-count comparison
@@ -15,11 +16,24 @@ inflation factors over the finalised `FULL` design matrix, which say whether any
 must be dropped or combined for the OLS coefficients to stay interpretable. The script
 reports evidence only; the decisions belong in the architecture docs, not here.
 
+E3b (`age_basis`) is a sixth, narrower run that gates one decision E3 left open: E3 put
+`age` and `age_sq` at VIF ~127 each because they correlate at r = 0.996, a polynomial-
+basis artefact rather than redundant data, so mean-centring `age` before squaring spans
+the identical space - OLS fit and every OLS prediction are unchanged, only the
+coordinates move - but the Random Forest and the Decision Tree consume `age_sq` as a
+genuinely distinct feature. E3b scores both tree families on both age bases (raw as the
+transform stage wrote it, centred on the fold's training mean) with OLS rung as the
+identity control: if OLS is not identical across the two bases, the centring
+implementation is wrong, and that - not the tree scores - is the finding.
+
 The four fold-based runs share one protocol and therefore one scoring core: expanding-window season
 folds inside `train` + `validation` (train 2017-2019 validate 2020, and so on up to train
 2017-2023 validate 2024), and every fold fits its own preprocessor - Empirical Bayes priors,
 height medians, scalers, one-hot vocabularies - on that fold's training seasons only before OLS
 scores that fold's validation season (the leak discipline pinned in `ml/tests/test_preprocess.py`).
+E3b reuses exactly those folds and that per-fold preprocessor discipline; only the model
+and the age basis change, and the centring mean comes from the fold's training seasons
+alone so nothing leaks across the fold boundary.
 The module is longer than a screen because it is one experiment script per ADR-014: splitting
 the shared fold, metric and figure code into a second analysis module would break the
 one-script-one-output-dir convention without shortening anything.
@@ -43,6 +57,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -54,8 +69,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.base import BaseEstimator
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.tree import DecisionTreeRegressor
 
 from delphos_ml.config import ConfigError, find_project_root, load_settings
 from delphos_ml.features.feature_sets import FULL, FeatureSet
@@ -91,6 +109,45 @@ VIF_METHOD = (
 M_SWEEP: tuple[float, ...] = (0.0, 2.0, 5.0, 10.0, 20.0)
 DEFAULT_M = 5.0
 PRIOR_GROUPING = "position"
+
+#: E3b age bases: `raw` is `age`/`age_sq` exactly as the transform stage wrote them;
+#: `centred` rebases `age` on the fold's training mean and re-derives `age_sq = age_c ** 2`.
+E3B_BASES: tuple[str, ...] = ("raw", "centred")
+#: Fixed hyperparameters for E3b. The forest size keeps its Monte-Carlo noise (about
+#: 0.001 RMSE between seeds at 500 trees) well under the raw-versus-centred gap being
+#: measured; the unpruned tree overfits on purpose (depth ~40 on this data), so a modest
+#: depth variant carries the comparison too and it cannot hinge on one bad configuration.
+E3B_SEED = 42
+E3B_FOREST_TREES = 500
+E3B_TREE_DEPTH = 8
+#: OLS must score identically on both age bases - the two bases span the same column
+#: space - so only floating-point noise may separate them. A larger gap means the
+#: centring implementation is wrong, which is the whole point of the control.
+E3B_OLS_IDENTITY_TOL = 1e-9
+
+#: E3b model configurations as `(CSV model key, factory, description)`; the factory is
+#: called once per cell so every fold gets a fresh estimator.
+E3B_MODELS: tuple[tuple[str, Callable[[], BaseEstimator], str], ...] = (
+    (
+        "random_forest",
+        lambda: RandomForestRegressor(
+            n_estimators=E3B_FOREST_TREES, random_state=E3B_SEED, n_jobs=-1
+        ),
+        f"RandomForestRegressor(n_estimators={E3B_FOREST_TREES}, "
+        f"random_state={E3B_SEED}, n_jobs=-1)",
+    ),
+    (
+        "decision_tree",
+        lambda: DecisionTreeRegressor(random_state=E3B_SEED),
+        f"DecisionTreeRegressor(random_state={E3B_SEED}) - unpruned, overfits",
+    ),
+    (
+        f"decision_tree_depth{E3B_TREE_DEPTH}",
+        lambda: DecisionTreeRegressor(max_depth=E3B_TREE_DEPTH, random_state=E3B_SEED),
+        f"DecisionTreeRegressor(max_depth={E3B_TREE_DEPTH}, random_state={E3B_SEED})",
+    ),
+    ("ols", LinearRegression, "LinearRegression() - identity control across age bases"),
+)
 
 BIOGRAPHICAL = FeatureSet(
     name="rung1_biographical",
@@ -471,6 +528,75 @@ def _render_figures(
     return ["fig_e1_ablation.png", "fig_e2_m_sweep.png"]
 
 
+def _render_e3b_figure(out_dir: Path, e3b: pd.DataFrame) -> str:
+    """Write `fig_e3b_age_basis.png`: RMSE by model family, raw versus centred age basis.
+
+    Each model family gets a raw and a centred slot; the five per-fold RMSEs scatter
+    behind a larger pooled marker and a thin line joins the two pooled points, so the
+    basis gap reads against the fold-to-fold spread at a glance. Fold points get a small
+    deterministic horizontal jitter inside their slot, otherwise the tight RMSE cluster
+    hides them behind the pooled diamond. OLS sits in the frame on purpose: its two
+    markers must coincide, which is the identity control plotted.
+    """
+    labels = {
+        "random_forest": "Random\nForest",
+        "decision_tree": "Decision Tree\n(unpruned)",
+        f"decision_tree_depth{E3B_TREE_DEPTH}": f"Decision Tree\n(max_depth={E3B_TREE_DEPTH})",
+        "ols": "OLS\n(control)",
+    }
+    offsets = {"raw": -0.14, "centred": 0.14}
+    colours = {"raw": "steelblue", "centred": "darkorange"}
+    fold_rows = e3b[e3b["fold"] != "pooled"]
+    pooled_rows = e3b[e3b["fold"] == "pooled"].set_index(["model", "age_basis"])
+    model_keys = [key for key, _factory, _description in E3B_MODELS]
+
+    fig, axis = plt.subplots(figsize=(7.6, 4.4), constrained_layout=True)
+    for index, model_key in enumerate(model_keys):
+        pooled_points: dict[str, float] = {}
+        for basis in E3B_BASES:
+            x = index + offsets[basis]
+            fold_rmse = fold_rows[
+                (fold_rows["model"] == model_key) & (fold_rows["age_basis"] == basis)
+            ]["rmse"]
+            jitter = np.linspace(-0.06, 0.06, len(fold_rmse))
+            axis.scatter(
+                x + jitter,
+                fold_rmse,
+                s=22,
+                color=colours[basis],
+                alpha=0.45,
+                zorder=3,
+            )
+            pooled = float(pooled_rows.loc[(model_key, basis), "rmse"])
+            pooled_points[basis] = pooled
+            axis.scatter(
+                x,
+                pooled,
+                s=90,
+                marker="D",
+                color=colours[basis],
+                edgecolor="black",
+                linewidth=0.6,
+                zorder=4,
+                label=f"{basis} (pooled)" if index == 0 else None,
+            )
+        axis.plot(
+            [index + offsets["raw"], index + offsets["centred"]],
+            [pooled_points["raw"], pooled_points["centred"]],
+            color="grey",
+            lw=1,
+            alpha=0.7,
+            zorder=2,
+        )
+    axis.set_xticks(range(len(model_keys)), [labels[key] for key in model_keys])
+    axis.set_ylabel("RMSE (log10 EUR)")
+    axis.set_title("E3b: raw vs mean-centred age basis (small dots = folds, diamond = pooled)")
+    axis.legend()
+    fig.savefig(out_dir / "fig_e3b_age_basis.png", dpi=240)
+    plt.close(fig)
+    return "fig_e3b_age_basis.png"
+
+
 def _pooled_records(frame: pd.DataFrame) -> dict[str, dict[str, Any]]:
     """JSON-safe pooled metric records keyed by rung (or `m` for the sweep)."""
     records: dict[str, dict[str, Any]] = {}
@@ -614,8 +740,144 @@ def _run_e3(rows: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, Any]]:
     return table, summary
 
 
+def _e3b_basis_frames(
+    train: pd.DataFrame, val: pd.DataFrame, basis: str, age_mean: float
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Return the fold's `(train, val)` under one age basis.
+
+    `raw` passes the transform stage's `age` and `age_sq` through untouched. `centred`
+    rewrites both columns as `age_c = age - age_mean` and `age_sq_c = age_c ** 2`, where
+    `age_mean` must be the fold's training mean - centring on the full frame would leak
+    the validation seasons across the fold boundary and break the shared protocol.
+    """
+    if basis == "raw":
+        return train, val
+    if basis != "centred":
+        raise ValueError(f"unknown age basis {basis!r}")
+    centred_train = train.copy()
+    centred_val = val.copy()
+    for frame in (centred_train, centred_val):
+        frame["age"] = frame["age"] - age_mean
+        frame["age_sq"] = frame["age"] ** 2
+    return centred_train, centred_val
+
+
+def _run_e3b(folds: list[FoldFrame]) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """E3b: score every model family on both age bases, with OLS as the identity control.
+
+    Reuses the shared fold construction and the per-fold preprocessor discipline: each
+    fold computes its centring mean from its training seasons only, refits
+    `build_preprocessor(FULL, empirical_bayes_m=5, prior_grouping="position")` on that
+    fold's basis-specific training frame, and scores the fold's validation season with
+    every model in `E3B_MODELS`. Returns one CSV row per model x age basis x fold plus a
+    pooled row per cell, and the `age_basis` block for `summary.json`.
+
+    Raises ValueError when the OLS control is not identical across the two bases by more
+    than `E3B_OLS_IDENTITY_TOL`: mean-centring only moves the coordinates of the same
+    column space, so a gap above floating-point noise means the centring is wrong - and
+    that, not the tree scores, is the finding of this run.
+    """
+    model_config = {key: description for key, _factory, description in E3B_MODELS}
+    records: list[dict[str, Any]] = []
+    pooled_predictions: dict[tuple[str, str], list[tuple[np.ndarray, np.ndarray]]] = {}
+    fold_age_means: dict[str, float] = {}
+    ols_identity_by_fold: dict[str, float] = {}
+
+    for fold_key, train, val, (train_seasons, val_season) in folds:
+        age_mean = float(train["age"].mean())
+        fold_age_means[fold_key] = age_mean
+        ols_predictions: dict[str, np.ndarray] = {}
+        for basis in E3B_BASES:
+            basis_train, basis_val = _e3b_basis_frames(train, val, basis, age_mean)
+            preprocessor = build_preprocessor(
+                FULL, empirical_bayes_m=DEFAULT_M, prior_grouping=PRIOR_GROUPING
+            )
+            design_train = preprocessor.fit_transform(basis_train)
+            design_val = preprocessor.transform(basis_val)
+            y_true = basis_val[TARGET].to_numpy(dtype="float64")
+            for model_key, factory, _description in E3B_MODELS:
+                model = factory()
+                model.fit(design_train, basis_train[TARGET])
+                prediction = model.predict(design_val)
+                if model_key == "ols":
+                    ols_predictions[basis] = prediction
+                pooled_predictions.setdefault((model_key, basis), []).append((y_true, prediction))
+                records.append(
+                    {
+                        "model": model_key,
+                        "model_config": model_config[model_key],
+                        "age_basis": basis,
+                        "fold": fold_key,
+                        "train_seasons": train_seasons,
+                        "val_season": val_season,
+                        "n_train": len(basis_train),
+                        "n_val": len(basis_val),
+                        "train_age_mean": age_mean,
+                        **_metrics(y_true, prediction),
+                    }
+                )
+        ols_identity_by_fold[fold_key] = float(
+            np.max(np.abs(ols_predictions["raw"] - ols_predictions["centred"]))
+        )
+
+    for (model_key, basis), chunks in pooled_predictions.items():
+        y_true = np.concatenate([chunk[0] for chunk in chunks])
+        prediction = np.concatenate([chunk[1] for chunk in chunks])
+        records.append(
+            {
+                "model": model_key,
+                "model_config": model_config[model_key],
+                "age_basis": basis,
+                "fold": "pooled",
+                "train_seasons": "2017-2023",
+                "val_season": "2020-2024",
+                "n_train": None,
+                "n_val": len(y_true),
+                "train_age_mean": None,
+                **_metrics(y_true, prediction),
+            }
+        )
+
+    ols_max_diff = max(ols_identity_by_fold.values())
+    if ols_max_diff > E3B_OLS_IDENTITY_TOL:
+        raise ValueError(
+            "E3b OLS identity check failed: predictions differ by "
+            f"{ols_max_diff:.3e} between the raw and centred age bases "
+            f"(tolerance {E3B_OLS_IDENTITY_TOL:.0e}) - the centring is wrong, not the finding"
+        )
+
+    table = pd.DataFrame.from_records(records)
+    table["n_train"] = table["n_train"].astype("Int64")  # pooled rows have none
+    pooled_metrics: dict[str, dict[str, dict[str, float | int]]] = {}
+    for row in table[table["fold"] == "pooled"].to_dict("records"):
+        pooled_metrics.setdefault(str(row["model"]), {})[str(row["age_basis"])] = {
+            key: (int(row[key]) if key == "floored_rows" else float(row[key]))
+            for key in ("rmse", "mae", "r2", "mdape_eur_pct", "floored_rows")
+        }
+    summary: dict[str, Any] = {
+        "question": "does mean-centring age before squaring change what the tree models learn",
+        "bases": {
+            "raw": "age and age_sq exactly as the transform stage writes them",
+            "centred": (
+                "age_c = age - mean(age_train); age_sq_c = age_c ** 2; the mean comes from "
+                "the fold's training seasons only, never the full frame"
+            ),
+        },
+        "hyperparameters": model_config,
+        "fold_train_age_means": fold_age_means,
+        "pooled_results": pooled_metrics,
+        "ols_identity_check": {
+            "max_abs_prediction_difference": ols_max_diff,
+            "by_fold": ols_identity_by_fold,
+            "tolerance": E3B_OLS_IDENTITY_TOL,
+            "passed": True,
+        },
+    }
+    return table, summary
+
+
 def run() -> dict[str, Any]:
-    """Run E1, E1b, E2, E2b and E3 and write the CSVs, figures and `summary.json`."""
+    """Run E1, E1b, E2, E2b, E3 and E3b and write the CSVs, figures and `summary.json`."""
     rows, out_dir, manifest = _load_rows()
     out_dir.mkdir(parents=True, exist_ok=True)
     folds = _fold_frames(rows)
@@ -647,7 +909,12 @@ def run() -> dict[str, Any]:
     e2b.to_csv(out_dir / "e2b_m_sweep.csv", index=False)
     e3, e3_summary = _run_e3(rows)
     e3.to_csv(out_dir / "e3_vif.csv", index=False)
+    # E3b: the age-basis experiment on the tree models; its OLS identity check raises if
+    # the centring is wrong, so nothing downstream of it can be written on bad evidence.
+    e3b, e3b_summary = _run_e3b(folds)
+    e3b.to_csv(out_dir / "e3b_age_basis.csv", index=False)
     figures = _render_figures(out_dir, ablation, e1b, sweep, e2b, optimum_m)
+    figures.append(_render_e3b_figure(out_dir, e3b))
 
     summary = {
         "input": "data/transform/player_seasons.parquet",
@@ -743,6 +1010,7 @@ def run() -> dict[str, Any]:
             ),
         },
         "e3": e3_summary,
+        "age_basis": e3b_summary,
         "league_excluded": True,
         "league_exclusion_note": (
             "Rung 5 (league_id) was measured - pooled RMSE "
@@ -767,6 +1035,7 @@ def run() -> dict[str, Any]:
             "e2_m_sweep.csv",
             "e2b_m_sweep.csv",
             "e3_vif.csv",
+            "e3b_age_basis.csv",
             *figures,
             "summary.json",
         ],
@@ -817,6 +1086,22 @@ def run() -> dict[str, Any]:
                 index=False
             )
         )
+    print("\nE3b pooled RMSE by model and age basis (centred minus raw in brackets):")
+    e3b_pooled = e3b[e3b["fold"] == "pooled"].pivot(index="model", columns="age_basis")
+    for model_key, _factory, _description in E3B_MODELS:
+        raw_rmse = float(e3b_pooled.loc[model_key, ("rmse", "raw")])
+        centred_rmse = float(e3b_pooled.loc[model_key, ("rmse", "centred")])
+        raw_r2 = float(e3b_pooled.loc[model_key, ("r2", "raw")])
+        centred_r2 = float(e3b_pooled.loc[model_key, ("r2", "centred")])
+        print(
+            f"  {model_key:<26} RMSE {raw_rmse:.4f} -> {centred_rmse:.4f} "
+            f"({centred_rmse - raw_rmse:+.4f}); R2 {raw_r2:.4f} -> {centred_r2:.4f}"
+        )
+    print(
+        "E3b OLS identity check: max |raw - centred| prediction difference "
+        f"{e3b_summary['ols_identity_check']['max_abs_prediction_difference']:.3e} "
+        f"(tolerance {E3B_OLS_IDENTITY_TOL:.0e}) - centring spans the identical space"
+    )
     print(f"\nOutputs written to {out_dir}")
     return summary
 
@@ -827,7 +1112,9 @@ def main() -> None:
         f"Feature ablation completed: E1 winning rung {summary['e1']['winning_rung']}, "
         f"E1b winner {summary['e1b']['winning_variant'].upper()}, "
         f"E2b optimum m = {summary['e2b']['optimum_m']:g}, "
-        f"E3 flagged {summary['e3']['n_flagged']} of {summary['e3']['design_columns']} columns"
+        f"E3 flagged {summary['e3']['n_flagged']} of {summary['e3']['design_columns']} columns, "
+        "E3b OLS identity "
+        f"{summary['age_basis']['ols_identity_check']['max_abs_prediction_difference']:.1e}"
     )
 
 
