@@ -6,14 +6,16 @@ manifest's values instead of the transformer's hard-coded ones and an experiment
 swap the numeric branch's scaler without rebuilding the pipeline.
 Output: a scikit-learn `ColumnTransformer` with three branches: (1) the Empirical-Bayes
 per-90 rates over the set's `rates` counts, (2) numerics imputed - `height_in_cm` with
-the position-grouped median, the rest with the plain training median - then log1p'd
+the position-grouped median, the rest with the plain training median - the `age` pair
+replaced by its mean-centred basis when the set declares both columns, then log1p'd
 where the set declares it and scaled (`StandardScaler` unless `scaler` says otherwise),
 (3) categoricals rare-level-collapsed where the set declares it, imputed with `"unknown"`
 and one-hot encoded with unknown levels ignored.
 Responsibility: wire the fitted layer of docs/TRANSFORM_PLAN.md section 2. Every learned
-statistic (priors, medians, scaler moments, one-hot vocabularies) is fitted inside the
-returned estimator on whatever rows `fit` receives, so `train` fits it on the training
-split only and batch and live scoring apply identical transforms. The two stateless
+statistic (priors, medians, the centring mean, scaler moments, one-hot vocabularies) is
+fitted inside the returned estimator on whatever rows `fit` receives, so `train` fits it
+on the training split only and batch and live scoring apply identical transforms. The two
+stateless
 helpers below stay in this module: they hold no fitted state, are only meaningful wired
 into this exact pipeline, and both are module-level functions so the fitted pipeline
 pickles - a file each would wrap one expression.
@@ -32,6 +34,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
 
 from delphos_ml.features.feature_sets import FeatureSet
+from delphos_ml.features.preprocess.centered_polynomial import CenteredPolynomial
 from delphos_ml.features.preprocess.empirical_bayes_rates import (
     DEFAULT_GROUP_COLUMN,
     DEFAULT_M,
@@ -141,7 +144,16 @@ def build_preprocessor(
     impute = ColumnTransformer(
         _imputation_transformers(feature_set), verbose_feature_names_out=False
     )
+    # The centring step selects `age` / `age_sq` by name, like every other named
+    # sub-transformer of this branch, so it must receive the named frame rather than
+    # the raw array a ColumnTransformer would otherwise hand a downstream step.
+    impute.set_output(transform="pandas")
     numeric_steps: list[tuple[str, BaseEstimator]] = [("impute", impute)]
+    center = CenteredPolynomial()
+    if center.age_column in numeric_columns and center.square_column in numeric_columns:
+        # Replace the raw pair with the centred basis in place - same columns, same
+        # count - before log1p and the scaler, which then see the centred values.
+        numeric_steps.append(("center", center))
     if log1p_indices:
         log1p = FunctionTransformer(
             _log1p_values, kw_args={"indices": log1p_indices}, feature_names_out="one-to-one"

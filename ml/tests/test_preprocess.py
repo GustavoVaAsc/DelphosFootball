@@ -1,4 +1,4 @@
-"""Unit tests for the fitted preprocessor: shrunk rates, grouped imputation, leak guard.
+"""Unit tests for the fitted preprocessor: shrunk rates, grouped imputation, centring, leak guard.
 
 The leak guard is the central assertion of docs/TRANSFORM_PLAN.md section 2: changing
 only the validation rows and refitting on the training rows must leave every fitted
@@ -19,6 +19,7 @@ from sklearn.preprocessing import RobustScaler, StandardScaler
 
 from delphos_ml.features.feature_sets import CLUSTER, FULL, POLY_REDUCED
 from delphos_ml.features.preprocess import (
+    CenteredPolynomial,
     EmpiricalBayesRates,
     GroupMedianImputer,
     build_preprocessor,
@@ -245,6 +246,44 @@ def test_group_median_imputer_falls_back_to_global_median_for_unseen_position() 
     assert out["height_in_cm"].tolist() == [179.0]
 
 
+def test_centered_polynomial_matches_hand_computed_values() -> None:
+    frame = pd.DataFrame({"age": [20.0, 30.0, 40.0], "age_sq": [400.0, 900.0, 1600.0]})
+    transformer = CenteredPolynomial().fit(frame)
+    assert transformer.center_ == pytest.approx(30.0)
+    transformed = transformer.transform(frame)
+    assert list(transformed.columns) == ["age", "age_sq"]
+    expected = np.array([[-10.0, 0.0, 10.0], [100.0, 0.0, 100.0]]).T
+    np.testing.assert_allclose(transformed.to_numpy(), expected)
+    # The same two columns as a plain ndarray: no names, so the pair in order.
+    unnamed = transformer.transform(frame.to_numpy())
+    np.testing.assert_allclose(np.asarray(unnamed), expected)
+
+
+def test_centered_polynomial_transform_before_fit_raises() -> None:
+    frame = pd.DataFrame({"age": [25.0], "age_sq": [625.0]})
+    with pytest.raises(ValueError, match="not fitted"):
+        CenteredPolynomial().transform(frame)
+
+
+def test_centered_polynomial_feature_names_out_is_the_pair() -> None:
+    frame = pd.DataFrame({"age": [25.0, 30.0], "age_sq": [625.0, 900.0]})
+    transformer = CenteredPolynomial().fit(frame)
+    names = transformer.get_feature_names_out()
+    assert len(names) == 2
+    assert list(names) == ["age", "age_sq"]
+
+
+def test_centered_polynomial_survives_a_joblib_round_trip(tmp_path: Path) -> None:
+    frame = pd.DataFrame({"age": [25.0, 30.0, 35.0], "age_sq": [625.0, 900.0, 1225.0]})
+    transformer = CenteredPolynomial().fit(frame)
+    before = transformer.transform(frame)
+    path = tmp_path / "centered_polynomial.joblib"
+    joblib.dump(transformer, path)
+    loaded = joblib.load(path)
+    assert loaded.center_ == transformer.center_
+    np.testing.assert_allclose(loaded.transform(frame).to_numpy(), before.to_numpy())
+
+
 def test_build_preprocessor_exposes_the_three_branches() -> None:
     preprocessor = build_preprocessor(FULL)
     assert [name for name, _, _ in preprocessor.transformers] == [
@@ -267,6 +306,7 @@ def _fit_parameters(preprocessor: object) -> dict[str, object]:
             column: series.to_dict() for column, series in empirical_bayes.group_priors_.items()
         },
         "global_priors": dict(empirical_bayes.global_priors_),
+        "center": numeric["center"].center_,
         "group_medians": {
             column: series.to_dict() for column, series in grouped.group_medians_.items()
         },
@@ -327,6 +367,41 @@ def test_leak_guard_changed_validation_rows_do_not_change_fitted_parameters() ->
     parameters_b = _fit_parameters(preprocessor_b)
     assert parameters_a["group_priors"], "the guard must compare non-empty priors"
     assert parameters_a == parameters_b
+
+
+def test_leak_guard_validation_rows_do_not_change_the_centring_mean() -> None:
+    """`center_` is a training statistic: only the rows `fit` receives may set it."""
+    train = _full_train()
+    validation_a = pd.DataFrame([_full_row(split="validation", age=40.0, age_sq=1600.0)])
+    validation_b = pd.DataFrame([_full_row(split="validation", age=18.0, age_sq=324.0)])
+    frame_a = pd.concat([train, validation_a], ignore_index=True)
+    frame_b = pd.concat([train, validation_b], ignore_index=True)
+    assert not frame_a.equals(frame_b), "the two source frames must differ"
+    fit_a = build_preprocessor(FULL).fit(frame_a[frame_a["split"] == "train"])
+    fit_b = build_preprocessor(FULL).fit(frame_b[frame_b["split"] == "train"])
+    center_a = fit_a.named_transformers_["numeric"]["center"].center_
+    center_b = fit_b.named_transformers_["numeric"]["center"].center_
+    assert center_a == center_b
+    # The training rows are all 25 here; a leaked validation row would move the mean.
+    assert center_a == pytest.approx(25.0)
+
+
+def test_build_preprocessor_full_replaces_the_age_pair_at_the_expected_width() -> None:
+    """The centred pair must substitute the raw columns: same names, same count, no extras."""
+    train = _full_train()
+    preprocessor = build_preprocessor(FULL).fit(train)
+    names = list(preprocessor.get_feature_names_out())
+    numeric_names = [name for name in names if name.startswith("numeric__")]
+    assert numeric_names == [f"numeric__{column}" for column in FULL.numeric]
+    onehot = preprocessor.named_transformers_["categorical"]["onehot"]
+    expected_width = (
+        len(FULL.rates) + len(FULL.numeric) + sum(len(levels) for levels in onehot.categories_)
+    )
+    matrix = _dense(preprocessor.transform(train))
+    assert matrix.shape == (len(train), expected_width)
+    center = preprocessor.named_transformers_["numeric"]["center"]
+    assert isinstance(center, CenteredPolynomial)
+    assert center.center_ == pytest.approx(float(train["age"].mean()))
 
 
 def test_numeric_branch_applies_log1p_before_scaling() -> None:
