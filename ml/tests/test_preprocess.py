@@ -593,3 +593,29 @@ def test_centered_polynomial_refuses_a_non_finite_center() -> None:
     all_null = pd.DataFrame({"age": [float("nan"), float("nan")], "age_sq": [float("nan")] * 2})
     with pytest.raises(ValueError, match="center_ must be finite"):
         CenteredPolynomial().fit(all_null)
+
+
+def test_centered_polynomial_transform_uses_the_stored_center_not_the_batch_mean() -> None:
+    # The live-scoring failure mode is re-centring on whatever batch arrives at transform
+    # time. Fit on one spread of ages, transform a far-away row, and pin the stored centre.
+    fitted = CenteredPolynomial().fit(
+        pd.DataFrame({"age": [20.0, 30.0, 40.0], "age_sq": [400.0, 900.0, 1600.0]})
+    )
+    assert fitted.center_ == pytest.approx(30.0)
+
+    out = fitted.transform(pd.DataFrame({"age": [100.0], "age_sq": [10000.0]}))
+    assert float(np.asarray(out)[0][0]) == pytest.approx(70.0)
+    assert float(np.asarray(out)[0][1]) == pytest.approx(4900.0)
+
+
+def _numeric_step_names(preprocessor: object) -> list[str]:
+    """Step names of the numeric branch, read off the unfitted spec."""
+    numeric = next(est for name, est, _cols in preprocessor.transformers if name == "numeric")
+    return [name for name, _step in numeric.steps]
+
+
+def test_build_preprocessor_can_skip_the_age_centring_for_before_after_comparisons() -> None:
+    # A before/after comparison must be able to ask for the un-centred basis; with the step
+    # always on, the "raw" arm would be centred twice and report a vacuous identity.
+    assert "center" not in _numeric_step_names(build_preprocessor(FULL, center_age=False))
+    assert "center" in _numeric_step_names(build_preprocessor(FULL, center_age=True))

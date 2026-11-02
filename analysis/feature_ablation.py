@@ -789,8 +789,15 @@ def _run_e3b(folds: list[FoldFrame]) -> tuple[pd.DataFrame, dict[str, Any]]:
         ols_predictions: dict[str, np.ndarray] = {}
         for basis in E3B_BASES:
             basis_train, basis_val = _e3b_basis_frames(train, val, basis, age_mean)
+            # The basis is applied by _e3b_basis_frames above, so the pipeline must not
+            # apply it again: with the centring step on, the "raw" arm would be centred
+            # anyway and the "centred" arm centred twice, collapsing the comparison into
+            # a tautology. This is the before/after the age-centring decision rests on.
             preprocessor = build_preprocessor(
-                FULL, empirical_bayes_m=DEFAULT_M, prior_grouping=PRIOR_GROUPING
+                FULL,
+                empirical_bayes_m=DEFAULT_M,
+                prior_grouping=PRIOR_GROUPING,
+                center_age=False,
             )
             design_train = preprocessor.fit_transform(basis_train)
             design_val = preprocessor.transform(basis_val)

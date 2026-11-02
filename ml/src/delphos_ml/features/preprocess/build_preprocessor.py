@@ -109,6 +109,7 @@ def build_preprocessor(
     empirical_bayes_m: float = DEFAULT_M,
     prior_grouping: str = DEFAULT_GROUP_COLUMN,
     scaler: BaseEstimator | None = None,
+    center_age: bool = True,
 ) -> ColumnTransformer:
     """Return the three-branch ColumnTransformer this feature set consumes.
 
@@ -124,6 +125,12 @@ def build_preprocessor(
     Raises `ValueError` when the manifest-supplied parameters are not usable, so a forged
     `_transform.json` fails here rather than reaching estimator construction: this is the
     sink-side counterpart of the read-back rules in docs/TRANSFORM_PLAN.md section 4.
+
+    `center_age` inserts the `CenteredPolynomial` step when the set declares `age` and
+    `age_sq`. It defaults on, so the fitted layer uses the documented centred basis. Pass
+    `False` to get the un-centred basis, which is what a before/after comparison needs: with
+    the step always on, an experiment scoring a "raw" arm through this function would in fact
+    score the centred one twice and report a vacuous identity.
     """
     if isinstance(empirical_bayes_m, bool) or not isinstance(empirical_bayes_m, (int, float)):
         raise ValueError(f"empirical_bayes_m must be a number, got {empirical_bayes_m!r}")
@@ -160,7 +167,11 @@ def build_preprocessor(
     impute.set_output(transform="pandas")
     numeric_steps: list[tuple[str, BaseEstimator]] = [("impute", impute)]
     center = CenteredPolynomial()
-    if center.age_column in numeric_columns and center.square_column in numeric_columns:
+    if (
+        center_age
+        and center.age_column in numeric_columns
+        and center.square_column in numeric_columns
+    ):
         # Replace the raw pair with the centred basis in place - same columns, same
         # count - before log1p and the scaler, which then see the centred values.
         numeric_steps.append(("center", center))
