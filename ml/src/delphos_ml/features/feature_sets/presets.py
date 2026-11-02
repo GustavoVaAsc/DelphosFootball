@@ -17,21 +17,30 @@ from __future__ import annotations
 
 from delphos_ml.features.feature_sets.feature_set import FeatureSet
 
-#: Linear regression, Random Forest and Decision Tree. Finalised by E1 and E2
-#: (docs/TRANSFORM_PLAN.md section 7): every group in the ladder earned its place except
-#: `league_id`, which is excluded deliberately. It was the single largest gain in the
-#: ladder (R^2 0.578 -> 0.810), but it is a pricing variable rather than a performance
-#: one, so including it would make the undervaluation residual measure "price versus the
-#: league's typical price" instead of "price versus performance" - the reasoning that
-#: already excludes prior market value (REPORT_NOTES.md H-09) and league from CLUSTER.
-#: Raw production counts are excluded too: E1b measured them alongside the rates at a
-#: 0.05% RMSE gain, which does not pay for four more columns. The four counts enter only
-#: through the Empirical-Bayes per-90 rates.
+#: Linear regression, Random Forest and Decision Tree. Finalised by E1, E2 and E1b/E2b,
+#: with E3's VIF pass applied (docs/TRANSFORM_PLAN.md section 7):
+#:
+#: - `league_id` is excluded deliberately. It was the single largest gain in the ladder
+#:   (R^2 0.578 -> 0.810), but it is a pricing variable rather than a performance one, so
+#:   including it would make the undervaluation residual measure "price versus the
+#:   league's typical price" instead of "price versus performance" - the reasoning that
+#:   already excludes prior market value (REPORT_NOTES.md H-09) and league from CLUSTER.
+#: - Raw production counts are excluded: E1b measured them alongside the rates at a 0.05%
+#:   RMSE gain, which does not pay for four more columns. The four counts enter only
+#:   through the Empirical-Bayes per-90 rates.
+#: - `apps` is excluded: E3 put it at VIF 15.6, the redundant middle of the
+#:   minutes/apps/starts cluster (r 0.90-0.92). `minutes` is the exposure the rates and the
+#:   180-minute floor already use, and `starter_ratio` keeps incumbency.
+#: - `position` is excluded: E3 showed it is exactly determined by `sub_position`, so the
+#:   nesting is pure redundancy. The cost is that a novel `sub_position` at live scoring
+#:   encodes to all zeros with no coarser position behind it; accepted, and recorded.
+#: - The one-hot blocks are left whole. Their VIF of infinity is the dummy trap (each
+#:   block sums to 1 under an intercept), not data redundancy, and predictions are
+#:   unaffected by `drop="first"`.
 FULL = FeatureSet(
     name="full",
     numeric=(
         "minutes",
-        "apps",
         "starts",
         "starter_ratio",
         "captain_ratio",
@@ -45,8 +54,8 @@ FULL = FeatureSet(
         "cup_share",
         "league_position",
     ),
-    categorical=("foot", "position", "sub_position", "country_group"),
-    log1p=("minutes", "apps"),
+    categorical=("foot", "sub_position", "country_group"),
+    log1p=("minutes",),
     rates=("goals", "assists", "yellow_cards", "red_cards"),
 )
 
