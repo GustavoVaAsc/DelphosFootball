@@ -1,18 +1,21 @@
 """Assemble the fitted preprocessor for a `FeatureSet`.
 
 Input: a `FeatureSet` declaration (docs/TRANSFORM_PLAN.md section 3) plus the optional
-`empirical_bayes_m` and `prior_grouping` parameters the transform manifest records, so
-`train` passes the manifest's values instead of the transformer's hard-coded ones.
+`empirical_bayes_m`, `prior_grouping` and `scaler` parameters, so `train` passes the
+manifest's values instead of the transformer's hard-coded ones and an experiment can
+swap the numeric branch's scaler without rebuilding the pipeline.
 Output: a scikit-learn `ColumnTransformer` with three branches: (1) the Empirical-Bayes
 per-90 rates over the set's `rates` counts, (2) numerics imputed - `height_in_cm` with
-the position-grouped median, the rest with the plain training median - then log1p'd
-where the set declares it and standard-scaled, (3) categoricals rare-level-collapsed
-where the set declares it, imputed with `"unknown"` and one-hot encoded with unknown
-levels ignored.
+the position-grouped median, the rest with the plain training median - the `age` pair
+replaced by its mean-centred basis when the set declares both columns, then log1p'd
+where the set declares it and scaled (`StandardScaler` unless `scaler` says otherwise),
+(3) categoricals rare-level-collapsed where the set declares it, imputed with `"unknown"`
+and one-hot encoded with unknown levels ignored.
 Responsibility: wire the fitted layer of docs/TRANSFORM_PLAN.md section 2. Every learned
-statistic (priors, medians, scaler moments, one-hot vocabularies) is fitted inside the
-returned estimator on whatever rows `fit` receives, so `train` fits it on the training
-split only and batch and live scoring apply identical transforms. The two stateless
+statistic (priors, medians, the centring mean, scaler moments, one-hot vocabularies) is
+fitted inside the returned estimator on whatever rows `fit` receives, so `train` fits it
+on the training split only and batch and live scoring apply identical transforms. The two
+stateless
 helpers below stay in this module: they hold no fitted state, are only meaningful wired
 into this exact pipeline, and both are module-level functions so the fitted pipeline
 pickles - a file each would wrap one expression.
@@ -28,9 +31,10 @@ from sklearn.base import BaseEstimator
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, RobustScaler, StandardScaler
 
 from delphos_ml.features.feature_sets import FeatureSet
+from delphos_ml.features.preprocess.centered_polynomial import CenteredPolynomial
 from delphos_ml.features.preprocess.empirical_bayes_rates import (
     DEFAULT_GROUP_COLUMN,
     DEFAULT_M,
@@ -46,6 +50,11 @@ GROUP_MEDIAN_COLUMNS = frozenset({"height_in_cm"})
 #: forged `_transform.json` cannot regroup the shrinkage priors over an arbitrary column.
 #: The two are the position-like columns the prior can sensibly be fit over (H-10).
 PRIOR_GROUPING_ALLOWLIST = frozenset({DEFAULT_GROUP_COLUMN, "sub_position"})
+
+#: The scaling estimators `scaler` may be. Same reasoning as the allowlist above: a forged
+#: manifest must not be able to substitute an arbitrary estimator class, which would then be
+#: pickled into the artifact and executed at unpickle time in the serving backend.
+SCALER_ALLOWLIST = (StandardScaler, RobustScaler)
 
 Branch = tuple[str, BaseEstimator, list[str]]
 
@@ -99,6 +108,8 @@ def build_preprocessor(
     *,
     empirical_bayes_m: float = DEFAULT_M,
     prior_grouping: str = DEFAULT_GROUP_COLUMN,
+    scaler: BaseEstimator | None = None,
+    center_age: bool = True,
 ) -> ColumnTransformer:
     """Return the three-branch ColumnTransformer this feature set consumes.
 
@@ -107,11 +118,19 @@ def build_preprocessor(
     trailing-underscore attributes survive a joblib round trip to the serving backend.
     `empirical_bayes_m` and `prior_grouping` default to the shared Empirical Bayes
     constants; `train` passes the values `_transform.json` records so the fitted
-    preprocessor cannot drift from the rows' manifest.
+    preprocessor cannot drift from the rows' manifest. `scaler` selects the numeric
+    branch's scaling estimator and defaults to `StandardScaler()`, so existing callers
+    are unchanged; experiment E7 passes `RobustScaler()` to compare distance geometries.
 
     Raises `ValueError` when the manifest-supplied parameters are not usable, so a forged
     `_transform.json` fails here rather than reaching estimator construction: this is the
     sink-side counterpart of the read-back rules in docs/TRANSFORM_PLAN.md section 4.
+
+    `center_age` inserts the `CenteredPolynomial` step when the set declares `age` and
+    `age_sq`. It defaults on, so the fitted layer uses the documented centred basis. Pass
+    `False` to get the un-centred basis, which is what a before/after comparison needs: with
+    the step always on, an experiment scoring a "raw" arm through this function would in fact
+    score the centred one twice and report a vacuous identity.
     """
     if isinstance(empirical_bayes_m, bool) or not isinstance(empirical_bayes_m, (int, float)):
         raise ValueError(f"empirical_bayes_m must be a number, got {empirical_bayes_m!r}")
@@ -123,6 +142,11 @@ def build_preprocessor(
         raise ValueError(
             f"prior_grouping must be one of {sorted(PRIOR_GROUPING_ALLOWLIST)}, "
             f"got {prior_grouping!r}"
+        )
+    if scaler is not None and not isinstance(scaler, SCALER_ALLOWLIST):
+        raise ValueError(
+            f"scaler must be one of {tuple(cls.__name__ for cls in SCALER_ALLOWLIST)}, "
+            f"got {type(scaler).__name__}"
         )
 
     rates = tuple(feature_set.rates)
@@ -137,13 +161,26 @@ def build_preprocessor(
     impute = ColumnTransformer(
         _imputation_transformers(feature_set), verbose_feature_names_out=False
     )
+    # The centring step selects `age` / `age_sq` by name, like every other named
+    # sub-transformer of this branch, so it must receive the named frame rather than
+    # the raw array a ColumnTransformer would otherwise hand a downstream step.
+    impute.set_output(transform="pandas")
     numeric_steps: list[tuple[str, BaseEstimator]] = [("impute", impute)]
+    center = CenteredPolynomial()
+    if (
+        center_age
+        and center.age_column in numeric_columns
+        and center.square_column in numeric_columns
+    ):
+        # Replace the raw pair with the centred basis in place - same columns, same
+        # count - before log1p and the scaler, which then see the centred values.
+        numeric_steps.append(("center", center))
     if log1p_indices:
         log1p = FunctionTransformer(
             _log1p_values, kw_args={"indices": log1p_indices}, feature_names_out="one-to-one"
         )
         numeric_steps.append(("log1p", log1p))
-    numeric_steps.append(("scale", StandardScaler()))
+    numeric_steps.append(("scale", scaler if scaler is not None else StandardScaler()))
     if any(column in GROUP_MEDIAN_COLUMNS for column in numeric_columns):
         numeric_columns.append(DEFAULT_GROUP_COLUMN)
     branches.append(("numeric", Pipeline(numeric_steps), numeric_columns))

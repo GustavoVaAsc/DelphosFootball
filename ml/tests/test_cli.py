@@ -15,14 +15,19 @@ def test_top_level_help_lists_ingest_clean_and_all_commands() -> None:
     assert result.exit_code == 0
     assert "Commands" in result.output
     normalized = " ".join(result.output.split())
-    assert "Stage commands write their outputs under data/<stage>/" in normalized
-    assert "all runs every implemented stage in order." in normalized
+    # The help must say where stages write and that `all` runs the stages in order. Assert
+    # the phrases the help actually renders, not paraphrases of them: an exact-sentence
+    # assertion here failed from the day it was written and only ever tested the wording.
+    assert "writes its output under data/<stage>/" in normalized
+    assert "Run every implemented pipeline stage in order" in normalized
     ingest_lines = [line for line in result.output.splitlines() if "ingest" in line]
     clean_lines = [line for line in result.output.splitlines() if "clean" in line]
+    transform_lines = [line for line in result.output.splitlines() if "transform" in line]
     all_lines = [line for line in result.output.splitlines() if line.strip().startswith("all")]
     assert ingest_lines, result.output
     assert "Parquet" in ingest_lines[0]
     assert clean_lines, result.output
+    assert transform_lines, result.output
     assert all_lines, result.output
 
 

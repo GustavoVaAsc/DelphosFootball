@@ -962,7 +962,10 @@ def test_clean_replaces_existing_output_and_handles_swap_rollback_and_incomplete
     assert "previous output was put back" in rolled_back.output
     assert (data_dir / "clean" / "_clean.json").is_file()
     assert calls >= 2
-    monkeypatch.undo()
+    # Undo only the rename patch. `monkeypatch.undo()` here would also revert the
+    # `project_dir` fixture's chdir and env cleanup, and the next `invoke_clean()` would
+    # run against the real project data directory instead of this fixture's.
+    monkeypatch.setattr(Path, "rename", real_rename)
 
     import shutil as std_shutil
 
@@ -972,5 +975,8 @@ def test_clean_replaces_existing_output_and_handles_swap_rollback_and_incomplete
     (incomplete / "_clean.json").write_text("{}", encoding="utf-8")
     recovered = invoke_clean()
     assert recovered.exit_code == 0, recovered.output
+    # The run must be the fixture's: a sandbox escape here rewrites the real data
+    # directory, so pin the path the stage reports working on.
+    assert str(data_dir) in recovered.output, recovered.output
     assert "discarding .clean-retired-broken" in recovered.output
     assert not incomplete.exists()
