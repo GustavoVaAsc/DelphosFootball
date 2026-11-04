@@ -637,3 +637,45 @@ def test_build_preprocessor_can_skip_the_age_centring_for_before_after_compariso
     # always on, the "raw" arm would be centred twice and report a vacuous identity.
     assert "center" not in _numeric_step_names(build_preprocessor(FULL, center_age=False))
     assert "center" in _numeric_step_names(build_preprocessor(FULL, center_age=True))
+
+
+def test_build_preprocessor_expands_poly_columns_and_round_trips_through_joblib(
+    tmp_path: Path,
+) -> None:
+    from sklearn.linear_model import LinearRegression
+    from sklearn.preprocessing import PolynomialFeatures
+
+    train = _full_train().assign(target=[5.8, 6.1, 6.4, 6.9, 6.2])
+    poly_prep = build_preprocessor(POLY_REDUCED, poly_degree=2)
+    x_poly = _dense(poly_prep.fit_transform(train))
+    # 5 poly columns expanded at degree 2 without bias -> 5 linear + 15 quadratic/interaction = 20,
+    # plus passthrough `age_sq` (1) and 3 `position` one-hot columns = 24 columns total.
+    assert x_poly.shape == (len(train), 24)
+    assert len(poly_prep.get_feature_names_out()) == 24
+
+    # Reference OLS matching `analysis/poly_degree.py` E4 `degree2_full`.
+    base_prep = build_preprocessor(POLY_REDUCED)
+    x_base = _dense(base_prep.fit_transform(train))
+    names = list(base_prep.get_feature_names_out())
+    poly_idx = [names.index(f"numeric__{col}") for col in POLY_REDUCED.poly]
+    keep_idx = [i for i in range(x_base.shape[1]) if i not in poly_idx]
+    exp = PolynomialFeatures(degree=2, interaction_only=False, include_bias=False)
+    x_ref = np.hstack([x_base[:, keep_idx], exp.fit_transform(x_base[:, poly_idx])])
+
+    ols_poly = LinearRegression().fit(x_poly, train["target"])
+    ols_ref = LinearRegression().fit(x_ref, train["target"])
+    np.testing.assert_allclose(ols_poly.predict(x_poly), ols_ref.predict(x_ref), atol=1e-12)
+
+    artifact_path = tmp_path / "poly_prep.joblib"
+    joblib.dump(poly_prep, artifact_path)
+    reloaded = joblib.load(artifact_path)
+    np.testing.assert_allclose(_dense(reloaded.transform(train)), x_poly)
+
+
+def test_build_preprocessor_refuses_invalid_poly_degree() -> None:
+    with pytest.raises(ValueError, match="poly_degree"):
+        build_preprocessor(POLY_REDUCED, poly_degree=0)
+    with pytest.raises(ValueError, match="poly_degree"):
+        build_preprocessor(POLY_REDUCED, poly_degree=True)
+    with pytest.raises(ValueError, match="declares no poly columns"):
+        build_preprocessor(FULL, poly_degree=2)

@@ -1,16 +1,18 @@
 """Assemble the fitted preprocessor for a `FeatureSet`.
 
-Input: a `FeatureSet` declaration (docs/TRANSFORM_PLAN.md section 3) plus the optional
-`empirical_bayes_m`, `prior_grouping` and `scaler` parameters, so `train` passes the
-manifest's values instead of the transformer's hard-coded ones and an experiment can
-swap the numeric branch's scaler without rebuilding the pipeline.
-Output: a scikit-learn `ColumnTransformer` with three branches: (1) the Empirical-Bayes
-per-90 rates over the set's `rates` counts, (2) numerics imputed - `height_in_cm` with
-the position-grouped median, the rest with the plain training median - the `age` pair
-replaced by its mean-centred basis when the set declares both columns, then log1p'd
-where the set declares it and scaled (`StandardScaler` unless `scaler` says otherwise),
-(3) categoricals rare-level-collapsed where the set declares it, imputed with `"unknown"`
-and one-hot encoded with unknown levels ignored.
+Input: a `FeatureSet` declaration (docs/TRANSFORM_PLAN.md section 3) plus optional
+`empirical_bayes_m`, `prior_grouping`, `scaler`, `center_age`, `poly_degree`, and
+`poly_interaction_only` parameters, so `train` passes the manifest's values instead of the
+transformer's hard-coded ones and experiments or `POLY_REDUCED` can swap scalers or append a
+polynomial expansion without rebuilding the pipeline.
+Output: a scikit-learn `ColumnTransformer` with three branches (or a `Pipeline` wrapping that
+`ColumnTransformer` plus `PolynomialFeatures` on `feature_set.poly` columns when
+`poly_degree > 1`): (1) the Empirical-Bayes per-90 rates over the set's `rates` counts,
+(2) numerics imputed - `height_in_cm` with the position-grouped median, the rest with the plain
+training median - the `age` pair replaced by its mean-centred basis when `center_age` is true and
+the set declares both columns, then log1p'd where the set declares it and scaled (`StandardScaler`
+unless `scaler` says otherwise), (3) categoricals rare-level-collapsed where the set declares it,
+imputed with `"unknown"` and one-hot encoded with unknown levels ignored.
 Responsibility: wire the fitted layer of docs/TRANSFORM_PLAN.md section 2. Every learned
 statistic (priors, medians, the centring mean, scaler moments, one-hot vocabularies) is
 fitted inside the returned estimator on whatever rows `fit` receives, so `train` fits it
@@ -31,7 +33,13 @@ from sklearn.base import BaseEstimator
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, RobustScaler, StandardScaler
+from sklearn.preprocessing import (
+    FunctionTransformer,
+    OneHotEncoder,
+    PolynomialFeatures,
+    RobustScaler,
+    StandardScaler,
+)
 
 from delphos_ml.features.feature_sets import FeatureSet
 from delphos_ml.features.preprocess.centered_polynomial import CenteredPolynomial
@@ -110,12 +118,18 @@ def build_preprocessor(
     prior_grouping: str = DEFAULT_GROUP_COLUMN,
     scaler: BaseEstimator | None = None,
     center_age: bool = True,
-) -> ColumnTransformer:
-    """Return the three-branch ColumnTransformer this feature set consumes.
+    poly_degree: int = 1,
+    poly_interaction_only: bool = False,
+) -> ColumnTransformer | Pipeline:
+    """Return the three-branch ColumnTransformer (or polynomial Pipeline) for `feature_set`.
 
     Fitted on the training split by `train` and serialized with the model artifact;
     every branch is a real estimator, so `get_params` / `set_params` and the fitted
     trailing-underscore attributes survive a joblib round trip to the serving backend.
+    When `poly_degree > 1`, returns a `Pipeline([("base", base), ("poly", poly_step)])`
+    that expands `feature_set.poly` columns via `PolynomialFeatures(degree=poly_degree,
+    interaction_only=poly_interaction_only, include_bias=False)` while passing remaining
+    columns through unchanged.
     `empirical_bayes_m` and `prior_grouping` default to the shared Empirical Bayes
     constants; `train` passes the values `_transform.json` records so the fitted
     preprocessor cannot drift from the rows' manifest. `scaler` selects the numeric
@@ -147,6 +161,15 @@ def build_preprocessor(
         raise ValueError(
             f"scaler must be one of {tuple(cls.__name__ for cls in SCALER_ALLOWLIST)}, "
             f"got {type(scaler).__name__}"
+        )
+    if isinstance(poly_degree, bool) or not isinstance(poly_degree, int) or poly_degree < 1:
+        raise ValueError(f"poly_degree must be an integer >= 1, got {poly_degree!r}")
+    if not isinstance(poly_interaction_only, bool):
+        raise ValueError(f"poly_interaction_only must be a bool, got {poly_interaction_only!r}")
+    if poly_degree > 1 and not feature_set.poly:
+        raise ValueError(
+            f"feature set {feature_set.name!r} declares no poly columns "
+            f"for poly_degree={poly_degree}"
         )
 
     rates = tuple(feature_set.rates)
@@ -197,4 +220,24 @@ def build_preprocessor(
     categorical_steps.append(("onehot", OneHotEncoder(handle_unknown="ignore")))
     branches.append(("categorical", Pipeline(categorical_steps), list(feature_set.categorical)))
 
-    return ColumnTransformer(transformers=branches)
+    base = ColumnTransformer(transformers=branches)
+    if poly_degree == 1:
+        return base
+    declared_numeric = list(feature_set.numeric)
+    poly_indices = [len(rates) + declared_numeric.index(column) for column in feature_set.poly]
+    expansion = ColumnTransformer(
+        transformers=[
+            (
+                "poly",
+                PolynomialFeatures(
+                    degree=poly_degree,
+                    interaction_only=poly_interaction_only,
+                    include_bias=False,
+                ),
+                poly_indices,
+            )
+        ],
+        remainder="passthrough",
+        verbose_feature_names_out=False,
+    )
+    return Pipeline([("features", base), ("polynomial", expansion)])
