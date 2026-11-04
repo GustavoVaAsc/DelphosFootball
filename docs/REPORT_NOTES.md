@@ -7,7 +7,9 @@
 3. [Análisis exploratorio y selección de datos (`eda`)](#3-análisis-exploratorio-y-selección-de-datos-eda)
 4. [Limpieza y tipado de datos (`clean`)](#4-limpieza-y-tipado-de-datos-clean)
 5. [Transformación e ingeniería de atributos (`transform`)](#5-transformación-e-ingeniería-de-atributos-transform)
-6. [Referencias internas](#6-referencias-internas)
+6. [Entrenamiento de modelos y etiquetado (`train`)](#6-entrenamiento-de-modelos-y-etiquetado-train)
+7. [Evaluación, ineficiencia del mercado y reemplazos (`evaluate`)](#7-evaluación-ineficiencia-del-mercado-y-reemplazos-evaluate)
+8. [Referencias internas](#8-referencias-internas)
 
 ---
 
@@ -182,10 +184,84 @@ Una nota sobre reproducibilidad que conviene dejar escrita: tras el centrado, la
 
 Las salidas quedan en `analysis/output/feature_ablation/` (`e3_vif.csv`, `e3b_age_basis.csv`, `fig_e3b_age_basis.png`) y en `analysis/output/kmeans_selection/` (`e7_scaler_comparison.csv`, `e7_decision.csv`, `fig_e7_scaler_silhouette.png`).
 
-## 6. Referencias internas
+## 6. Entrenamiento de modelos y etiquetado (`train`)
+
+### H-15. Etiquetado cronológico *out-of-fold*, inflación nominal y selección de clasificadores (E8)
+
+Para construir las etiquetas de subvaloración y sobrevaloración ([docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.9 y §3.10) a partir del residuo `r = log10(fair_value) - log10(market_value)`, comparamos primero los dos regresores entrenados: la regresión lineal múltiple por mínimos cuadrados sobre el conjunto `FULL` depurado por VIF (`RMSE` medio de `0.4354` en los cinco pliegues expansivos; `0.4337` antes de retirar `apps` en E3) supera a la regresión polinomial de grado 2 completo sobre `POLY_REDUCED` (`RMSE` medio de `0.4957`), porque `POLY_REDUCED` sacrifica el contexto colectivo del club, `sub_position` y el suavizado Empirical Bayes para mantener acotado el número de términos polinómicos. Designamos por ello al modelo lineal sobre `FULL` como regresor oficial del valor justo, conservando ambos modelos entrenados y evaluados para la comparativa de esquemas del reporte.
+
+Bajo la política temporal de §3.4 no pueden usarse pliegues aleatorios que mezclen temporadas futuras. Generamos los residuos *out-of-fold* (OOF) de `train` mediante seis ventanas expansivas estrictamente hacia adelante (`2017 -> 2018`, ..., `2017..2022 -> 2023`, `31,714` filas equivalentes al `86.07%` de `train`), reajustando en cada paso el preprocesador y el regresor solo sobre las temporadas previas. La temporada `2017` (`5,133` filas) carece de temporada previa dentro de la ventana `2017..2025`, por lo que actúa como ancla inicial, queda excluida del cálculo de umbrales OOF y del entrenamiento de los clasificadores, y se marca explícitamente con `residual_source = "in_sample_anchor"` en las salidas por lotes.
+
+Sobre las `31,714` filas OOF de `2018` a `2023` (`analysis/classification_selection.py`), el residuo medio es `-0.0434` (`DE = 0.4472`) debido a la inflación nominal interanual de las tasaciones de Transfermarkt observada en H-04 (el modelo ajustado sobre temporadas pasadas predice niveles de precios ligeramente inferiores a los del año siguiente). Los cuartiles OOF globales quedan en **`q25 = -0.3450`** (`fair_value / market_value <= 0.4519`, etiqueta `overvalued`) y **`q75 = +0.2735`** (`fair_value / market_value >= 1.8772`, etiqueta `undervalued`), con el `50%` central etiquetado como `fair`. Al aplicar esos mismos cortes fijos sobre la validación retenida de `2024` (`4,981` filas), las proporciones se mantienen estables en `22.73%` `undervalued`, `53.06%` `fair` y `24.21%` `overvalued`. Se descartaron cuatro alternativas para la regla de etiquetado y desbalance: (a) umbrales fijos arbitrarios en `log10` (p. ej. `±0.30`), por ignorar tanto la dispersión empírica del error como el desplazamiento inflacionario de `-0.0434`; (b) cuartiles calculados por temporada individual, porque en inferencia prospectiva (`2024`, `2025` o consultas `what-if`) no se conoce la distribución de precios de la temporada futura; (c) partición por la mediana (`r >= 0`) o descarte del `50%` central `fair` para entrenar solo extremos, porque la mediana confunde ruido cercano a cero con gangas reales y en producción el clasificador debe puntuar a cualquier jugador de la plantilla, no a un subconjunto prefiltrado; y (d) árboles sin ponderación de clases o sobremuestreo sintético SMOTE, porque sin ponderación la predicción binaria colapsa hacia la clase mayoritaria (`75%`) y SMOTE interpola vectores *one-hot* de subposición y nacionalidad carentes de sentido deportivo.
+
+Para `DecisionTreeClassifier` y `RandomForestClassifier` (objetivo binario `is_undervalued = (r >= q75)` con `class_weight="balanced"` sobre `FULL`), evaluamos rejillas de `max_depth` y `min_samples_leaf` en cinco pliegues expansivos externos (`2020` a `2024`, sin leer nunca `test` `2025`), recalculando dentro de cada pliegue externo sus propios residuos OOF internos, su propio umbral `q75` y su propio preprocesador:
+
+| Modelo | Configuración elegida (regla 1-EE sobre `PR-AUC`) | `PR-AUC` medio | `ROC-AUC` medio | `F1` medio | Exactitud balanceada |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Línea base (prevalencia) | Prior constante (`~23.2%`) | `0.2323` | `0.5000` | `0.0000` | `0.5000` |
+| `DecisionTreeClassifier` | `max_depth=10, min_samples_leaf=100` | `0.3291` | `0.6333` | `0.4092` | `0.5979` |
+| `RandomForestClassifier` | `n_estimators=300, max_depth=14, min_samples_leaf=5` | `0.3959` | `0.6904` | `0.4372` | `0.6305` |
+
+Un clasificador entrenado sobre los mismos atributos `FULL` que la regresión lineal y sin acceso a `market_value` ni a `league_id` no puede recuperar variación lineal del residuo (ortogonal a `FULL` por ecuaciones normales), pero sí alcanza `ROC-AUC = 0.6904` y mejora `70.4%` el `PR-AUC` base porque capta interacciones no lineales donde el mercado aplica descuentos sistemáticos: las variables de mayor importancia en ambos árboles (`age`, `league_position`, `uefa_share`, `win_rate`, `minutes` y `starter_ratio`) aíslan a titulares consolidados de clubes líderes en ligas europeas periféricas (buena posición en tabla y alta tasa de victorias, pero baja exposición UEFA o nacionalidades fuera de las cinco grandes ligas) cuyas tasaciones en Transfermarkt quedan sistemáticamente por debajo de su producción deportiva. Las salidas quedan en `analysis/output/classification_selection/` (`e8_oof_thresholds.csv`, `e8_dt_grid.csv`, `e8_rf_grid.csv`, `e8_selected_comparison.csv`, `e8_feature_importance.csv`, `fig_e8_classifier_cv.png` y `summary.json`).
+
+### H-16. Diagnóstico de residuos y heterocedasticidad: `log10(market_value)` frente a euros crudos (E5)
+
+El experimento E5 (`analysis/residual_diagnostics.py`, sección 5 de metodología del reporte) evalúa sobre los cinco pliegues expansivos de validación (`2020..2024`, `26,373` observaciones apiladas, sin leer `test` `2025`) qué ocurre al ajustar mínimos cuadrados ordinarios sobre `FULL` directamente en euros (`market_value_eur`) frente a la escala `log10(market_value_in_eur)` adoptada en §3.7.
+
+En euros crudos el ajuste lineal incumple los supuestos clásicos de regresión y produce predicciones físicamente inválidas: predice valores negativos o nulos en `5,470` jugadores-temporada (`20.74%` del total validado y `50.29%` dentro del cuartil inferior Q1, de `€10,000` a `€500,000`), presenta asimetría residual de `4.35` y exceso de curtosis de `38.65`, y sufre heterocedasticidad severa dependiente del nivel predicho (`LM = 5,484.5`, `R^2` auxiliar de White sobre `[y_hat, y_hat^2]` igual a `0.2080`). Su `MdAPE` global sube a `100.0%` (`134.9%` en Q1 y `339.8%` en Q2) con `RMSE` en euros de `€9.66M`.
+
+En `log10`, ninguna predicción retrotransformada con `10 ** y_hat` cae en valores no positivos (`0` filas afectadas por el piso en cero), el `R^2` auxiliar de heterocedasticidad respecto al valor ajustado baja 36 veces hasta `0.0057` (`LM = 150.4`), los residuos se aproximan a una campana simétrica (asimetría `0.265`, exceso de curtosis `0.118`), la `MdAPE` baja a `61.22%` y el `RMSE` en euros desciende a `€9.34M`. En la prueba completa de Breusch-Pagan sobre las `44` columnas del diseño (`df = 41`), el estadístico cae de `3,200.6` (`R^2 = 0.1214`) a `980.6` (`R^2 = 0.0372`): con `26,373` filas cualquier variación menor de escala rechaza formalmente homocedasticidad exacta (`p < 1e-170`), pero la dispersión intercuartílica en `log10` permanece acotada a través de los cuatro cuartiles de precio (`IQR` de `0.376`, `0.409`, `0.434` y `0.482`). Las tablas y gráficos quedan en `analysis/output/residual_diagnostics/` (`e5_target_comparison.csv`, `e5_quantile_residuals.csv`, `fig_e5_residual_diagnostics.png` y `summary.json`).
+
+## 7. Evaluación, ineficiencia del mercado y reemplazos (`evaluate`)
+
+### H-17. Demostración estadística de ineficiencia en el mercado de fichajes pagados (§3.12)
+
+La etapa `evaluate` contrasta el monto real pagado en las `5,325` transferencias con costo positivo (`2017..2025`, al menos `180` minutos en los 365 días previos al traspaso) contra el valor deportivo justo estimado antes del fichaje mediante la brecha logarítmica `fee_minus_fair_log10 = log10(transfer_fee) - linear_log10_pred`. Dentro de cada alcance (`train_validation` con `4,396` traspasos, `test` `2025` con `929` y `all` con `5,325`), se aplican seis pruebas bilaterales (dos paramétricas y cuatro no paramétricas) ajustadas por Holm-Bonferroni a nivel familiar `alpha = 0.05` ([docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.12):
+
+| Prueba (`all`, `n = 5,325` salvo subgrupos) | Estadístico | `p` ajustado (Holm) | Tamaño de efecto | Razón mediana en EUR |
+| --- | ---: | ---: | --- | ---: |
+| `one_sample_t_fee_vs_fair` | `t = 7.83` | `1.16e-14` | `d = 0.107` | `1.201x` sobre valor justo |
+| `wilcoxon_fee_vs_fair` | `W = 6,096,177` | `2.39e-18` | `r_rb = 0.140` | `1.201x` sobre valor justo |
+| `mann_whitney_undervalued_vs_overvalued` (`957` vs `1,682`) | `U = 44,875` | `< 1e-300` | `r_rb = -0.944` | `0.478x` vs `4.528x` (`0.106x`) |
+| `welch_t_undervalued_vs_overvalued` (`957` vs `1,682`) | `t = -66.03` | `< 1e-300` | `d = -2.697` | `0.478x` vs `4.528x` (`0.106x`) |
+| `kruskal_big5_vs_non_big5` (`2,825` vs `2,500`) | `H = 847.38` | `1.08e-185` | `epsilon^2 = 0.159` | `1.942x` vs `0.667x` (`2.888x`) |
+| `kruskal_across_clusters` (`3` clústeres tácticos) | `H = 7.93` | `0.0190` | `epsilon^2 = 0.0015` | `1.180x`, `1.091x`, `1.211x` |
+
+El resultado empírico explica cómo opera la ineficiencia del mercado europeo. Cuando se compara el precio de traspaso contra la tasación previa de Transfermarkt (`fee_minus_mv_log10`), la mediana es casi cero en los tres regímenes (`0.000` en jugadores subvalorados, `-0.057` en justos y `-0.032` en sobrevalorados): los clubes negocian anclados al precio subjetivo publicado. Como consecuencia, cuando fichan a un jugador que nuestro modelo clasificaba antes del traspaso como `undervalued` (`n = 957`), pagan una mediana de `0.478` veces su valor deportivo justo (`52.2%` de descuento), mientras que al fichar a un jugador `overvalued` (`n = 1,682`) pagan `4.528` veces su valor deportivo justo (`93.2%` de operaciones con sobrepago). Además, los clubes compradores de las cinco grandes ligas (`GB1`, `ES1`, `IT1`, `L1`, `FR1`, `2,825` compras) pagan `1.942x` el valor deportivo frente a `0.667x` en los compradores no Big-5 (`2,500` traspasos, que contemplan tanto las otras nueve ligas cubiertas como ventas al exterior), lo que representa una brecha relativa de `2.89x`.
+
+En la partición retenida `test` de `2025` (`929` traspasos), las cinco primeras pruebas replican el rechazo con holgura (`t = 3.30, p_holm = 0.0024`; `W = 188,529, p_holm = 0.0024`; `U = 819, p_holm = 1.85e-58`; `welch_t = -28.10, p_holm = 1.04e-83`; `H_Big5 = 142.71, p_holm = 2.73e-32`). En cambio, `kruskal_across_clusters` no rechaza la hipótesis nula en `2025` (`H = 0.70, p_holm = 0.7046, epsilon^2 = 0.0008`), confirmando que el arquetipo táctico en cancha apenas explica el `0.15%` de la varianza del sobrepago: el sesgo monetario proviene del anclaje al precio de referencia y del poder adquisitivo de la liga compradora. Se descartó evaluar diferencias crudas en euros con pruebas t aisladas porque la curtosis extrema de los fichajes multimillonarios distorsiona la media muestral, así como reportar valores `p` sin ajuste multivariado. Las tablas y gráficos quedan en `analysis/output/inefficiency_analysis/`.
+
+### H-18. Cobertura económica del algoritmo de reemplazos y comparativa integral en `2025` (§3.13, §3.15)
+
+Para recomendar hasta tres sustitutos rentables sin relleno artificial ([docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.13), calibramos todos los umbrales exclusivamente sobre `train` (`2017..2023`): el corte de activo de élite corresponde al percentil `75` de `market_value_eur` por posición (`Attack = €6.0M`, `Midfield = €6.0M`, `Defender = €4.0M`), y el techo de equivalencia atlética corresponde al percentil `25` de las distancias euclidianas por pares de la misma temporada, mismo `cluster_id` y misma `position` en el espacio `CLUSTER` escalado con `RobustScaler` (radios entre `1.4526` en `2:Defender` y `1.8532` en `0:Attack`). Un candidato de la temporada activa (`2025`, `5,522` jugadores) califica si comparte `cluster_id` y `position`, queda dentro de ese radio `P25`, cuesta a lo sumo el `80%` del jugador objetivo y su estado de valuación es `"undervalued"` o `"fair"`.
+
+Sobre los `5,522` jugadores activos de `2025`, el algoritmo genera `15,801` reemplazos: el **`98.70%` de los activos de élite (`1,741` de `1,764`)** obtiene los tres reemplazos completos (`99.55%` obtiene al menos uno), con un ahorro mediano de **`€9.85M` (`84.8%` de descuento)** y similitud atlética mediana `1 / (1 + d) = 0.697` (`€12.0M` de ahorro mediano en delanteros de élite, `€10.5M` en mediocampistas y `€7.7M` en defensores). En el catálogo completo, el `93.68%` (`5,173 / 5,522`) recibe tres candidatos y los `349` restantes registran su causa exacta de escasez sin rellenar filas ficticias (`202` con `1` o `2` pares calificados, `123` en el piso salarial de `€25k–€50k` sin pares `<= 80%` más baratos, `22` perfiles atípicos fuera del radio `P25` y `2` sin pares no sobrevalorados). Exigir que todo candidato fuera estrictamente `"undervalued"` fue descartado durante la calibración sobre `2024` porque reducía en casi nueve puntos porcentuales la cobertura de tres sustitutos al excluir jugadores `"fair"` tácticamente idénticos con descuentos superiores al `20%`.
+
+Finalmente, la evaluación unificada de los cinco esquemas de minería de datos (`ml/data/evaluate/model_metrics.parquet` y `analysis/model_comparison.py`) confirma en la temporada de prueba `2025` (`5,522` filas nunca leídas durante el diseño) todas las decisiones tomadas en validación cruzada:
+
+| Familia y modelo | Validación cruzada 5 pliegues (`2020..2024`) | Validación `2024` (`n = 4,981`) | Prueba `2025` (`n = 5,522`) |
+| --- | --- | --- | --- |
+| Regresión lineal OLS (`FULL`, campeón) | `RMSE = 0.4354 ± 0.0041`, `R^2 = 0.5727`, `MdAPE = 61.2%` | `RMSE = 0.4369`, `R^2 = 0.5833`, `MdAPE = 59.7%` | `RMSE = 0.4562`, `R^2 = 0.5613`, `MdAPE = 59.8%` |
+| Regresión polinomial grado 2 (`POLY_REDUCED`) | `RMSE = 0.4957 ± 0.0068`, `R^2 = 0.4462`, `MdAPE = 71.0%` | `RMSE = 0.5119`, `R^2 = 0.4279`, `MdAPE = 70.3%` | `RMSE = 0.5163`, `R^2 = 0.4381`, `MdAPE = 70.2%` |
+| `RandomForestClassifier` (`FULL`, campeón) | `PR-AUC = 0.3959 ± 0.0164`, `ROC-AUC = 0.6904`, `F1 = 0.4372` | `PR-AUC = 0.3584`, `ROC-AUC = 0.6873`, `F1 = 0.4228` | `PR-AUC = 0.3657`, `ROC-AUC = 0.6895`, `F1 = 0.4131` |
+| `DecisionTreeClassifier` (`FULL`, 1-EE) | `PR-AUC = 0.3291 ± 0.0099`, `ROC-AUC = 0.6333`, `F1 = 0.4092` | `PR-AUC = 0.3044`, `ROC-AUC = 0.6246`, `F1 = 0.4010` | `PR-AUC = 0.2941`, `ROC-AUC = 0.6254`, `F1 = 0.3882` |
+| `KMeans` (`k = 3`, `RobustScaler` en `CLUSTER`) | `train`: `silueta = 0.4087`, `DB = 0.9941`, `min = 7.3%` | `silueta = 0.4192`, `DB = 0.9517`, `min = 8.1%` | `silueta = 0.4176`, `DB = 0.9612`, `min = 9.1%` |
+
+En regresión, la cobertura contextual y posicional de `FULL` supera en `0.060` puntos de `RMSE` `log10` a la curvatura cuadrática sobre el subconjunto reducido `POLY_REDUCED`. En clasificación, el ensamblado de `300` árboles mantiene en `2025` una ventaja de `+0.0716` en `PR-AUC` (`+24.3%` relativo) y `+0.0641` en `ROC-AUC` sobre el árbol individual podado. En agrupamiento, los tres arquetipos tácticos (`cluster 0`: titulares de clubes con exposición UEFA y mayor aporte ofensivo, `20.3%`; `cluster 1`: rotación de bajo minutaje, `7.6%`; `cluster 2`: titulares domésticos regulares, `72.1%`) conservan en `2025` una silueta de `0.4176` sin reajuste. Las salidas quedan en `analysis/output/model_comparison/`.
+
+## 8. Referencias internas
 
 - [docs/CONTEXT.md](CONTEXT.md): propuesta base, estrategia KDD y calendario original.
 - [docs/ARCHITECTURE.md](ARCHITECTURE.md): arquitectura de software y registro de decisiones ADR-001 a ADR-014.
 - [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md): lista de decisiones de diseño de minería de datos (§3.1 a §3.18).
 - [docs/TRANSFORM_PLAN.md](TRANSFORM_PLAN.md): plan de trabajo de la etapa `transform` (conjuntos de atributos, preprocesador ajustado y experimentos E1 a E7).
 - [docs/WORK_PLAN.md](WORK_PLAN.md): comparativa entre calendario base y avance real, varianzas V-01 a V-03 y bitácora de decisiones.
+
+
+## 8. Persistencia, base de datos y publicación (`publish`)
+
+### H-19. Esquema relacional en PostgreSQL y protocolo de activación atómica (ADR-002, ADR-008, §3.14)
+
+La etapa `publish` concluye la fase de modelado y minería de datos del ciclo KDD integrando las salidas analíticas en PostgreSQL 16 bajo el esquema `analytics`. Para garantizar aislamiento de privilegios sin el sobrecosto operativo de mantener múltiples servidores de base de datos (ADR-002), se configuran mediante migraciones versionadas de Alembic (`0001_bootstrap`) dos roles diferenciados: `delphos_ml_publisher`, que administra y escribe exclusivamente en `analytics`, y `delphos_app_user`, que consume `analytics` en modo solo lectura y administra el esquema `app` para listas de seguimiento, informes y sesiones de usuario.
+
+Las diez tablas analíticas se mapean exactamente desde los archivos Parquet de las etapas previas (`dim_players`, `dim_clubs`, `fct_player_seasons`, `fct_player_predictions`, `fct_clusters`, `fct_transfer_predictions`, `fct_replacement_targets`, `fct_replacements`, `fct_inefficiency_analysis` y `fct_model_metrics`), vinculadas mediante clave foránea con integridad referencial a `analytics.model_runs(model_run_id)`. La carga se efectúa dentro de una única transacción atómica: se registra la ejecución en estado `staged`, se copian los registros mediante transferencias de flujo (`COPY FROM STDIN` con `psycopg`), se desactiva el modelo previo cambiándolo a `archived` y se promueve la nueva ejecución a `active`. Cualquier falla aborta y revierte la transacción íntegramente, protegiendo los datos servidos al usuario final.

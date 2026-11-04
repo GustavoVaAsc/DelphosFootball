@@ -38,8 +38,18 @@ Run these from `ml/`.
 | `uv run delphos-pipeline ingest` | Download the pinned Kaggle dataset into `ml/data/ingest/` |
 | `uv run delphos-pipeline clean` | Cast, filter, and sanitize the 9 modeling tables into `ml/data/clean/` |
 | `uv run delphos-pipeline transform` | Build the modeling rows from `ml/data/clean/` into `ml/data/transform/`: `player_seasons.parquet`, `transfer_events.parquet` and `_transform.json` |
-| `uv run delphos-pipeline all` | Run every implemented pipeline stage in order (`ingest`, `clean`, `transform`) |
+| `uv run delphos-pipeline train` | Fit the five KDD models on `ml/data/transform/` and write `player_predictions.parquet`, `clusters.parquet`, `transfer_predictions.parquet`, verified `staged/`, and `_train.json` into `ml/data/train/` |
+| `uv run delphos-pipeline evaluate` | Run the §3.12 Holm-Bonferroni inefficiency battery, §3.13 active-season top-3 replacement rankings, and §3.15 5-model metrics from `ml/data/train/` into `ml/data/evaluate/` |
+| `uv run delphos-pipeline publish` | Promote model bundle to `artifacts/<model_run_id>/`, bulk-load analytical tables into PostgreSQL `analytics` schema, and atomically activate the run |
+| `uv run delphos-pipeline all` | Run every implemented pipeline stage in order (`ingest`, `clean`, `transform`, `train`, `evaluate`, `publish`) |
 | `uv run python ../analysis/eda.py` | Run the exploratory data analysis over `ml/data/ingest/` and write outputs to `analysis/output/eda/` |
+| `uv run python ../analysis/feature_ablation.py` | Run E1–E3b feature-group ablation, Empirical Bayes `m` sweep, and VIF diagnostics into `analysis/output/feature_ablation/` |
+| `uv run python ../analysis/poly_degree.py` | Run E4 polynomial degree selection on `POLY_REDUCED` into `analysis/output/poly_degree/` |
+| `uv run python ../analysis/residual_diagnostics.py` | Run E5 Breusch-Pagan and quantile residual diagnostics (`log10` vs raw EUR OLS) into `analysis/output/residual_diagnostics/` |
+| `uv run python ../analysis/kmeans_selection.py` | Run E6–E7 K-Means `k` and scaler selection (`StandardScaler` vs `RobustScaler`) into `analysis/output/kmeans_selection/` |
+| `uv run python ../analysis/classification_selection.py` | Measure chronological OOF residual quantiles and tune the Decision Tree and Random Forest classifiers into `analysis/output/classification_selection/` |
+| `uv run python ../analysis/inefficiency_analysis.py` | Generate §3.12 market-inefficiency report tables and distributions from `ml/data/evaluate/` into `analysis/output/inefficiency_analysis/` |
+| `uv run python ../analysis/model_comparison.py` | Generate §3.13/§3.15 5-model comparison and replacement-economics tables/figures from `ml/data/evaluate/` into `analysis/output/model_comparison/` |
 | `uv run pytest` | Run the tests |
 | `uv run ruff check . ../analysis` | Lint `ml/` and `analysis/` |
 | `uv run ruff format --check . ../analysis` | Check formatting; `uv run ruff format . ../analysis` fixes it |
@@ -66,5 +76,5 @@ Settings come from `DELPHOS_` environment variables; [.env.example](../.env.exam
 - [docs/ML_ARCHITECTURE.md](../docs/ML_ARCHITECTURE.md): the ML design checklist and its decisions.
 - [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md): the architecture and the ADRs.
 - [docs/REPORT_NOTES.md](../docs/REPORT_NOTES.md): empirical findings and methodological memory in Spanish for the final report.
-- [docs/TRANSFORM_PLAN.md](../docs/TRANSFORM_PLAN.md): the working plan for the `transform` stage, the stage under construction.
+- [docs/TRANSFORM_PLAN.md](../docs/TRANSFORM_PLAN.md): the working plan for the `transform` stage and experiments E1 to E7.
 - [.env.example](../.env.example): the configuration variables and their defaults.
