@@ -322,6 +322,19 @@ Notes:
 | `DELPHOS_DATA_DIR` | `<project root>/data` (that is, `ml/data/` in this repository) | Root of stage outputs (`<dir>/<stage>/`); `~` is expanded; relative values resolve against the project root (the nearest directory containing `uv.lock`, here `ml/`) |
 | `DELPHOS_KAGGLE_DATASET` | `davidcariboo/player-scores` | Kaggle handle `owner/slug`, unversioned |
 | `DELPHOS_KAGGLE_DATASET_VERSION` | `679` | Pinned dataset version (positive integer); changing it is a deliberate refresh |
+| `DELPHOS_MODEL_RUN_ID` | `None` (auto-slug) | Explicit model run identifier slug (`^[A-Za-z0-9_-]{1,64}$`) for publication and artifact loading |
+| `DELPHOS_DB_HOST` | `localhost` | PostgreSQL database host |
+| `DELPHOS_DB_PORT` | `5432` | PostgreSQL database port |
+| `DELPHOS_DB_NAME` | `delphos` | PostgreSQL database name |
+| `DELPHOS_DB_USER` | `delphos_ml_publisher` | Pipeline database role (owns and writes `analytics` schema) |
+| `DELPHOS_DB_PASSWORD` | `delphos_ml_publisher_secret` | Password for pipeline role |
+| `DELPHOS_APP_DB_USER` | `delphos_app_user` | Backend API role (reads `analytics`, owns and writes `app` schema) |
+| `DELPHOS_APP_DB_PASSWORD` | `delphos_app_user_secret` | Password for API role |
+| `POSTGRES_USER` | `postgres` | Administrative/superuser username for database provisioning and Alembic bootstrap |
+| `POSTGRES_PASSWORD` | `postgres_secret` | Administrative/superuser password |
+| `DELPHOS_DATABASE_URL` | derived | Optional full connection string override for pipeline publisher role |
+| `DELPHOS_ADMIN_DATABASE_URL` | derived | Optional full connection string override for superuser migration runner |
+| `DELPHOS_APP_DATABASE_URL` | derived | Optional full connection string override for application backend |
 
 A relative `DELPHOS_DATA_DIR`, including the default, requires a `uv.lock` at or above the working directory; otherwise the run exits 1 with a message naming `DELPHOS_DATA_DIR`. A container must therefore include `uv.lock` or set an absolute `DELPHOS_DATA_DIR`.
 - **Reproducibility of model artifacts.** `artifacts/` is gitignored, so reproducibility rests on three things: pinned dependency versions (per-component lockfiles with manually aligned direct dependency versions, as the [Artifact contract](#43-delphos_ml-shared-package) requires; joblib-unpickling drift is guarded by that pinning discipline, an accepted risk recorded in [ADR-013](#adr-013-per-component-uv-projects-over-a-root-uv-workspace); the Flutter SDK pinned in `pubspec.yaml` with `pubspec.lock` committed; all pins date from project kickoff and are bumped only via explicit dependency-bump commits), the Kaggle dataset `version` and `snapshot_sha256` recorded at ingest in `ml/data/ingest/_snapshot.json` together with `tool_versions` (kagglehub and pyarrow), and training configuration persisted with each run in `analytics.model_runs`. Anyone can re-run the pipeline and obtain equivalent artifacts.

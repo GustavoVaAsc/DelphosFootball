@@ -106,13 +106,46 @@ def _restore_candidate(
             tables = manifest["tables"]
             if set(tables) != expected_table_names:
                 continue
-            files = [info["parquet_file"] for info in tables.values()]
-            if not all((directory / name).is_file() for name in files):
+            files = [info["parquet_file"] for info in tables.values() if isinstance(info, dict)]
+            if len(files) != len(tables):
                 continue
-            cleaned_at = manifest.get("cleaned_at")
+            if not all(
+                isinstance(name, str)
+                and Path(name).name == name
+                and name not in {".", ".."}
+                and (directory / name).is_file()
+                for name in files
+            ):
+                continue
+            if "bundle_dir" in manifest or "bundle_sha256" in manifest:
+                bundle_dir = manifest.get("bundle_dir")
+                bundle_sha = manifest.get("bundle_sha256")
+                if (
+                    not isinstance(bundle_dir, str)
+                    or Path(bundle_dir).name != bundle_dir
+                    or bundle_dir in {".", ".."}
+                    or not isinstance(bundle_sha, dict)
+                    or not bundle_sha
+                    or not all(
+                        isinstance(name, str)
+                        and Path(name).name == name
+                        and name not in {".", ".."}
+                        and (directory / bundle_dir / name).is_file()
+                        for name in bundle_sha
+                    )
+                ):
+                    continue
+            stamp = next(
+                (
+                    manifest.get(key)
+                    for key in ("cleaned_at", "transformed_at", "trained_at", "evaluated_at")
+                    if isinstance(manifest.get(key), str)
+                ),
+                None,
+            )
             age = (
-                datetime.fromisoformat(cleaned_at).timestamp()
-                if isinstance(cleaned_at, str)
+                datetime.fromisoformat(stamp).timestamp()
+                if stamp is not None
                 else directory.stat().st_mtime
             )
         except (OSError, ValueError, KeyError, TypeError, AttributeError):

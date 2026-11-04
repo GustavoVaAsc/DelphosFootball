@@ -1,0 +1,135 @@
+services:
+  db:
+    image: postgres:16
+    container_name: delphos-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-delphos}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_secret}
+    ports:
+      - "${DELPHOS_DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-delphos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - delphos-network
+
+  migrate:
+    image: python:3.13-slim
+    container_name: delphos-migrate
+    working_dir: /app
+    environment:
+      DELPHOS_DB_HOST: db
+      DELPHOS_DB_PORT: 5432
+      DELPHOS_DB_NAME: ${POSTGRES_DB:-delphos}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_secret}
+      DELPHOS_DB_USER: ${DELPHOS_DB_USER:-delphos_ml_publisher}
+      DELPHOS_DB_PASSWORD: ${DELPHOS_DB_PASSWORD:-delphos_ml_publisher_secret}
+      DELPHOS_APP_DB_USER: ${DELPHOS_APP_DB_USER:-delphos_app_user}
+      DELPHOS_APP_DB_PASSWORD: ${DELPHOS_APP_DB_PASSWORD:-delphos_app_user_secret}
+    volumes:
+      - ./migrations:/app/migrations:ro
+    command: >
+      sh -c "pip install --no-cache-dir 'alembic>=1.14.0' 'psycopg[binary]>=3.2.0' &&
+             alembic -c /app/migrations/alembic.ini upgrade heads"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - delphos-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: delphos-backend
+    environment:
+      DELPHOS_DB_HOST: db
+      DELPHOS_DB_PORT: 5432
+      DELPHOS_DB_NAME: ${POSTGRES_DB:-delphos}
+      DELPHOS_APP_DB_USER: ${DELPHOS_APP_DB_USER:-delphos_app_user}
+      DELPHOS_APP_DB_PASSWORD: ${DELPHOS_APP_DB_PASSWORD:-delphos_app_user_secret}
+      DELPHOS_API_PORT: ${DELPHOS_API_PORT:-8000}
+      DELPHOS_CORS_ORIGINS: ${DELPHOS_CORS_ORIGINS:-http://localhost,http://localhost:80,http://localhost:3000}
+    ports:
+      - "${DELPHOS_API_PORT:-8000}:8000"
+    volumes:
+      - ./artifacts:/app/artifacts:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health/live\")' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - delphos-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: delphos-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - delphos-network
+
+  inference-chat:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    container_name: delphos-inference-chat
+    environment:
+      LLAMA_ARG_HOST: 0.0.0.0
+      LLAMA_ARG_PORT: 8080
+    volumes:
+      - ./llms/models:/models:ro
+    networks:
+      - delphos-network
+
+  pipeline:
+    profiles:
+      - pipeline
+    image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+    container_name: delphos-pipeline
+    working_dir: /app/ml
+    environment:
+      DELPHOS_DB_HOST: db
+      DELPHOS_DB_PORT: 5432
+      DELPHOS_DB_NAME: ${POSTGRES_DB:-delphos}
+      DELPHOS_DB_USER: ${DELPHOS_DB_USER:-delphos_ml_publisher}
+      DELPHOS_DB_PASSWORD: ${DELPHOS_DB_PASSWORD:-delphos_ml_publisher_secret}
+      DELPHOS_DATA_DIR: /app/ml/data
+    volumes:
+      - .:/app:rw
+      - ./artifacts:/app/artifacts:rw
+      - ./ml/data:/app/ml/data:rw
+    command: ["uv", "run", "delphos-pipeline", "publish"]
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - delphos-network
+
+volumes:
+  pgdata:
+    name: delphos_pgdata
+
+networks:
+  delphos-network:
+    name: delphos_network
+

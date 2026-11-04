@@ -17,6 +17,7 @@ outside the source tree.
 """
 
 from pathlib import Path
+from urllib.parse import quote_plus
 
 from pydantic import Field, PositiveInt, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -71,6 +72,35 @@ class Settings(BaseSettings):
         default=DEFAULT_KAGGLE_DATASET, pattern=r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
     )
     kaggle_dataset_version: PositiveInt = DEFAULT_KAGGLE_DATASET_VERSION
+
+    # Database configuration
+    db_host: str = "localhost"
+    db_port: int = 5432
+    db_name: str = "delphos"
+    db_user: str = "delphos_ml_publisher"
+    db_password: str = "delphos_ml_publisher_secret"
+    database_url: str | None = None
+
+    # Publication & artifacts configuration
+    model_run_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    artifacts_dir: Path | None = None
+
+    def get_database_url(self) -> str:
+        """Return the resolved PostgreSQL database connection URL."""
+        if self.database_url:
+            return self.database_url.replace("postgresql+psycopg://", "postgresql://")
+        user = quote_plus(self.db_user)
+        password = quote_plus(self.db_password)
+        return f"postgresql://{user}:{password}@{self.db_host}:{self.db_port}/{self.db_name}"
+
+    def get_artifacts_dir(self) -> Path:
+        """Return the resolved artifacts root directory."""
+        if self.artifacts_dir is not None:
+            return self.artifacts_dir.expanduser().resolve()
+        root = find_project_root()
+        if root is not None:
+            return (root.parent / "artifacts").resolve()
+        return (Path.cwd() / "artifacts").resolve()
 
     @field_validator("data_dir")
     @classmethod

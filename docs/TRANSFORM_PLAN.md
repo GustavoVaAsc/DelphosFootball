@@ -150,7 +150,7 @@ Every fold fits its own preprocessor: the Empirical Bayes priors, the height imp
 | E2b | The `m` sweep repeated on the final no-league set, since the optimum can move when the feature set does | `analysis/feature_ablation.py` | §3.6: `m` on the set that ships | RMSE on `log10` |
 | E3 | Multicollinearity (VIF) on the linear feature set | `analysis/feature_ablation.py` | §3.6: drop or combine redundant features so OLS coefficients stay interpretable | VIF < 10 |
 | E4 | Polynomial degree in {1, 2, 3}, plus interaction-only, on `POLY_REDUCED` | `analysis/poly_degree.py` | §3.7: the degree, and whether polynomial beats linear | Cross-validated RMSE with the one-standard-error rule |
-| E5 | Residual diagnostics, `log10` vs raw target: heteroscedasticity and residuals by value quantile | `analysis/poly_degree.py` | §3.7: evidence for the report on the already decided `log10` target | Residual plots, Breusch-Pagan test |
+| E5 | Residual diagnostics, `log10` vs raw target: heteroscedasticity and residuals by value quantile | `analysis/residual_diagnostics.py` | §3.7: evidence for the report on the already decided `log10` target | Residual plots, Breusch-Pagan test |
 | E6 | `k` sweep with stability checks (§6) | `analysis/kmeans_selection.py` | §3.8: `k` | Inertia, silhouette, Calinski-Harabasz, Davies-Bouldin, ARI |
 | E7 | `StandardScaler` vs `RobustScaler` for the cluster feature space | `analysis/kmeans_selection.py` | §3.8: the cluster scaler | Silhouette and ARI at the `k` from E6 |
 
@@ -174,7 +174,7 @@ Each step has a gate: the next step starts only when the gate passes.
 | 5 | Implement `features/preprocess.py` and `features/feature_sets.py` with provisional sets (§3) | unit tests for the Empirical Bayes formula, the grouped imputer, and fold-scoped fitting |
 | 6 | Run `ingest` to `clean` to `transform` on version `679` | row counts equal `47,350`, `14,688` and `5,325`; per-split counts as expected |
 | 7 | Run E1, E2, E4 and E6 (§7) | decisions recorded in [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.6 to §3.8, findings in [docs/REPORT_NOTES.md](REPORT_NOTES.md), progress in [docs/WORK_PLAN.md](WORK_PLAN.md). **Done 2026-11-02: §3.6, §3.7 and §3.8 are all closed.** E1/E1b/E2/E2b fixed `FULL` and `m = 5`; E4 fixed degree 2 full; E6/E7 fixed `RobustScaler` and `k = 3`; E3's VIF pass pruned `apps` and `position` and mean-centred `age` (H-13, H-14) |
-| 8 | Run E5 as week-6 side work (E3 and E7 ran with the §3.6–§3.8 finalization) | E5's residual diagnostics land in the report's methodology section |
+| 8 | Run E5 as week-6 side work (E3 and E7 ran with the §3.6–§3.8 finalization) | **Done 2026-11-03 (`analysis/residual_diagnostics.py`):** Breusch-Pagan, skewness/kurtosis, negative-EUR prediction counts, and quartile `MdAPE` recorded in [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md) §3.7 and [docs/REPORT_NOTES.md](REPORT_NOTES.md) H-16 |
 
 Step 2 moves code that produced every number quoted in the project documentation, so the gate is a diff of re-run outputs against the recorded figures, not a green test run.
 

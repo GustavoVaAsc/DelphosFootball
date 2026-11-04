@@ -14,7 +14,10 @@ and stops at the first failure.
 import typer
 
 from delphos_ml.pipeline.clean import clean
+from delphos_ml.pipeline.evaluate import evaluate
 from delphos_ml.pipeline.ingest import ingest
+from delphos_ml.pipeline.publish import publish
+from delphos_ml.pipeline.train import train
 from delphos_ml.pipeline.transform import transform
 
 # Plain help output: Typer reflows the docstring paragraphs and leaves `<table>` and
@@ -35,7 +38,8 @@ def main() -> None:
 
 
 def run_all() -> None:
-    """Run every implemented pipeline stage in order: ingest, clean, transform.
+    """Run every implemented pipeline stage in order: ingest, clean, transform, train, evaluate,
+    and publish.
 
     Calls each stage entry function sequentially using the current DELPHOS_* settings and stops at
     the first stage that exits non-zero.
@@ -43,9 +47,15 @@ def run_all() -> None:
     ingest()
     clean()
     transform()
+    train()
+    evaluate()
+    publish()
 
 
 app.command(name="ingest")(ingest)
 app.command(name="clean")(clean)
 app.command(name="transform")(transform)
+app.command(name="train")(train)
+app.command(name="evaluate")(evaluate)
+app.command(name="publish")(publish)
 app.command(name="all")(run_all)

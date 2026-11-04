@@ -23,11 +23,17 @@ def test_top_level_help_lists_ingest_clean_and_all_commands() -> None:
     ingest_lines = [line for line in result.output.splitlines() if "ingest" in line]
     clean_lines = [line for line in result.output.splitlines() if "clean" in line]
     transform_lines = [line for line in result.output.splitlines() if "transform" in line]
+    train_lines = [line for line in result.output.splitlines() if "train" in line]
+    evaluate_lines = [line for line in result.output.splitlines() if "evaluate" in line]
+    publish_lines = [line for line in result.output.splitlines() if "publish" in line]
     all_lines = [line for line in result.output.splitlines() if line.strip().startswith("all")]
     assert ingest_lines, result.output
     assert "Parquet" in ingest_lines[0]
     assert clean_lines, result.output
     assert transform_lines, result.output
+    assert train_lines, result.output
+    assert evaluate_lines, result.output
+    assert publish_lines, result.output
     assert all_lines, result.output
 
 
@@ -68,16 +74,46 @@ def test_transform_help_states_input_output_and_parameters() -> None:
     assert "DELPHOS_DATA_DIR" in result.output
 
 
+def test_train_help_states_input_output_and_override() -> None:
+    result = runner.invoke(app, ["train", "--help"])
+
+    assert result.exit_code == 0
+    assert "data/transform" in result.output
+    assert "data/train" in result.output
+    assert "_train.json" in result.output
+    assert "DELPHOS_DATA_DIR" in result.output
+
+
+def test_evaluate_help_states_input_output_and_override() -> None:
+    result = runner.invoke(app, ["evaluate", "--help"])
+
+    assert result.exit_code == 0
+    assert "data/train" in result.output
+    assert "data/evaluate" in result.output
+    assert "_evaluate.json" in result.output
+    assert "DELPHOS_DATA_DIR" in result.output
+
+
+def test_publish_help_states_input_output() -> None:
+    result = runner.invoke(app, ["publish", "--help"])
+
+    assert result.exit_code == 0
+    assert "PostgreSQL" in result.output or "publish" in result.output.lower()
+
+
 def test_all_runs_every_stage_in_order(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
     monkeypatch.setattr(cli_module, "ingest", lambda: calls.append("ingest"))
     monkeypatch.setattr(cli_module, "clean", lambda: calls.append("clean"))
     monkeypatch.setattr(cli_module, "transform", lambda: calls.append("transform"))
+    monkeypatch.setattr(cli_module, "train", lambda: calls.append("train"))
+    monkeypatch.setattr(cli_module, "evaluate", lambda: calls.append("evaluate"))
+    monkeypatch.setattr(cli_module, "publish", lambda: calls.append("publish"))
 
     result = runner.invoke(app, ["all"])
 
     assert result.exit_code == 0, result.output
-    assert calls == ["ingest", "clean", "transform"]
+    assert calls == ["ingest", "clean", "transform", "train", "evaluate", "publish"]
 
 
 def test_all_stops_at_first_stage_failure(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -127,3 +163,60 @@ def test_all_propagates_third_stage_failure(monkeypatch: pytest.MonkeyPatch) -> 
 
     assert result.exit_code == 1
     assert calls == ["ingest", "clean", "transform"]
+
+
+def test_all_propagates_fourth_stage_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def fail_train() -> None:
+        calls.append("train")
+        raise typer.Exit(code=1)
+
+    monkeypatch.setattr(cli_module, "ingest", lambda: calls.append("ingest"))
+    monkeypatch.setattr(cli_module, "clean", lambda: calls.append("clean"))
+    monkeypatch.setattr(cli_module, "transform", lambda: calls.append("transform"))
+    monkeypatch.setattr(cli_module, "train", fail_train)
+
+    result = runner.invoke(app, ["all"])
+
+    assert result.exit_code == 1
+    assert calls == ["ingest", "clean", "transform", "train"]
+
+
+def test_all_propagates_fifth_stage_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def fail_evaluate() -> None:
+        calls.append("evaluate")
+        raise typer.Exit(code=1)
+
+    monkeypatch.setattr(cli_module, "ingest", lambda: calls.append("ingest"))
+    monkeypatch.setattr(cli_module, "clean", lambda: calls.append("clean"))
+    monkeypatch.setattr(cli_module, "transform", lambda: calls.append("transform"))
+    monkeypatch.setattr(cli_module, "train", lambda: calls.append("train"))
+    monkeypatch.setattr(cli_module, "evaluate", fail_evaluate)
+
+    result = runner.invoke(app, ["all"])
+
+    assert result.exit_code == 1
+    assert calls == ["ingest", "clean", "transform", "train", "evaluate"]
+
+
+def test_all_propagates_sixth_stage_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def fail_publish() -> None:
+        calls.append("publish")
+        raise typer.Exit(code=1)
+
+    monkeypatch.setattr(cli_module, "ingest", lambda: calls.append("ingest"))
+    monkeypatch.setattr(cli_module, "clean", lambda: calls.append("clean"))
+    monkeypatch.setattr(cli_module, "transform", lambda: calls.append("transform"))
+    monkeypatch.setattr(cli_module, "train", lambda: calls.append("train"))
+    monkeypatch.setattr(cli_module, "evaluate", lambda: calls.append("evaluate"))
+    monkeypatch.setattr(cli_module, "publish", fail_publish)
+
+    result = runner.invoke(app, ["all"])
+
+    assert result.exit_code == 1
+    assert calls == ["ingest", "clean", "transform", "train", "evaluate", "publish"]
