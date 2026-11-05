@@ -29,4 +29,3 @@ async def get_player_valuation(
             (model_run_id, player_id, ACTIVE_SEASON),
         )
         return await cur.fetchone()
-

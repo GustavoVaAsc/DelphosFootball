@@ -55,4 +55,3 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Return a cached or freshly instantiated Settings object."""
     return Settings()
-

@@ -46,16 +46,18 @@ async def get_players(
     valuation_status: Annotated[
         str | None, Query(description="undervalued, overvalued, or fair")
     ] = None,
+    cluster_id: Annotated[int | None, Query(description="Filter by cluster ID")] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> PlayerListResponse:
     """Return paginated players with valuation badges for the active model run."""
     run_id = await _resolve_active_run_id(conn)
     items, total = await list_players(
-        conn, run_id, name, position, club_id, valuation_status, page, page_size
+        conn, run_id, name, position, club_id, valuation_status, cluster_id, page, page_size
     )
     total_pages = math.ceil(total / page_size) if total > 0 else 0
     return PlayerListResponse(
+        model_run_id=run_id,
         items=[PlayerSummary(**item) for item in items],
         total=total,
         page=page,
