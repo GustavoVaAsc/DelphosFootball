@@ -20,12 +20,15 @@ class PlayerSummary(BaseModel):
     club_name: str | None = None
     market_value_eur: float | None = None
     valuation_status: str | None = None
+    cluster_id: int | None = None
+    cluster_name: str | None = None
     image_url: str | None = None
 
 
 class PlayerListResponse(BaseModel):
     """Paginated list of players."""
 
+    model_run_id: str
     items: list[PlayerSummary]
     total: int
     page: int
@@ -57,6 +60,7 @@ class PlayerSeasonMetrics(BaseModel):
 class PlayerProfileResponse(BaseModel):
     """Comprehensive player biography and season performance."""
 
+    model_run_id: str
     player_id: int
     name: str
     first_name: str | None = None
@@ -70,6 +74,8 @@ class PlayerProfileResponse(BaseModel):
     height_in_cm: int | None = None
     image_url: str | None = None
     url: str
+    cluster_id: int | None = None
+    cluster_name: str | None = None
     active_season: PlayerSeasonMetrics | None = None
 
 

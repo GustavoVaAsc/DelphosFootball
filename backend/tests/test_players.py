@@ -31,17 +31,20 @@ async def test_list_players(client: AsyncClient, mock_db: AsyncMock) -> None:
             "club_name": "Inter Miami",
             "market_value_eur": 25000000.0,
             "valuation_status": "undervalued",
+            "cluster_id": 0,
         }
     ]
 
-    response = await client.get("/players?page=1&page_size=10")
+    response = await client.get("/players?page=1&page_size=10&cluster_id=0")
     assert response.status_code == 200
     data = response.json()
+    assert data["model_run_id"] == "run_test_001"
     assert data["total"] == 1
     assert data["page"] == 1
     assert len(data["items"]) == 1
     assert data["items"][0]["name"] == "Lionel Messi"
     assert data["items"][0]["valuation_status"] == "undervalued"
+    assert data["items"][0]["cluster_name"] == "Attacking Creators & Scorers"
 
 
 @pytest.mark.asyncio
@@ -50,6 +53,7 @@ async def test_get_player_profile_success(client: AsyncClient, mock_db: AsyncMoc
     cur.fetchone.side_effect = [
         {"model_run_id": "run_test_001", "dataset_version": 679, "activated_at": None},
         {
+            "model_run_id": "run_test_001",
             "player_id": 100,
             "name": "Lionel Messi",
             "first_name": "Lionel",
@@ -85,6 +89,7 @@ async def test_get_player_profile_success(client: AsyncClient, mock_db: AsyncMoc
     response = await client.get("/players/100")
     assert response.status_code == 200
     data = response.json()
+    assert data["model_run_id"] == "run_test_001"
     assert data["name"] == "Lionel Messi"
     assert data["active_season"]["goals"] == 15.0
 
@@ -99,6 +104,11 @@ async def test_get_player_profile_not_found(client: AsyncClient, mock_db: AsyncM
 
     response = await client.get("/players/999999")
     assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+    data = response.json()
+    assert data["title"] == "Not Found"
+    assert data["status"] == 404
+    assert data["detail"] == "Player not found"
     assert response.json()["detail"] == "Player not found"
 
 

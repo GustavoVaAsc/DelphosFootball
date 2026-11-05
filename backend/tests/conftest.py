@@ -14,8 +14,10 @@ from delphos_backend.main import app
 
 
 @pytest.fixture(autouse=True)
-def mock_pool_lifecycle(monkeypatch: pytest.MonkeyPatch) -> None:
+def mock_pool_lifecycle(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """Mock the connection pool lifecycle to run unit tests offline."""
+    if "live_db" in request.keywords or "test_live_integration" in request.node.nodeid:
+        return
     monkeypatch.setattr("delphos_backend.main.init_db_pool", AsyncMock())
     monkeypatch.setattr("delphos_backend.main.close_db_pool", AsyncMock())
 

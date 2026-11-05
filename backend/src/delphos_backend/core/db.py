@@ -64,4 +64,3 @@ async def get_db() -> AsyncGenerator[AsyncConnection]:
     pool = get_pool()
     async with pool.connection() as conn:
         yield conn
-

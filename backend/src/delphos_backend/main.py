@@ -8,17 +8,49 @@ Responsibility: Exposes the DelphosFootball REST API.
 from __future__ import annotations
 
 import logging
+import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+if sys.platform == "win32":
+    import asyncio
+
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from delphos_backend.api import clusters, health, players
 from delphos_backend.core.config import get_settings
 from delphos_backend.core.db import close_db_pool, init_db_pool
+from delphos_backend.schemas.errors import ProblemDetails
 
 logger = logging.getLogger(__name__)
+
+HTTP_TITLES: dict[int, str] = {
+    status.HTTP_400_BAD_REQUEST: "Bad Request",
+    status.HTTP_404_NOT_FOUND: "Not Found",
+    status.HTTP_422_UNPROCESSABLE_CONTENT: "Unprocessable Content",
+    status.HTTP_500_INTERNAL_SERVER_ERROR: "Internal Server Error",
+    status.HTTP_503_SERVICE_UNAVAILABLE: "Service Unavailable",
+}
+
+
+async def problem_details_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    """Format exceptions as RFC 9457 problem details."""
+    title = HTTP_TITLES.get(exc.status_code, "Error")
+    problem = ProblemDetails(
+        type="about:blank",
+        title=title,
+        status=exc.status_code,
+        detail=str(exc.detail),
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=problem.model_dump(),
+        media_type="application/problem+json",
+    )
 
 
 @asynccontextmanager
@@ -50,6 +82,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Register RFC 9457 error handler
+    app.add_exception_handler(HTTPException, problem_details_handler)
 
     # Register API routers
     app.include_router(health.router)

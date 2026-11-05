@@ -46,4 +46,3 @@ async def readiness(conn: Annotated[AsyncConnection, Depends(get_db)]) -> ReadyR
         dataset_version=active_run["dataset_version"],
         activated_at=active_run["activated_at"],
     )
-
