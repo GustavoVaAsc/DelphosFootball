@@ -227,7 +227,8 @@ The final `FULL` therefore carries `minutes`, `starts`, `starter_ratio`, `captai
 
 - **Decide:** model/quant selection, timeouts, concurrency limits, context budget and assembly rules (chat history cap, metrics injection caps), and mid-stream failure semantics.
 - **Why it matters:** the backend enforces these limits verbatim and degrades `/reports/*` and `/chat` on LLM outage per ARCHITECTURE.md; mid-stream failure semantics define what a streamed reply does when the LLM dies after headers were sent.
-- **Needed by:** only if delivery priority 4 (LLM reports and chat, ARCHITECTURE.md ADR-007) is reached; no week assigned.
+- **Decision (2026-11-04):** promoted to active scope for Week 7 given early completion of the ML pipeline and backend read endpoints (ADR-007 amendment). Target runtime is the `inference-chat` service in `docker-compose.yml` (`llama.cpp` server) serving a local 4-bit quantized instruction model (`Qwen2.5-3B-Instruct-Q4_K_M` or `Llama-3.2-3B-Instruct-Q4_K_M`), exposing OpenAI-compatible completions for deterministic scouting report generation (`POST /reports/generate`) grounded on active player metrics, OLS fair value, and K-Means archetype.
+- **Needed by:** week 7 (reports generation).
 
 ## 4. See also
 

@@ -395,6 +395,7 @@ Short ADR-style records. The decisions below are settled as recorded, for contex
 - **Decision:** Build and protect, in this order: (1) the offline ML pipeline end to end, including the inefficiency analysis and replacements; (2) a minimal demo, meaning FastAPI plus Flutter covering player search, valuation, and replacements, together with the PostgreSQL and compose pieces they need; (3) live what-if (`POST /players/what-if`); (4) the LLM reports and chat (`/reports/*`, `/chat`, the `inference-chat` service). Under time pressure, cut from the bottom: 4 first, then 3. Items 1 and 2 are never cut.
 - **Alternatives:** Build every component to the same depth (rejected: on a single track that risks having no finished ML results); drop the app (rejected: the app is the system's demo and is evaluated alongside the ML work, see [System context](#2-system-context)).
 - **Consequences:** The LLM and what-if designs stay in this document as the target, marked with their priority.
+- **Amendment (2026-11-04):** With Priority 1 (entire ML pipeline + PostgreSQL publishing) and Priority 2's backend read endpoints completed ahead of schedule at the opening of Week 6, the team promoted AI-generated scouting reports (`/reports/generate`) from stretch scope into the active delivery plan for Week 7 alongside the Flutter app.
 
 ### ADR-008: Parquet files between pipeline stages; PostgreSQL only at publish
 

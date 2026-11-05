@@ -31,9 +31,10 @@ Read these in order. Each file owns one kind of fact, so change a fact in its ow
 This file is the global guide: conventions that hold everywhere in the repository. Component-specific commands and layout live in a guide beside each component:
 
 - [ml/AGENTS.md](ml/AGENTS.md): the ML component in `ml/` and the analysis scripts in `analysis/` (the `delphos_ml` package, the pipeline CLI, its tests, its stage outputs, the `analysis` dependency group, and their dev commands).
-- `backend/AGENTS.md` and `frontend/AGENTS.md`: added when those components land.
+- [backend/AGENTS.md](backend/AGENTS.md): the FastAPI backend component in `backend/` (the `delphos_backend` package, read endpoints, Dockerfile, tests, and dev commands).
+- `frontend/AGENTS.md`: added when that component lands in week 7.
 
-All uv commands run from `ml/`. Each Python component is its own uv project; there is no root workspace (ADR-013 in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)).
+Each Python component is its own uv project; there is no root workspace (ADR-013 in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)). Run uv commands from within the relevant component directory (`ml/` or `backend/`).
 
 ## 4. Team conventions
 
