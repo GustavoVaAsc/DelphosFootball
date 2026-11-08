@@ -21,7 +21,7 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from delphos_backend.api import clusters, health, players
+from delphos_backend.api import clusters, health, players, reports
 from delphos_backend.core.config import get_settings
 from delphos_backend.core.db import close_db_pool, init_db_pool
 from delphos_backend.schemas.errors import ProblemDetails
@@ -74,7 +74,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Configure CORS middleware for Flutter web/mobile clients
+    # Configure CORS middleware for Flutter Web client
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,
@@ -90,6 +90,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(players.router)
     app.include_router(clusters.router)
+    app.include_router(reports.router)
 
     return app
 

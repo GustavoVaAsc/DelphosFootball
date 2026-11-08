@@ -26,6 +26,7 @@ async def test_list_players(client: AsyncClient, mock_db: AsyncMock) -> None:
             "last_name": "Messi",
             "position": "Attack",
             "sub_position": "Right Winger",
+            "country_of_citizenship": "Argentina",
             "image_url": "http://img.png",
             "club_id": 1,
             "club_name": "Inter Miami",
@@ -43,6 +44,10 @@ async def test_list_players(client: AsyncClient, mock_db: AsyncMock) -> None:
     assert data["page"] == 1
     assert len(data["items"]) == 1
     assert data["items"][0]["name"] == "Lionel Messi"
+    assert data["items"][0]["country_of_citizenship"] == "Argentina"
+    assert (
+        data["items"][0]["club_logo_url"] == "https://tmssl.akamaized.net/images/wappen/head/1.png"
+    )
     assert data["items"][0]["valuation_status"] == "undervalued"
     assert data["items"][0]["cluster_name"] == "Attacking Creators & Scorers"
 
@@ -65,6 +70,8 @@ async def test_get_player_profile_success(client: AsyncClient, mock_db: AsyncMoc
             "sub_position": "Right Winger",
             "foot": "left",
             "height_in_cm": 170,
+            "club_id": 1,
+            "club_name": "Inter Miami",
             "image_url": "http://img.png",
             "url": "http://tm.de/messi",
             "season": 2025,
@@ -91,6 +98,8 @@ async def test_get_player_profile_success(client: AsyncClient, mock_db: AsyncMoc
     data = response.json()
     assert data["model_run_id"] == "run_test_001"
     assert data["name"] == "Lionel Messi"
+    assert data["club_name"] == "Inter Miami"
+    assert data["club_logo_url"] == "https://tmssl.akamaized.net/images/wappen/head/1.png"
     assert data["active_season"]["goals"] == 15.0
 
 

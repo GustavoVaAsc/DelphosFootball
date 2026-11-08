@@ -26,6 +26,8 @@ def mock_pool_lifecycle(request: pytest.FixtureRequest, monkeypatch: pytest.Monk
 def mock_db() -> MagicMock:
     """Mock psycopg AsyncConnection and cursor for isolated route testing."""
     conn = MagicMock()
+    conn.commit = AsyncMock()
+    conn.rollback = AsyncMock()
     cur = AsyncMock()
 
     cursor_ctx = MagicMock()

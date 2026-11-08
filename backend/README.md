@@ -1,6 +1,6 @@
 # DelphosFootball Backend
 
-FastAPI service serving outfield player valuations, tactical replacements, and cluster profiles from PostgreSQL (`analytics` schema) to the Flutter mobile client.
+FastAPI service serving outfield player valuations, tactical replacements, and cluster profiles from PostgreSQL (`analytics` schema) to the Flutter Web client.
 
 ## Quickstart
 
@@ -26,6 +26,9 @@ Interactive OpenAPI documentation is available at `http://localhost:8000/docs`.
 | `GET` | `/players/{id}/valuation` | Fair value prediction, actual market value, and valuation status badge |
 | `GET` | `/players/{id}/replacements` | Precomputed top-3 cheaper tactical replacements with similarity and savings |
 | `GET` | `/clusters` | Catalog of K-Means tactical clusters with centroids and descriptions |
+| `POST` | `/reports/generate` | Generate (or return cached) AI scouting report for a player via local `llama.cpp` |
+| `GET` | `/reports` | List persisted scouting reports for the active model run |
+| `GET` | `/reports/{id}` | Retrieve a persisted scouting report by ID |
 
 ## Environment variables
 

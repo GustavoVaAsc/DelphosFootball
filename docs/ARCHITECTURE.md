@@ -98,8 +98,8 @@ Both the backend and the pipeline import the same shared Python package, `delpho
 
 ### 4.1 Flutter frontend
 
-- **Responsibility:** The user experience. Mobile-first Flutter app for searching players, viewing valuations and undervaluation findings, exploring clusters/archetypes, browsing scouting reports, and chatting with the LLM. The UX is a deliberate product feature, not a demo shell.
-- **Technology:** Flutter (Dart), with the Flutter SDK pinned to an exact version in `pubspec.yaml` and `pubspec.lock` committed; all pins date from project kickoff and are bumped only via explicit dependency-bump commits. Targets mobile form factors first; a web build is acceptable as the demo vehicle.
+- **Responsibility:** The user experience. Web-focused Flutter application for searching players, viewing valuations and undervaluation findings, exploring clusters/archetypes, browsing scouting reports, and chatting with the LLM. The UX is a deliberate product feature, not a demo shell.
+- **Technology:** Flutter Web (Dart), with the Flutter SDK pinned to an exact version in `pubspec.yaml` and `pubspec.lock` committed; all pins date from project kickoff and are bumped only via explicit dependency-bump commits. Targets web desktop/browser form factors (served on port `80` in Docker Compose).
 - **Interfaces/contracts:** Consumes the backend's REST API. The OpenAPI spec that FastAPI generates is the contract of record; the Flutter HTTP client is generated from (or written against) that spec. Talks only to the backend — the frontend never reaches the database, pipeline, or LLM server directly.
 
 ### 4.2 FastAPI backend
@@ -341,7 +341,7 @@ A relative `DELPHOS_DATA_DIR`, including the default, requires a `uv.lock` at or
 - **Versioning of published results.** Every published row carries the `model_run_id` that produced it, and reports record the model version used. Exactly one run is `active` at a time; the API reads only the active run and includes the `model_run_id` in responses that carry model-derived values ([Publish/activation protocol](#44-offline-ml-pipeline)). Re-publishing a new model does not silently rewrite historical results already surfaced to users.
 - **Error handling at service boundaries.** The backend is the only component that talks to clients, and it translates failures at its boundaries into RFC 9457 problem responses (`application/problem+json` with `type`, `title`, `status`, `detail`, and `trace_id`), defined once as a shared Pydantic model behind a global exception handler. Expected problem types, by endpoint group: *missing artifact* and *stale artifact* (any model-derived read and `/players/what-if`), *LLM unavailable* (`/reports/*` and `/chat` — the rest of the API keeps working during an LLM outage), *mid-stream failure* (streamed report/chat responses, after the 200 headers were already sent), and *not found* (`/players/{id}` and other id lookups). The pipeline fails fast per stage and leaves the previously published results in place; `publish` is the last stage and flips the active pointer only in its final transaction ([Publish/activation protocol](#44-offline-ml-pipeline)), so a crashed run does not corrupt what the API serves.
 - **Testing.** v1 scope is unit tests with pytest: fixtures for artifact loading and parametrized scoring cases, covering the `delphos_ml` load/score paths (`ml/tests/`) and the API route logic (`backend/tests/`). The golden batch-vs-live equivalence check, contract tests, OpenAPI drift checks, and CI are explicitly out of v1 scope — listed in [Future work](#11-future-work), not as v1 commitments.
-- **CORS for the Flutter client.** The Flutter app runs as web on a different origin than the API. Allowed origins are configured via an env var consumed by FastAPI's CORS middleware; native mobile builds are unaffected by CORS but use the same API base URL configuration.
+- **CORS for the Flutter client.** The Flutter web app runs on a different origin than the API. Allowed origins are configured via an env var consumed by FastAPI's CORS middleware.
 
 ## 10. Decisions and tradeoffs
 
@@ -378,9 +378,9 @@ Short ADR-style records. The decisions below are settled as recorded, for contex
 ### ADR-005: Flutter over Streamlit or React
 
 - **Context:** The frontend is a graded deliverable and a stated product feature; it must present search, valuations, clusters, reports, and chat.
-- **Decision:** Flutter, mobile-first.
-- **Alternatives:** Streamlit (rejected: fastest to build but reads as a demo shell, contrary to the product intent, and constrains the UX); React (rejected: viable, but Flutter gives one codebase for mobile-first targets and a native-feel UX that the team wants to showcase).
-- **Consequences:** The team commits to Dart and Flutter tooling; in return the app is a genuine mobile-first product surface rather than a demo shell.
+- **Decision:** Flutter Web (100% web target).
+- **Alternatives:** Streamlit (rejected: fastest to build but reads as a demo shell, contrary to the product intent, and constrains the UX); React (rejected: viable, but the team selected Flutter Web for a cohesive, custom-styled analytical dashboard UX deployed as a static web build in Docker Compose).
+- **Consequences:** The team commits to Dart and Flutter Web tooling; in return the app is a genuine front-office web product surface rather than a demo shell.
 
 ### ADR-006: Docker Compose as the deployment unit
 

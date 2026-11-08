@@ -13,4 +13,3 @@ class ProblemDetails(BaseModel):
     status: int = Field(description="HTTP status code")
     detail: str = Field(description="Explanation specific to this occurrence")
     trace_id: str | None = Field(default=None, description="Optional tracing identifier")
-

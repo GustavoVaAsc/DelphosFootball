@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost,http://localhost:80,http://localhost:3000"
     artifacts_dir: Path | None = None
 
+    # Local LLM inference service settings (llama.cpp OpenAI-compatible HTTP)
+    llm_api_url: str = "http://localhost:8080/v1"
+    llm_model_name: str = "local-gguf"
+    llm_timeout_seconds: float = 45.0
+    llm_max_tokens: int = 512
+    llm_temperature: float = 0.2
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Return CORS allowed origins as a parsed list of strings."""

@@ -12,6 +12,11 @@ class ReplacementItem(BaseModel):
     candidate_player_id: int
     candidate_name: str
     position: str
+    candidate_country_of_citizenship: str | None = None
+    candidate_club_id: int | None = None
+    candidate_club_name: str | None = None
+    candidate_club_logo_url: str | None = None
+    candidate_image_url: str | None = None
     similarity_score: float = Field(description="Normalized similarity metric [0, 1]")
     euclidean_distance: float
     candidate_market_value_eur: float

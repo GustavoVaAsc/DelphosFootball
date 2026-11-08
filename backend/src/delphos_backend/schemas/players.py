@@ -16,8 +16,10 @@ class PlayerSummary(BaseModel):
     last_name: str
     position: str
     sub_position: str | None = None
+    country_of_citizenship: str | None = None
     club_id: int | None = None
     club_name: str | None = None
+    club_logo_url: str | None = None
     market_value_eur: float | None = None
     valuation_status: str | None = None
     cluster_id: int | None = None
@@ -72,6 +74,9 @@ class PlayerProfileResponse(BaseModel):
     sub_position: str | None = None
     foot: str | None = None
     height_in_cm: int | None = None
+    club_id: int | None = None
+    club_name: str | None = None
+    club_logo_url: str | None = None
     image_url: str | None = None
     url: str
     cluster_id: int | None = None
