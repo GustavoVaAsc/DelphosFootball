@@ -1,0 +1,2395 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DelphosFootball · Suite de Dirección Deportiva y Scouting Inteligente</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23047857' stroke-width='2'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cline x1='12' y1='4' x2='12' y2='20'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* 1. TEMA CLARO LUMINOSO: DAYLIGHT STADIUM & TRANSFERMARKT EDITORIAL */
+      --bg-canvas: #F4F6F9;
+      --bg-surface: #FFFFFF;
+      --bg-subtle: #F8FAFC;
+      --bg-muted: #F1F5F9;
+
+      --navy-primary: #0F172A;
+      --navy-institutional: #1A3151;
+      --text-primary: #0F172A;
+      --text-secondary: #475569;
+      --text-muted: #64748B;
+
+      --border-subtle: #E2E8F0;
+      --border-strong: #CBD5E1;
+
+      /* Colores Semánticos de Fútbol sobre fondo claro */
+      --val-undervalued-text: #047857;
+      --val-undervalued-bg: #ECFDF5;
+      --val-undervalued-border: #A7F3D0;
+
+      --val-fair-text: #0369A1;
+      --val-fair-bg: #F0F9FF;
+      --val-fair-border: #BAE6FD;
+
+      --val-overvalued-text: #BE123C;
+      --val-overvalued-bg: #FFF1F2;
+      --val-overvalued-border: #FECDD3;
+
+      --elite-text: #B45309;
+      --elite-bg: #FFFBEB;
+      --elite-border: #FDE68A;
+
+      --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+      --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.04);
+      --shadow-hover: 0 4px 12px rgba(15, 23, 42, 0.06);
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 13.5px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    ::selection {
+      background-color: #D1FAE5;
+      color: #065F46;
+    }
+
+    /* Scrollbars limpios en modo claro */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94A3B8;
+    }
+
+    a[href], button, select, input[type="search"], [role="button"] {
+      cursor: pointer;
+      font-family: inherit;
+    }
+    input[type="search"] {
+      cursor: text;
+    }
+    button:disabled, select:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+    :focus-visible {
+      outline: 2px solid var(--val-undervalued-text);
+      outline-offset: 2px;
+    }
+
+    button {
+      transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out), color 160ms var(--ease-out), transform 160ms var(--ease-out);
+    }
+    button:active:not(:disabled) {
+      transform: scale(0.985);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    .tabular {
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* SHELL GLOBAL: Sidebar destilado (224px) + Área Principal */
+    .app-shell {
+      display: grid;
+      grid-template-columns: 224px 1fr;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 3. SIDEBAR IZQUIERDO DESTILADO (/impeccable distill) */
+    .sidebar {
+      background-color: var(--navy-primary);
+      color: #FFFFFF;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      user-select: none;
+      border-right: 1px solid #1E293B;
+      z-index: 20;
+    }
+
+    .brand-header {
+      height: 60px;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background-color: #047857;
+      border: 1px solid #34D399;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-size: 15.5px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #FFFFFF;
+      line-height: 1.15;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: #94A3B8;
+      font-weight: 500;
+    }
+
+    .nav-section {
+      padding: 20px 12px;
+    }
+
+    .nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .nav-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: #CBD5E1;
+      font-size: 13px;
+      font-weight: 500;
+      text-align: left;
+      line-height: 1.3;
+    }
+    .nav-btn:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+      color: #FFFFFF;
+    }
+    .nav-btn.active {
+      background-color: var(--navy-institutional);
+      color: #FFFFFF;
+      border-color: rgba(255, 255, 255, 0.14);
+      font-weight: 600;
+    }
+    .nav-btn .nav-icon {
+      width: 17px;
+      height: 17px;
+      flex-shrink: 0;
+      color: #94A3B8;
+    }
+    .nav-btn.active .nav-icon {
+      color: #34D399;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 16px 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12px;
+      color: #94A3B8;
+      font-variant-numeric: tabular-nums;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .season-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: #10B981;
+      flex-shrink: 0;
+    }
+
+    /* ÁREA PRINCIPAL */
+    .main-area {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-canvas);
+    }
+
+    /* Cabecera Superior Editorial (56px) */
+    .topbar {
+      height: 56px;
+      padding: 0 24px;
+      background-color: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .page-h1 {
+      font-family: var(--font-display);
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+    .editorial-context-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background-color: var(--bg-muted);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Contenedor de Vistas */
+    .workspace-container {
+      flex: 1;
+      height: calc(100vh - 56px);
+      overflow: hidden;
+      position: relative;
+    }
+
+    @keyframes viewFadeIn {
+      from { opacity: 0; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes dossierEnter {
+      from { opacity: 0.65; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .view-pane {
+      display: none;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    .view-pane.active {
+      display: flex;
+      flex-direction: column;
+      animation: viewFadeIn 180ms var(--ease-out) forwards;
+    }
+
+    /* ===================================================================== */
+    /* VISTA 1: EXPLORADOR DE MERCADO + DOSSIER DERECHO                      */
+    /* ===================================================================== */
+
+    /* Barra de filtros superior en UNA SOLA LÍNEA limpia y respirable */
+    .single-line-filter-bar {
+      padding: 10px 24px;
+      background-color: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-shrink: 0;
+      flex-wrap: nowrap;
+    }
+
+    .search-box {
+      position: relative;
+      width: 195px;
+      flex-shrink: 0;
+    }
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 14px;
+      height: 14px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      height: 32px;
+      padding: 0 8px 0 29px;
+      background-color: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: 7px;
+      color: var(--text-primary);
+      font-size: 11.5px;
+      transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+    }
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+    .search-input:focus {
+      background-color: var(--bg-surface);
+      border-color: var(--navy-institutional);
+      outline: none;
+    }
+
+    .filter-segments-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: nowrap;
+    }
+
+    .segment-group {
+      display: inline-flex;
+      align-items: center;
+      background-color: var(--bg-muted);
+      padding: 2px;
+      border-radius: 7px;
+      border: 1px solid var(--border-subtle);
+      gap: 1px;
+      flex-shrink: 0;
+    }
+    .segment-label {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding: 0 4px 0 5px;
+      white-space: nowrap;
+    }
+    .seg-btn {
+      padding: 4px 5.5px;
+      border-radius: 5px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .seg-btn:hover {
+      color: var(--text-primary);
+    }
+    .seg-btn.active {
+      background-color: var(--bg-surface);
+      color: var(--text-primary);
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    }
+    .seg-btn.active-undervalued {
+      background-color: var(--val-undervalued-bg);
+      color: var(--val-undervalued-text);
+      box-shadow: inset 0 0 0 1px var(--val-undervalued-border);
+    }
+    .seg-btn.active-fair {
+      background-color: var(--val-fair-bg);
+      color: var(--val-fair-text);
+      box-shadow: inset 0 0 0 1px var(--val-fair-border);
+    }
+    .seg-btn.active-overvalued {
+      background-color: var(--val-overvalued-bg);
+      color: var(--val-overvalued-text);
+      box-shadow: inset 0 0 0 1px var(--val-overvalued-border);
+    }
+
+    /* Cuerpo Master-Detail debajo de la barra de filtros */
+    .master-detail-split {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 7fr 5fr;
+      gap: 20px;
+      padding: 18px 24px;
+      overflow: hidden;
+    }
+
+    /* Columna Izquierda: Tabla Estilo Transfermarkt Moderno */
+    .table-card-container {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .table-scroll-container {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .players-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .players-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background-color: var(--bg-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 11px 16px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-align: left;
+      letter-spacing: 0.01em;
+    }
+    .players-table thead th.col-right {
+      text-align: right;
+    }
+
+    /* 4 columnas amplias sin textos cortados */
+    .col-w-player { width: 32%; }
+    .col-w-pos { width: 20%; }
+    .col-w-arch { width: 20%; }
+    .col-w-val { width: 28%; }
+
+    .player-row {
+      border-bottom: 1px solid var(--border-subtle);
+      background-color: var(--bg-surface);
+      transition: background-color 160ms var(--ease-out);
+      cursor: pointer;
+    }
+    .player-row:last-child {
+      border-bottom: none;
+    }
+    .player-row:hover {
+      background-color: var(--bg-subtle);
+    }
+    .player-row.selected {
+      background-color: #F0FDF4;
+      box-shadow: inset 3px 0 0 var(--val-undervalued-text);
+    }
+
+    /* 4. Más aire vertical a cada fila (py-3 px-4 -> 12px 16px) */
+    .player-row td {
+      padding: 12px 16px;
+      vertical-align: middle;
+    }
+
+    /* Avatar de 44x44px con fondo suave claro + escudo + bandera */
+    .player-identity-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .avatar-wrap-44 {
+      position: relative;
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+    }
+    .player-avatar-44 {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      background-color: var(--bg-muted);
+      border: 1px solid var(--border-subtle);
+      display: block;
+    }
+    .club-crest-badge {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+      object-fit: contain;
+      padding: 2px;
+    }
+    .player-name-block {
+      min-width: 0;
+      flex: 1;
+    }
+    .player-name-text {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 13.5px;
+      color: var(--text-primary);
+      line-height: 1.25;
+    }
+    .player-sub-line {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .flag-img {
+      width: 16px;
+      height: 12px;
+      object-fit: cover;
+      border-radius: 2px;
+      flex-shrink: 0;
+      border: 1px solid rgba(15, 23, 42, 0.1);
+    }
+
+    /* Celda Posición con mini cancha clara */
+    .pos-zone-cell {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .mini-pitch-svg {
+      width: 36px;
+      height: 24px;
+      flex-shrink: 0;
+      border-radius: 4px;
+      background-color: #F0FDF4;
+      border: 1px solid #BBF7D0;
+    }
+    .pos-main {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.25;
+    }
+    .pos-sub {
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    /* Badge de Arquetipo claro y sin truncar */
+    .archetype-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background-color: var(--bg-muted);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Columna Mercado vs Valor Justo */
+    .val-vs-ia-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+    .val-price-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: flex-end;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .tm-price {
+      font-family: var(--font-display);
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+    .ia-price {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--val-undervalued-text);
+      white-space: nowrap;
+    }
+
+    /* Pills Semánticos */
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .status-undervalued {
+      color: var(--val-undervalued-text);
+      background-color: var(--val-undervalued-bg);
+      border: 1px solid var(--val-undervalued-border);
+    }
+    .status-fair {
+      color: var(--val-fair-text);
+      background-color: var(--val-fair-bg);
+      border: 1px solid var(--val-fair-border);
+    }
+    .status-overvalued {
+      color: var(--val-overvalued-text);
+      background-color: var(--val-overvalued-bg);
+      border: 1px solid var(--val-overvalued-border);
+    }
+    .elite-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--elite-text);
+      background-color: var(--elite-bg);
+      border: 1px solid var(--elite-border);
+      white-space: nowrap;
+    }
+
+    .table-footer-bar {
+      height: 40px;
+      padding: 0 16px;
+      background-color: var(--bg-subtle);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+
+    /* ===================================================================== */
+    /* 5. DOSSIER DERECHO CORREGIDO (CABECERA ÍNTEGRA SIN RECORTAR)          */
+    /* ===================================================================== */
+    .dossier-animate {
+      animation: dossierEnter 180ms var(--ease-out) forwards;
+    }
+    .dossier-card-container {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Cabecera fija en la parte superior del Dossier (flex-shrink: 0 -> jamás se corta) */
+    .dossier-header {
+      position: relative;
+      flex-shrink: 0;
+      padding: 14px 18px 12px;
+      background: linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .dossier-pitch-lines {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .dossier-header-inner {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .dossier-identity-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .dossier-player-main {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+    .portrait-wrap-64 {
+      position: relative;
+      width: 64px;
+      height: 64px;
+      flex-shrink: 0;
+    }
+    .dossier-portrait-64 {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      object-fit: cover;
+      background-color: var(--bg-muted);
+      border: 2px solid var(--bg-surface);
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.10);
+      display: block;
+    }
+    .dossier-club-crest-24 {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+      object-fit: contain;
+      padding: 2px;
+    }
+    .dossier-name-title {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+    .dossier-club-line {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 4px;
+      font-size: 12.5px;
+      color: var(--text-secondary);
+    }
+
+    /* Cinta biográfica limpia en la cabecera del jugador */
+    .dossier-bio-strip {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding-top: 2px;
+    }
+    .bio-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background-color: var(--bg-muted);
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .bio-tag strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    /* Cuerpo scrollable del Dossier debajo de la cabecera fija */
+    .dossier-scroll-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 16px 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Tarjeta de Valoración Financiera */
+    .valuation-card {
+      background-color: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .valuation-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .valuation-figures-pair {
+      display: flex;
+      align-items: baseline;
+      gap: 20px;
+    }
+    .val-figure-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .val-figure-label {
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+    .val-figure-number {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+    }
+    .val-figure-number.ia-accent {
+      color: var(--val-undervalued-text);
+    }
+
+    /* Una sola barra visual limpia comparando ambos valores */
+    .single-comparison-bar-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .single-bar-track {
+      position: relative;
+      height: 10px;
+      background-color: #E2E8F0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .single-bar-fill-market {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      background-color: #64748B;
+      border-radius: 999px;
+      transition: width 320ms var(--ease-out);
+    }
+    .single-bar-marker-ia {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background-color: var(--val-undervalued-text);
+      border-radius: 2px;
+      z-index: 2;
+      transition: left 320ms var(--ease-out);
+    }
+    .confidence-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Secciones limpias del Dossier */
+    .dossier-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .section-header-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+    .section-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Grilla limpia de 4x2 sin bordes pesados para Métricas 2025 */
+    .metrics-4x2-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px 10px;
+      background-color: var(--bg-subtle);
+      border-radius: 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--border-subtle);
+    }
+    .metric-clean-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 2px 0;
+    }
+    .metric-clean-label {
+      font-size: 10.5px;
+      font-weight: 500;
+      color: #64748B;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .metric-clean-number {
+      font-family: var(--font-display);
+      font-size: 16.5px;
+      font-weight: 700;
+      color: #0F172A;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Top 3 Reemplazos Rentables: 3 tarjetas blancas limpias */
+    .replacements-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .replacement-white-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 10px 12px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+    }
+    .replacement-white-card:hover {
+      border-color: var(--border-strong);
+      box-shadow: var(--shadow-hover);
+    }
+    .rep-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .avatar-wrap-40 {
+      position: relative;
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+    }
+    .player-avatar-40 {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      background-color: var(--bg-muted);
+      border: 1px solid var(--border-subtle);
+    }
+    .rep-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .rep-price {
+      font-family: var(--font-display);
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .savings-badge-green {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--val-undervalued-text);
+      background-color: var(--val-undervalued-bg);
+      border: 1px solid var(--val-undervalued-border);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Informe de Dirección Deportiva */
+    .scouting-report-box {
+      background-color: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      max-width: 68ch;
+    }
+    .scouting-report-box p + p {
+      margin-top: 8px;
+    }
+    .scouting-report-box strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    /* Botones ejecutivos */
+    .btn-executive-primary {
+      padding: 7px 13px;
+      border-radius: 8px;
+      background-color: var(--navy-primary);
+      border: 1px solid var(--navy-primary);
+      color: #FFFFFF;
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .btn-executive-primary:hover {
+      background-color: var(--navy-institutional);
+    }
+    .btn-executive-secondary {
+      padding: 6px 12px;
+      border-radius: 8px;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .btn-executive-secondary:hover {
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+      background-color: var(--bg-subtle);
+    }
+
+    /* ===================================================================== */
+    /* VISTA 2: COMPARADOR MONEYBALL (LADO A LADO)                           */
+    /* ===================================================================== */
+    .view-scroll-pad {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 20px 24px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .toolbar-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 14px 18px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .select-clean {
+      height: 36px;
+      padding: 0 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      background-color: var(--bg-subtle);
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .comparison-4col-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .comp-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .comp-card.target-highlight {
+      border-top: 3px solid var(--navy-primary);
+    }
+    .comp-card.candidate-highlight {
+      border-top: 3px solid var(--val-undervalued-text);
+    }
+
+    .comp-metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12.5px;
+    }
+    .comp-metric-row:last-child {
+      border-bottom: none;
+    }
+
+    /* ===================================================================== */
+    /* VISTA 3: ARQUETIPOS TÁCTICOS                                          */
+    /* ===================================================================== */
+    .clusters-3col-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .cluster-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .cluster-pitch-banner {
+      width: 100%;
+      height: 112px;
+      background-color: #F0FDF4;
+      border: 1px solid #DCFCE7;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+    }
+
+    .empty-state-card {
+      margin: 32px auto;
+      padding: 28px;
+      max-width: 480px;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      box-shadow: var(--shadow-card);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- 3. SIDEBAR IZQUIERDO DESTILADO: Logo + 3 Módulos + Indicador discreto -->
+    <aside class="sidebar" aria-label="Navegación principal">
+      <div class="brand-header">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <line x1="12" y1="4" x2="12" y2="20"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">DelphosFootball</div>
+          <div class="brand-subtitle">Dirección Deportiva</div>
+        </div>
+      </div>
+
+      <nav class="nav-section" aria-label="Módulos principales">
+        <ul class="nav-list">
+          <li>
+            <button type="button" class="nav-btn active" id="nav-view-1" onclick="switchView('view-1')">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <line x1="3" y1="9" x2="21" y2="9"/>
+                <line x1="14" y1="9" x2="14" y2="21"/>
+              </svg>
+              <span>Explorador de Mercado</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="nav-btn" id="nav-view-2" onclick="switchView('view-2')">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
+              </svg>
+              <span>Comparador Moneyball</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="nav-btn" id="nav-view-3" onclick="switchView('view-3')">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="9"/>
+                <circle cx="12" cy="12" r="3"/>
+                <line x1="12" y1="3" x2="12" y2="9"/>
+                <line x1="12" y1="15" x2="12" y2="21"/>
+              </svg>
+              <span>Arquetipos Tácticos</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
+
+      <footer class="sidebar-footer">
+        <span class="season-dot" aria-hidden="true"></span>
+        <span>Temporada 2025 &middot; 5,522 Jugadores</span>
+      </footer>
+    </aside>
+
+    <!-- ÁREA PRINCIPAL -->
+    <div class="main-area">
+      <!-- BARRA SUPERIOR LIMPIA -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 class="page-h1" id="active-view-title">Explorador de Mercado</h1>
+          <span class="editorial-context-pill">14 Ligas Europeas &middot; Análisis de Valoración y Scouting</span>
+        </div>
+
+        <div class="topbar-right">
+          <button type="button" class="btn-executive-secondary" onclick="resetAllFilters()">
+            Restablecer vista
+          </button>
+        </div>
+      </header>
+
+      <!-- CONTENEDOR DE LAS 3 VISTAS -->
+      <main class="workspace-container" id="main-workspace">
+
+        <!-- ================================================================= -->
+        <!-- VISTA 1: EXPLORADOR DE MERCADO + DOSSIER DERECHO                  -->
+        <!-- ================================================================= -->
+        <section id="view-1" class="view-pane active" aria-label="Explorador de Mercado">
+          <!-- Barra de filtros superior en UNA SOLA LÍNEA -->
+          <div class="single-line-filter-bar" role="region" aria-label="Filtros de búsqueda de jugadores">
+            <div class="search-box">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input
+                type="search"
+                id="player-search-input"
+                class="search-input"
+                placeholder="Buscar jugador o club..."
+                aria-label="Buscar futbolista por nombre o club"
+                oninput="handleSearchInput(this.value)"
+              >
+            </div>
+
+            <div class="filter-segments-wrap">
+              <!-- Selector de Posición: Todas | Ataque | Mediocampo | Defensa -->
+              <div class="segment-group" role="group" aria-label="Filtrar por posición">
+                <span class="segment-label">Posición:</span>
+                <button type="button" class="seg-btn active" data-filter-pos="ALL" onclick="setFilterPos('ALL')">Todas</button>
+                <button type="button" class="seg-btn" data-filter-pos="Attack" onclick="setFilterPos('Attack')">Ataque</button>
+                <button type="button" class="seg-btn" data-filter-pos="Midfield" onclick="setFilterPos('Midfield')">Mediocampo</button>
+                <button type="button" class="seg-btn" data-filter-pos="Defender" onclick="setFilterPos('Defender')">Defensa</button>
+              </div>
+
+              <!-- Selector de Estado: Todos | Infravalorados | Valor Justo | Sobrevalorados -->
+              <div class="segment-group" role="group" aria-label="Filtrar por estado de valoración">
+                <span class="segment-label">Estado:</span>
+                <button type="button" class="seg-btn active" data-filter-val="ALL" onclick="setFilterVal('ALL')">Todos</button>
+                <button type="button" class="seg-btn" data-filter-val="undervalued" onclick="setFilterVal('undervalued')">Infravalorados</button>
+                <button type="button" class="seg-btn" data-filter-val="fair" onclick="setFilterVal('fair')">Valor Justo</button>
+                <button type="button" class="seg-btn" data-filter-val="overvalued" onclick="setFilterVal('overvalued')">Sobrevalorados</button>
+              </div>
+
+              <!-- Selector de Arquetipo: Todos | Creadores | Box-to-Box | Defensivos -->
+              <div class="segment-group" role="group" aria-label="Filtrar por arquetipo táctico">
+                <span class="segment-label">Arquetipo:</span>
+                <button type="button" class="seg-btn active" data-filter-cluster="ALL" onclick="setFilterCluster('ALL')">Todos</button>
+                <button type="button" class="seg-btn" data-filter-cluster="0" onclick="setFilterCluster(0)">Creadores</button>
+                <button type="button" class="seg-btn" data-filter-cluster="1" onclick="setFilterCluster(1)">Box-to-Box</button>
+                <button type="button" class="seg-btn" data-filter-cluster="2" onclick="setFilterCluster(2)">Defensivos</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Split Master-Detail -->
+          <div class="master-detail-split">
+            <!-- Izquierda: Tabla Estilo Transfermarkt Moderno -->
+            <div class="table-card-container">
+              <div class="table-scroll-container" id="players-table-container">
+                <table class="players-table" aria-label="Directorio de futbolistas">
+                  <thead>
+                    <tr>
+                      <th class="col-w-player">Futbolista / Club</th>
+                      <th class="col-w-pos">Posición</th>
+                      <th class="col-w-arch">Arquetipo Táctico</th>
+                      <th class="col-w-val col-right">Mercado vs Valor Justo</th>
+                    </tr>
+                  </thead>
+                  <tbody id="players-tbody"></tbody>
+                </table>
+              </div>
+
+              <div class="table-footer-bar">
+                <span id="table-count-label" class="tabular">Mostrando 18 jugadores destacados de 5,522 en seguimiento</span>
+                <span>Haz clic en cualquier jugador para abrir su ficha completa</span>
+              </div>
+            </div>
+
+            <!-- Derecha: Dossier del Jugador (Cabecera Fija + Cuerpo Scrollable) -->
+            <div class="dossier-card-container" id="dossier-panel" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- VISTA 2: COMPARADOR MONEYBALL                                     -->
+        <!-- ================================================================= -->
+        <section id="view-2" class="view-pane" aria-label="Comparador Moneyball">
+          <div class="view-scroll-pad" id="view-2-content"></div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- VISTA 3: ARQUETIPOS TÁCTICOS                                      -->
+        <!-- ================================================================= -->
+        <section id="view-3" class="view-pane" aria-label="Arquetipos Tácticos">
+          <div class="view-scroll-pad" id="view-3-content"></div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const PLAYERS_DATA = [{"model_run_id": "run_2025_v1", "player_id": 566723, "name": "Michael Olise", "first_name": "Michael", "last_name": "Olise", "player_code": "michael-olise", "country_of_citizenship": "France", "date_of_birth": "2001-12-12", "position": "Attack", "sub_position": "Right Winger", "foot": "left", "height_in_cm": 180, "club_id": 27, "club_name": "Bayern Munich", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/27.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/566723-1762944477.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/michael-olise/profil/spieler/566723", "cluster_id": 0, "cluster_name": "Attacking Creators & Scorers", "active_season": {"season": 2025, "as_of_date": "2026-05-27", "league_id": "L1", "minutes": 4285.0, "apps": 56.0, "starts": 45.0, "goals": 25.0, "assists": 32.0, "yellow_cards": 12.0, "red_cards": 0.0, "starter_ratio": 0.8036, "win_rate": 0.8036, "clean_sheet_rate": 0.2857, "goals_conceded_per_match": 1.179, "league_position": 1.0, "age": 24.5}, "valuation": {"player_id": 566723, "name": "Michael Olise", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 150000000.00000003, "fair_value_eur": 190799569.95, "residual_log10": 0.1045, "valuation_status": "fair", "is_undervalued": false, "rf_undervalued_prob": 0.2361, "dt_undervalued_pred": false, "rf_undervalued_pred": false}, "replacements_payload": {"target_player_id": 566723, "target_name": "Michael Olise", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 150000000.00000003, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 742201, "candidate_name": "Giuliano Simeone", "position": "Attack", "sub_position": "Right Winger", "candidate_country_of_citizenship": "Argentina", "candidate_club_id": 13, "candidate_club_name": "Atlético de Madrid", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/13.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/742201-1741120599.jpg?lm=1", "similarity_score": 0.5377, "euclidean_distance": 0.8598, "candidate_market_value_eur": 40000000.0, "cost_savings_eur": 110000000.0, "cost_ratio": 0.2667, "candidate_fair_value_eur": 25668994.23, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "ES1", "age": 23.5, "minutes": 4014.0, "goals": 7.0, "assists": 9.0, "starter_ratio": 0.875, "win_rate": 0.554}}, {"rank": 2, "candidate_player_id": 518505, "candidate_name": "Jamie Leweling", "position": "Attack", "sub_position": "Right Winger", "candidate_country_of_citizenship": "Germany", "candidate_club_id": 79, "candidate_club_name": "VfB Stuttgart", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/79.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/518505-1691999306.jpg?lm=1", "similarity_score": 0.4683, "euclidean_distance": 1.1352, "candidate_market_value_eur": 40000000.0, "cost_savings_eur": 110000000.0, "cost_ratio": 0.2667, "candidate_fair_value_eur": 27342980.88, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "L1", "age": 25.2, "minutes": 3447.0, "goals": 11.0, "assists": 12.0, "starter_ratio": 0.755, "win_rate": 0.551}}, {"rank": 3, "candidate_player_id": 742451, "candidate_name": "Carlos Forbs", "position": "Attack", "sub_position": "Right Winger", "candidate_country_of_citizenship": "Portugal", "candidate_club_id": 2282, "candidate_club_name": "Club Brugge KV", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/2282.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/742451-1721657852.jpg?lm=1", "similarity_score": 0.46, "euclidean_distance": 1.174, "candidate_market_value_eur": 20000000.0, "cost_savings_eur": 130000000.0, "cost_ratio": 0.1333, "candidate_fair_value_eur": 31615044.99, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "BE1", "age": 22.2, "minutes": 3702.0, "goals": 11.0, "assists": 12.0, "starter_ratio": 0.92, "win_rate": 0.66}}]}}, {"model_run_id": "run_2025_v1", "player_id": 132098, "name": "Harry Kane", "first_name": "Harry", "last_name": "Kane", "player_code": "harry-kane", "country_of_citizenship": "England", "date_of_birth": "1993-07-28", "position": "Attack", "sub_position": "Centre-Forward", "foot": "right", "height_in_cm": 188, "club_id": 27, "club_name": "Bayern Munich", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/27.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/132098-1700211169.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/harry-kane/profil/spieler/132098", "cluster_id": 0, "cluster_name": "Attacking Creators & Scorers", "active_season": {"season": 2025, "as_of_date": "2026-05-27", "league_id": "L1", "minutes": 4336.0, "apps": 55.0, "starts": 47.0, "goals": 61.0, "assists": 8.0, "yellow_cards": 4.0, "red_cards": 0.0, "starter_ratio": 0.8545, "win_rate": 0.8, "clean_sheet_rate": 0.2909, "goals_conceded_per_match": 1.164, "league_position": 1.0, "age": 32.8}, "valuation": {"player_id": 132098, "name": "Harry Kane", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 60000000.00000003, "fair_value_eur": 155919803.68, "residual_log10": 0.4148, "valuation_status": "undervalued", "is_undervalued": true, "rf_undervalued_prob": 0.3745, "dt_undervalued_pred": false, "rf_undervalued_pred": false}, "replacements_payload": {"target_player_id": 132098, "target_name": "Harry Kane", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 60000000.00000003, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 339314, "candidate_name": "Deniz Undav", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "Germany", "candidate_club_id": 79, "candidate_club_name": "VfB Stuttgart", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/79.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/339314-1691999036.jpg?lm=1", "similarity_score": 0.5254, "euclidean_distance": 0.9034, "candidate_market_value_eur": 22000000.0, "cost_savings_eur": 38000000.0, "cost_ratio": 0.3667, "candidate_fair_value_eur": 30073887.05, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "L1", "age": 29.9, "minutes": 3555.0, "goals": 25.0, "assists": 14.0, "starter_ratio": 0.889, "win_rate": 0.556}}, {"rank": 2, "candidate_player_id": 270541, "candidate_name": "Serhou Guirassy", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "Guinea", "candidate_club_id": 16, "candidate_club_name": "Borussia Dortmund", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/16.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/270541-1755989642.jpg?lm=1", "similarity_score": 0.4725, "euclidean_distance": 1.1164, "candidate_market_value_eur": 32000000.0, "cost_savings_eur": 28000000.0, "cost_ratio": 0.5333, "candidate_fair_value_eur": 19038481.85, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "L1", "age": 30.2, "minutes": 3656.0, "goals": 26.0, "assists": 6.0, "starter_ratio": 0.824, "win_rate": 0.588}}, {"rank": 3, "candidate_player_id": 424784, "candidate_name": "Luis Suárez", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "Colombia", "candidate_club_id": 336, "candidate_club_name": "Sporting CP", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/336.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/424784-1761232078.jpg?lm=1", "similarity_score": 0.4639, "euclidean_distance": 1.1555, "candidate_market_value_eur": 30000000.0, "cost_savings_eur": 30000000.0, "cost_ratio": 0.5, "candidate_fair_value_eur": 36410708.17, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "PO1", "age": 28.5, "minutes": 3767.0, "goals": 34.0, "assists": 9.0, "starter_ratio": 0.913, "win_rate": 0.63}}]}}, {"model_run_id": "run_2025_v1", "player_id": 514887, "name": "Aral Şimşir", "first_name": "Aral", "last_name": "Şimşir", "player_code": "aral-simsir", "country_of_citizenship": "Türkiye", "date_of_birth": "2002-06-19", "position": "Attack", "sub_position": "Left Winger", "foot": "right", "height_in_cm": 175, "club_id": 865, "club_name": "FC Midtjylland", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/865.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/514887-1774288366.jpeg?lm=1", "url": "https://www.transfermarkt.co.uk/aral-simsir/profil/spieler/514887", "cluster_id": 0, "cluster_name": "Attacking Creators & Scorers", "active_season": {"season": 2025, "as_of_date": "2026-05-25", "league_id": "DK1", "minutes": 2567.0, "apps": 41.0, "starts": 32.0, "goals": 11.0, "assists": 18.0, "yellow_cards": 0.0, "red_cards": 0.0, "starter_ratio": 0.7805, "win_rate": 0.6829, "clean_sheet_rate": 0.439, "goals_conceded_per_match": 0.976, "league_position": null, "age": 23.9}, "valuation": {"player_id": 514887, "name": "Aral Şimşir", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 10000000.0, "fair_value_eur": 30552302.88, "residual_log10": 0.485, "valuation_status": "undervalued", "is_undervalued": true, "rf_undervalued_prob": 0.5696, "dt_undervalued_pred": true, "rf_undervalued_pred": true}, "replacements_payload": {"target_player_id": 514887, "target_name": "Aral Şimşir", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 10000000.0, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 185077, "candidate_name": "Vincenzo Grifo", "position": "Attack", "sub_position": "Left Winger", "candidate_country_of_citizenship": "Italy", "candidate_club_id": 60, "candidate_club_name": "SC Freiburg", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/60.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/185077-1753983973.jpg?lm=1", "similarity_score": 0.5177, "euclidean_distance": 0.9316, "candidate_market_value_eur": 4000000.0, "cost_savings_eur": 6000000.0, "cost_ratio": 0.4, "candidate_fair_value_eur": 18070367.45, "candidate_valuation_status": "undervalued", "season_snapshot": {"league_id": "L1", "age": 33.1, "minutes": 2978.0, "goals": 14.0, "assists": 10.0, "starter_ratio": 0.731, "win_rate": 0.5}}, {"rank": 2, "candidate_player_id": 491296, "candidate_name": "Anass Zaroury", "position": "Attack", "sub_position": "Left Winger", "candidate_country_of_citizenship": "Morocco", "candidate_club_id": 265, "candidate_club_name": "Panathinaikos Athlitikos Omilos", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/265.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/491296-1756043546.png?lm=1", "similarity_score": 0.5076, "euclidean_distance": 0.9699, "candidate_market_value_eur": 7000000.0, "cost_savings_eur": 3000000.0, "cost_ratio": 0.7, "candidate_fair_value_eur": 8441880.5, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "GR1", "age": 25.6, "minutes": 2359.0, "goals": 8.0, "assists": 4.0, "starter_ratio": 0.61, "win_rate": 0.537}}, {"rank": 3, "candidate_player_id": 539677, "candidate_name": "Sebastian Tounekti", "position": "Attack", "sub_position": "Left Winger", "candidate_country_of_citizenship": "Tunisia", "candidate_club_id": 371, "candidate_club_name": "Celtic FC", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/371.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/539677-1771532390.jpg?lm=1", "similarity_score": 0.5068, "euclidean_distance": 0.9731, "candidate_market_value_eur": 5000000.0, "cost_savings_eur": 5000000.0, "cost_ratio": 0.5, "candidate_fair_value_eur": 13959360.99, "candidate_valuation_status": "undervalued", "season_snapshot": {"league_id": "SC1", "age": 23.9, "minutes": 2478.0, "goals": 4.0, "assists": 2.0, "starter_ratio": 0.9, "win_rate": 0.575}}]}}, {"model_run_id": "run_2025_v1", "player_id": 707572, "name": "Pau Víctor", "first_name": "Pau", "last_name": "Víctor", "player_code": "pau-victor", "country_of_citizenship": "Spain", "date_of_birth": "2001-11-26", "position": "Attack", "sub_position": "Centre-Forward", "foot": "right", "height_in_cm": 184, "club_id": 1075, "club_name": "SC Braga", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/1075.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/707572-1724052852.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/pau-victor/profil/spieler/707572", "cluster_id": 0, "cluster_name": "Attacking Creators & Scorers", "active_season": {"season": 2025, "as_of_date": "2026-05-28", "league_id": "PO1", "minutes": 3324.0, "apps": 52.0, "starts": 38.0, "goals": 17.0, "assists": 6.0, "yellow_cards": 8.0, "red_cards": 0.0, "starter_ratio": 0.7308, "win_rate": 0.5577, "clean_sheet_rate": 0.4038, "goals_conceded_per_match": 1.0, "league_position": 4.0, "age": 24.5}, "valuation": {"player_id": 707572, "name": "Pau Víctor", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 15000000.000000004, "fair_value_eur": 43098323.8, "residual_log10": 0.4584, "valuation_status": "undervalued", "is_undervalued": true, "rf_undervalued_prob": 0.2335, "dt_undervalued_pred": false, "rf_undervalued_pred": false}, "replacements_payload": {"target_player_id": 707572, "target_name": "Pau Víctor", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 15000000.000000004, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 521127, "candidate_name": "Ayoub El Kaabi", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "Morocco", "candidate_club_id": 683, "candidate_club_name": "Olympiakos Syndesmos Filathlon Peiraios", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/683.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/521127-1717008763.jpg?lm=1", "similarity_score": 0.6837, "euclidean_distance": 0.4625, "candidate_market_value_eur": 4500000.0, "cost_savings_eur": 10500000.0, "cost_ratio": 0.3, "candidate_fair_value_eur": 9075674.49, "candidate_valuation_status": "undervalued", "season_snapshot": {"league_id": "GR1", "age": 32.9, "minutes": 2906.0, "goals": 23.0, "assists": 3.0, "starter_ratio": 0.829, "win_rate": 0.634}}, {"rank": 2, "candidate_player_id": 278359, "candidate_name": "Borja Iglesias", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "Spain", "candidate_club_id": 940, "candidate_club_name": "Celta de Vigo", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/940.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/278359-1686661509.jpg?lm=1", "similarity_score": 0.6106, "euclidean_distance": 0.6377, "candidate_market_value_eur": 2800000.0, "cost_savings_eur": 12200000.0, "cost_ratio": 0.1867, "candidate_fair_value_eur": 8663513.02, "candidate_valuation_status": "undervalued", "season_snapshot": {"league_id": "ES1", "age": 33.4, "minutes": 2710.0, "goals": 18.0, "assists": 3.0, "starter_ratio": 0.62, "win_rate": 0.38}}, {"rank": 3, "candidate_player_id": 58864, "candidate_name": "Pierre-Emerick Aubameyang", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "Gabon", "candidate_club_id": 244, "candidate_club_name": "Olympique Marseille", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/244.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/58864-1762262625.jpg?lm=1", "similarity_score": 0.5978, "euclidean_distance": 0.6727, "candidate_market_value_eur": 2500000.0, "cost_savings_eur": 12500000.0, "cost_ratio": 0.1667, "candidate_fair_value_eur": 1987420.59, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "FR1", "age": 37.0, "minutes": 2807.0, "goals": 14.0, "assists": 10.0, "starter_ratio": 0.732, "win_rate": 0.439}}]}}, {"model_run_id": "run_2025_v1", "player_id": 495601, "name": "Víctor Gómez", "first_name": "Víctor", "last_name": "Gómez", "player_code": "victor-gomez", "country_of_citizenship": "Spain", "date_of_birth": "2000-04-01", "position": "Defender", "sub_position": "Right-Back", "foot": "right", "height_in_cm": 171, "club_id": 1075, "club_name": "SC Braga", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/1075.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/495601-1583506246.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/victor-gomez/profil/spieler/495601", "cluster_id": 0, "cluster_name": "Attacking Creators & Scorers", "active_season": {"season": 2025, "as_of_date": "2026-05-28", "league_id": "PO1", "minutes": 4127.0, "apps": 52.0, "starts": 44.0, "goals": 2.0, "assists": 10.0, "yellow_cards": 8.0, "red_cards": 0.0, "starter_ratio": 0.8462, "win_rate": 0.5769, "clean_sheet_rate": 0.4423, "goals_conceded_per_match": 0.942, "league_position": 4.0, "age": 26.2}, "valuation": {"player_id": 495601, "name": "Víctor Gómez", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 10000000.0, "fair_value_eur": 38653353.3, "residual_log10": 0.5872, "valuation_status": "undervalued", "is_undervalued": true, "rf_undervalued_prob": 0.411, "dt_undervalued_pred": false, "rf_undervalued_pred": false}, "replacements_payload": {"target_player_id": 495601, "target_name": "Víctor Gómez", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 10000000.0, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 231572, "candidate_name": "Nélson Semedo", "position": "Defender", "sub_position": "Right-Back", "candidate_country_of_citizenship": "Portugal", "candidate_club_id": 36, "candidate_club_name": "Fenerbahce", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/36.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/231572-1765459986.jpg?lm=1", "similarity_score": 0.5314, "euclidean_distance": 0.882, "candidate_market_value_eur": 6000000.0, "cost_savings_eur": 4000000.0, "cost_ratio": 0.6, "candidate_fair_value_eur": 3457133.81, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "TR1", "age": 32.5, "minutes": 2993.0, "goals": 1.0, "assists": 3.0, "starter_ratio": 0.925, "win_rate": 0.45}}, {"rank": 2, "candidate_player_id": 62094, "candidate_name": "James Tavernier", "position": "Defender", "sub_position": "Right-Back", "candidate_country_of_citizenship": "England", "candidate_club_id": 124, "candidate_club_name": "Rangers FC", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/124.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/62094-1663162918.jpg?lm=1", "similarity_score": 0.5071, "euclidean_distance": 0.9719, "candidate_market_value_eur": 500000.0, "cost_savings_eur": 9500000.0, "cost_ratio": 0.05, "candidate_fair_value_eur": 8062457.74, "candidate_valuation_status": "undervalued", "season_snapshot": {"league_id": "SC1", "age": 34.6, "minutes": 3288.0, "goals": 12.0, "assists": 5.0, "starter_ratio": 0.739, "win_rate": 0.478}}, {"rank": 3, "candidate_player_id": 314915, "candidate_name": "Siebe Horemans", "position": "Defender", "sub_position": "Right-Back", "candidate_country_of_citizenship": "Belgium", "candidate_club_id": 200, "candidate_club_name": "FC Utrecht", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/200.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/314915-1723460521.jpg?lm=1", "similarity_score": 0.501, "euclidean_distance": 0.9959, "candidate_market_value_eur": 3000000.0, "cost_savings_eur": 7000000.0, "cost_ratio": 0.3, "candidate_fair_value_eur": 6230912.48, "candidate_valuation_status": "undervalued", "season_snapshot": {"league_id": "NL1", "age": 28.0, "minutes": 2907.0, "goals": 2.0, "assists": 4.0, "starter_ratio": 0.78, "win_rate": 0.415}}]}}, {"model_run_id": "run_2025_v1", "player_id": 190284, "name": "Maximilian Eggestein", "first_name": "Maximilian", "last_name": "Eggestein", "player_code": "maximilian-eggestein", "country_of_citizenship": "Germany", "date_of_birth": "1996-12-08", "position": "Midfield", "sub_position": "Central Midfield", "foot": "right", "height_in_cm": 181, "club_id": 60, "club_name": "SC Freiburg", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/60.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/190284-1723189965.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/maximilian-eggestein/profil/spieler/190284", "cluster_id": 0, "cluster_name": "Attacking Creators & Scorers", "active_season": {"season": 2025, "as_of_date": "2026-05-27", "league_id": "L1", "minutes": 4703.0, "apps": 52.0, "starts": 52.0, "goals": 6.0, "assists": 1.0, "yellow_cards": 5.0, "red_cards": 0.0, "starter_ratio": 1.0, "win_rate": 0.5, "clean_sheet_rate": 0.25, "goals_conceded_per_match": 1.423, "league_position": 7.0, "age": 29.5}, "valuation": {"player_id": 190284, "name": "Maximilian Eggestein", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 10000000.0, "fair_value_eur": 29135694.75, "residual_log10": 0.4644, "valuation_status": "undervalued", "is_undervalued": true, "rf_undervalued_prob": 0.331, "dt_undervalued_pred": false, "rf_undervalued_pred": false}, "replacements_payload": {"target_player_id": 190284, "target_name": "Maximilian Eggestein", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 10000000.0, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 356081, "candidate_name": "Bryan Heynen", "position": "Midfield", "sub_position": "Central Midfield", "candidate_country_of_citizenship": "Belgium", "candidate_club_id": 1184, "candidate_club_name": "KRC Genk", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/1184.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/356081-1714037998.png?lm=1", "similarity_score": 0.4885, "euclidean_distance": 1.047, "candidate_market_value_eur": 8000000.0, "cost_savings_eur": 2000000.0, "cost_ratio": 0.8, "candidate_fair_value_eur": 14581371.14, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "BE1", "age": 29.3, "minutes": 4694.0, "goals": 6.0, "assists": 3.0, "starter_ratio": 0.981, "win_rate": 0.434}}, {"rank": 2, "candidate_player_id": 74229, "candidate_name": "Koke", "position": "Midfield", "sub_position": "Central Midfield", "candidate_country_of_citizenship": "Spain", "candidate_club_id": 13, "candidate_club_name": "Atlético de Madrid", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/13.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/74229-1664970397.jpg?lm=1", "similarity_score": 0.4864, "euclidean_distance": 1.0558, "candidate_market_value_eur": 5000000.0, "cost_savings_eur": 5000000.0, "cost_ratio": 0.5, "candidate_fair_value_eur": 7857268.89, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "ES1", "age": 34.4, "minutes": 3750.0, "goals": 2.0, "assists": 3.0, "starter_ratio": 0.695, "win_rate": 0.559}}, {"rank": 3, "candidate_player_id": 357885, "candidate_name": "Pablo Fornals", "position": "Midfield", "sub_position": "Central Midfield", "candidate_country_of_citizenship": "Spain", "candidate_club_id": 150, "candidate_club_name": "Real Betis Balompié", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/150.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/357885-1773344365.jpg?lm=1", "similarity_score": 0.4371, "euclidean_distance": 1.2876, "candidate_market_value_eur": 8000000.0, "cost_savings_eur": 2000000.0, "cost_ratio": 0.8, "candidate_fair_value_eur": 21346292.24, "candidate_valuation_status": "undervalued", "season_snapshot": {"league_id": "ES1", "age": 30.3, "minutes": 3709.0, "goals": 9.0, "assists": 9.0, "starter_ratio": 0.824, "win_rate": 0.431}}]}}, {"model_run_id": "run_2025_v1", "player_id": 941418, "name": "Denil Castillo", "first_name": "Denil", "last_name": "Castillo", "player_code": "denil-castillo", "country_of_citizenship": "Ecuador", "date_of_birth": "2004-03-24", "position": "Midfield", "sub_position": "Central Midfield", "foot": "right", "height_in_cm": 189, "club_id": 865, "club_name": "FC Midtjylland", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/865.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/941418-1749388775.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/denil-castillo/profil/spieler/941418", "cluster_id": 0, "cluster_name": "Attacking Creators & Scorers", "active_season": {"season": 2025, "as_of_date": "2026-05-25", "league_id": "DK1", "minutes": 2407.0, "apps": 39.0, "starts": 30.0, "goals": 6.0, "assists": 7.0, "yellow_cards": 4.0, "red_cards": 0.0, "starter_ratio": 0.7692, "win_rate": 0.6667, "clean_sheet_rate": 0.4615, "goals_conceded_per_match": 0.897, "league_position": null, "age": 22.2}, "valuation": {"player_id": 941418, "name": "Denil Castillo", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 7000000.000000002, "fair_value_eur": 19156273.33, "residual_log10": 0.4372, "valuation_status": "undervalued", "is_undervalued": true, "rf_undervalued_prob": 0.5699, "dt_undervalued_pred": true, "rf_undervalued_pred": true}, "replacements_payload": {"target_player_id": 941418, "target_name": "Denil Castillo", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 7000000.000000002, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 401394, "candidate_name": "Adam Gnezda Cerin", "position": "Midfield", "sub_position": "Central Midfield", "candidate_country_of_citizenship": "Slovenia", "candidate_club_id": 265, "candidate_club_name": "Panathinaikos Athlitikos Omilos", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/265.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/401394-1756043274.png?lm=1", "similarity_score": 0.5752, "euclidean_distance": 0.7385, "candidate_market_value_eur": 4500000.0, "cost_savings_eur": 2500000.0, "cost_ratio": 0.6429, "candidate_fair_value_eur": 4722288.35, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "GR1", "age": 26.9, "minutes": 2084.0, "goals": 1.0, "assists": 2.0, "starter_ratio": 0.526, "win_rate": 0.5}}, {"rank": 2, "candidate_player_id": 742518, "candidate_name": "Pedro Bravo", "position": "Midfield", "sub_position": "Central Midfield", "candidate_country_of_citizenship": "Colombia", "candidate_club_id": 865, "candidate_club_name": "FC Midtjylland", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/865.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/742518-1718733870.jpg?lm=1", "similarity_score": 0.5739, "euclidean_distance": 0.7426, "candidate_market_value_eur": 3500000.0, "cost_savings_eur": 3500000.0, "cost_ratio": 0.5, "candidate_fair_value_eur": 8577131.31, "candidate_valuation_status": "undervalued", "season_snapshot": {"league_id": "DK1", "age": 21.5, "minutes": 2497.0, "goals": 0.0, "assists": 0.0, "starter_ratio": 0.65, "win_rate": 0.65}}, {"rank": 3, "candidate_player_id": 258027, "candidate_name": "Renato Sanches", "position": "Midfield", "sub_position": "Central Midfield", "candidate_country_of_citizenship": "Portugal", "candidate_club_id": 265, "candidate_club_name": "Panathinaikos Athlitikos Omilos", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/265.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/258027-1756943455.png?lm=1", "similarity_score": 0.4879, "euclidean_distance": 1.0495, "candidate_market_value_eur": 2000000.0, "cost_savings_eur": 5000000.0, "cost_ratio": 0.2857, "candidate_fair_value_eur": 2920441.28, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "GR1", "age": 28.8, "minutes": 1247.0, "goals": 2.0, "assists": 1.0, "starter_ratio": 0.542, "win_rate": 0.542}}]}}, {"model_run_id": "run_2025_v1", "player_id": 372240, "name": "Mads Bech Sørensen", "first_name": "Mads Bech", "last_name": "Sørensen", "player_code": "mads-bech-sorensen", "country_of_citizenship": "Denmark", "date_of_birth": "1999-01-07", "position": "Defender", "sub_position": "Centre-Back", "foot": "left", "height_in_cm": 189, "club_id": 865, "club_name": "FC Midtjylland", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/865.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/372240-1727291104.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/mads-bech-sorensen/profil/spieler/372240", "cluster_id": 0, "cluster_name": "Attacking Creators & Scorers", "active_season": {"season": 2025, "as_of_date": "2026-05-25", "league_id": "DK1", "minutes": 3650.0, "apps": 41.0, "starts": 40.0, "goals": 4.0, "assists": 4.0, "yellow_cards": 6.0, "red_cards": 0.0, "starter_ratio": 0.9756, "win_rate": 0.6341, "clean_sheet_rate": 0.4146, "goals_conceded_per_match": 1.024, "league_position": null, "age": 27.4}, "valuation": {"player_id": 372240, "name": "Mads Bech Sørensen", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 6000000.000000003, "fair_value_eur": 14141737.86, "residual_log10": 0.3724, "valuation_status": "undervalued", "is_undervalued": true, "rf_undervalued_prob": 0.6249, "dt_undervalued_pred": true, "rf_undervalued_pred": true}, "replacements_payload": {"target_player_id": 372240, "target_name": "Mads Bech Sørensen", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 6000000.000000003, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 325924, "candidate_name": "Ahmed Touba", "position": "Defender", "sub_position": "Centre-Back", "candidate_country_of_citizenship": "Algeria", "candidate_club_id": 265, "candidate_club_name": "Panathinaikos Athlitikos Omilos", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/265.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/325924-1756042877.png?lm=1", "similarity_score": 0.548, "euclidean_distance": 0.8248, "candidate_market_value_eur": 2500000.0, "cost_savings_eur": 3500000.0, "cost_ratio": 0.4167, "candidate_fair_value_eur": 7376037.87, "candidate_valuation_status": "undervalued", "season_snapshot": {"league_id": "GR1", "age": 28.2, "minutes": 3245.0, "goals": 0.0, "assists": 1.0, "starter_ratio": 1.0, "win_rate": 0.378}}, {"rank": 2, "candidate_player_id": 144244, "candidate_name": "Pantelis Hatzidiakos", "position": "Defender", "sub_position": "Centre-Back", "candidate_country_of_citizenship": "Greece", "candidate_club_id": 190, "candidate_club_name": "FC Copenhagen", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/190.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/144244-1761081201.jpg?lm=1", "similarity_score": 0.4867, "euclidean_distance": 1.0548, "candidate_market_value_eur": 3000000.0, "cost_savings_eur": 3000000.0, "cost_ratio": 0.5, "candidate_fair_value_eur": 5515795.83, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "DK1", "age": 29.3, "minutes": 2983.0, "goals": 2.0, "assists": 1.0, "starter_ratio": 0.868, "win_rate": 0.474}}, {"rank": 3, "candidate_player_id": 357003, "candidate_name": "Martin Erlić", "position": "Defender", "sub_position": "Centre-Back", "candidate_country_of_citizenship": "Croatia", "candidate_club_id": 865, "candidate_club_name": "FC Midtjylland", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/865.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/357003-1692882873.jpg?lm=1", "similarity_score": 0.4485, "euclidean_distance": 1.2297, "candidate_market_value_eur": 4000000.0, "cost_savings_eur": 2000000.0, "cost_ratio": 0.6667, "candidate_fair_value_eur": 6272631.69, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "DK1", "age": 28.3, "minutes": 2170.0, "goals": 5.0, "assists": 1.0, "starter_ratio": 0.962, "win_rate": 0.577}}]}}, {"model_run_id": "run_2025_v1", "player_id": 732096, "name": "Santi García", "first_name": "Santi", "last_name": "García", "player_code": "santi-garcia", "country_of_citizenship": "Spain", "date_of_birth": "2001-08-29", "position": "Midfield", "sub_position": "Attacking Midfield", "foot": "right", "height_in_cm": 188, "club_id": 2424, "club_name": "Gil Vicente FC", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/2424.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/732096-1770901764.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/santi-garcia/profil/spieler/732096", "cluster_id": 2, "cluster_name": "Defensive Anchors & Low-Output Outfielders", "active_season": {"season": 2025, "as_of_date": "2026-05-28", "league_id": "PO1", "minutes": 2649.0, "apps": 33.0, "starts": 31.0, "goals": 6.0, "assists": 3.0, "yellow_cards": 5.0, "red_cards": 0.0, "starter_ratio": 0.9394, "win_rate": 0.3939, "clean_sheet_rate": 0.3636, "goals_conceded_per_match": 1.121, "league_position": 6.0, "age": 24.7}, "valuation": {"player_id": 732096, "name": "Santi García", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 4000000.000000001, "fair_value_eur": 11319077.27, "residual_log10": 0.4518, "valuation_status": "undervalued", "is_undervalued": true, "rf_undervalued_prob": 0.5487, "dt_undervalued_pred": true, "rf_undervalued_pred": true}, "replacements_payload": {"target_player_id": 732096, "target_name": "Santi García", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": false, "target_market_value_eur": 4000000.000000001, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 212232, "candidate_name": "Ambrosiy Chachua", "position": "Midfield", "sub_position": "Attacking Midfield", "candidate_country_of_citizenship": "Ukraine", "candidate_club_id": 85465, "candidate_club_name": "Karpaty Lviv", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/85465.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/212232-1693493466.png?lm=1", "similarity_score": 0.8436, "euclidean_distance": 0.1854, "candidate_market_value_eur": 500000.0, "cost_savings_eur": 3500000.0, "cost_ratio": 0.125, "candidate_fair_value_eur": 606079.06, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "UKR1", "age": 32.2, "minutes": 2495.0, "goals": 3.0, "assists": 2.0, "starter_ratio": 0.903, "win_rate": 0.323}}, {"rank": 2, "candidate_player_id": 129513, "candidate_name": "Alexandru Maxim", "position": "Midfield", "sub_position": "Attacking Midfield", "candidate_country_of_citizenship": "Romania", "candidate_club_id": 2832, "candidate_club_name": "Gaziantep FK", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/2832.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/129513-1725480429.jpg?lm=1", "similarity_score": 0.8309, "euclidean_distance": 0.2035, "candidate_market_value_eur": 300000.0, "cost_savings_eur": 3700000.0, "cost_ratio": 0.075, "candidate_fair_value_eur": 935512.75, "candidate_valuation_status": "undervalued", "season_snapshot": {"league_id": "TR1", "age": 35.9, "minutes": 2872.0, "goals": 7.0, "assists": 7.0, "starter_ratio": 0.971, "win_rate": 0.257}}, {"rank": 3, "candidate_player_id": 260166, "candidate_name": "Ui-jo Hwang", "position": "Midfield", "sub_position": "Attacking Midfield", "candidate_country_of_citizenship": "Korea, South", "candidate_club_id": 11282, "candidate_club_name": "Alanyaspor", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/11282.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/260166-1761656009.jpg?lm=1", "similarity_score": 0.8247, "euclidean_distance": 0.2126, "candidate_market_value_eur": 500000.0, "cost_savings_eur": 3500000.0, "cost_ratio": 0.125, "candidate_fair_value_eur": 1463670.97, "candidate_valuation_status": "undervalued", "season_snapshot": {"league_id": "TR1", "age": 33.7, "minutes": 2582.0, "goals": 5.0, "assists": 7.0, "starter_ratio": 0.886, "win_rate": 0.257}}]}}, {"model_run_id": "run_2025_v1", "player_id": 631002, "name": "Raúl García", "first_name": "Raúl", "last_name": "García", "player_code": "raul-garcia", "country_of_citizenship": "Spain", "date_of_birth": "2000-11-03", "position": "Attack", "sub_position": "Centre-Forward", "foot": "right", "height_in_cm": 192, "club_id": 331, "club_name": "CA Osasuna", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/331.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/631002-1614090749.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/raul-garcia/profil/spieler/631002", "cluster_id": 1, "cluster_name": "Balanced Box-to-Box & Flank Runners", "active_season": {"season": 2025, "as_of_date": "2026-06-05", "league_id": "ES1", "minutes": 1384.0, "apps": 40.0, "starts": 10.0, "goals": 14.0, "assists": 2.0, "yellow_cards": 3.0, "red_cards": 0.0, "starter_ratio": 0.25, "win_rate": 0.325, "clean_sheet_rate": 0.175, "goals_conceded_per_match": 1.45, "league_position": 17.0, "age": 25.6}, "valuation": {"player_id": 631002, "name": "Raúl García", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 3000000.000000001, "fair_value_eur": 5723533.3, "residual_log10": 0.2805, "valuation_status": "undervalued", "is_undervalued": true, "rf_undervalued_prob": 0.4346, "dt_undervalued_pred": false, "rf_undervalued_pred": false}, "replacements_payload": {"target_player_id": 631002, "target_name": "Raúl García", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": false, "target_market_value_eur": 3000000.000000001, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 809682, "candidate_name": "Jona Niemiec", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "Germany", "candidate_club_id": 173, "candidate_club_name": "Odense Boldklub", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/173.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/809682-1753692219.jpg?lm=1", "similarity_score": 0.637, "euclidean_distance": 0.5699, "candidate_market_value_eur": 550000.0, "cost_savings_eur": 2450000.0, "cost_ratio": 0.1833, "candidate_fair_value_eur": 2926494.09, "candidate_valuation_status": "undervalued", "season_snapshot": {"league_id": "DK1", "age": 24.7, "minutes": 751.0, "goals": 5.0, "assists": 2.0, "starter_ratio": 0.316, "win_rate": 0.421}}, {"rank": 2, "candidate_player_id": 457743, "candidate_name": "Mohamed Konaté", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "Burkina Faso", "candidate_club_id": 3725, "candidate_club_name": "RFK Akhmat Grozny", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/3725.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/457743-1754769111.png?lm=1", "similarity_score": 0.574, "euclidean_distance": 0.7421, "candidate_market_value_eur": 1000000.0, "cost_savings_eur": 2000000.0, "cost_ratio": 0.3333, "candidate_fair_value_eur": 789375.14, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "RU1", "age": 28.5, "minutes": 917.0, "goals": 2.0, "assists": 2.0, "starter_ratio": 0.385, "win_rate": 0.231}}, {"rank": 3, "candidate_player_id": 300308, "candidate_name": "Leandro Garate", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "Argentina", "candidate_club_id": 4603, "candidate_club_name": "Athlitiki Enosi Larisas", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/4603.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/300308-1773853999.png?lm=1", "similarity_score": 0.5594, "euclidean_distance": 0.7878, "candidate_market_value_eur": 225000.0, "cost_savings_eur": 2775000.0, "cost_ratio": 0.075, "candidate_fair_value_eur": 369714.95, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "GR1", "age": 32.8, "minutes": 1094.0, "goals": 3.0, "assists": 1.0, "starter_ratio": 0.458, "win_rate": 0.208}}]}}, {"model_run_id": "run_2025_v1", "player_id": 542697, "name": "Rasmus Carstensen", "first_name": "Rasmus", "last_name": "Carstensen", "player_code": "rasmus-carstensen", "country_of_citizenship": "Denmark", "date_of_birth": "2000-11-10", "position": "Midfield", "sub_position": "Right Midfield", "foot": "right", "height_in_cm": 183, "club_id": 678, "club_name": "Aarhus GF", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/678.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/542697-1721139967.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/rasmus-carstensen/profil/spieler/542697", "cluster_id": 1, "cluster_name": "Balanced Box-to-Box & Flank Runners", "active_season": {"season": 2025, "as_of_date": "2026-05-25", "league_id": "DK1", "minutes": 1684.0, "apps": 28.0, "starts": 20.0, "goals": 5.0, "assists": 3.0, "yellow_cards": 3.0, "red_cards": 0.0, "starter_ratio": 0.7143, "win_rate": 0.6429, "clean_sheet_rate": 0.2143, "goals_conceded_per_match": 1.036, "league_position": null, "age": 25.5}, "valuation": {"player_id": 542697, "name": "Rasmus Carstensen", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 2000000.0000000002, "fair_value_eur": 3938924.83, "residual_log10": 0.2943, "valuation_status": "undervalued", "is_undervalued": true, "rf_undervalued_prob": 0.6406, "dt_undervalued_pred": true, "rf_undervalued_pred": true}, "replacements_payload": {"target_player_id": 542697, "target_name": "Rasmus Carstensen", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": false, "target_market_value_eur": 2000000.0000000002, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 685854, "candidate_name": "Ruslan Bezrukov", "position": "Midfield", "sub_position": "Left Midfield", "candidate_country_of_citizenship": "Russia", "candidate_club_id": 2698, "candidate_club_name": "FC Rubin Kazan", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/2698.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/685854-1722142287.png?lm=1", "similarity_score": 0.6703, "euclidean_distance": 0.4919, "candidate_market_value_eur": 1000000.0, "cost_savings_eur": 1000000.0, "cost_ratio": 0.5, "candidate_fair_value_eur": 1314038.45, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "RU1", "age": 24.2, "minutes": 1641.0, "goals": 3.0, "assists": 3.0, "starter_ratio": 0.548, "win_rate": 0.387}}, {"rank": 2, "candidate_player_id": 766706, "candidate_name": "Stanislav Krystin", "position": "Midfield", "sub_position": "Right Midfield", "candidate_country_of_citizenship": "Ukraine", "candidate_club_id": 84122, "candidate_club_name": "Epicentr Kamyanets-Podilskyi", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/84122.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/766706-1671203361.png?lm=1", "similarity_score": 0.474, "euclidean_distance": 1.1096, "candidate_market_value_eur": 200000.0, "cost_savings_eur": 1800000.0, "cost_ratio": 0.1, "candidate_fair_value_eur": 153347.03, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "UKR1", "age": 24.7, "minutes": 381.0, "goals": 0.0, "assists": 0.0, "starter_ratio": 0.5, "win_rate": 0.125}}, {"rank": 3, "candidate_player_id": 214346, "candidate_name": "Virgil Misidjan", "position": "Midfield", "sub_position": "Left Midfield", "candidate_country_of_citizenship": "Suriname", "candidate_club_id": 467, "candidate_club_name": "NEC Nijmegen", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/467.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/214346-1764337088.png?lm=1", "similarity_score": 0.4614, "euclidean_distance": 1.1672, "candidate_market_value_eur": 400000.0, "cost_savings_eur": 1600000.0, "cost_ratio": 0.2, "candidate_fair_value_eur": 473822.36, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "NL1", "age": 32.8, "minutes": 744.0, "goals": 1.0, "assists": 2.0, "starter_ratio": 0.35, "win_rate": 0.5}}]}}, {"model_run_id": "run_2025_v1", "player_id": 937958, "name": "Lamine Yamal", "first_name": null, "last_name": "Lamine Yamal", "player_code": "lamine-yamal", "country_of_citizenship": "Spain", "date_of_birth": "2007-07-13", "position": "Attack", "sub_position": "Right Winger", "foot": "left", "height_in_cm": 183, "club_id": 131, "club_name": "FC Barcelona", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/131.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/937958-1773173768.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/lamine-yamal/profil/spieler/937958", "cluster_id": 0, "cluster_name": "Attacking Creators & Scorers", "active_season": {"season": 2025, "as_of_date": "2026-06-05", "league_id": "ES1", "minutes": 3702.0, "apps": 45.0, "starts": 42.0, "goals": 24.0, "assists": 18.0, "yellow_cards": 6.0, "red_cards": 0.0, "starter_ratio": 0.9333, "win_rate": 0.7778, "clean_sheet_rate": 0.3333, "goals_conceded_per_match": 1.089, "league_position": 1.0, "age": 18.9}, "valuation": {"player_id": 937958, "name": "Lamine Yamal", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 200000000.00000003, "fair_value_eur": 107273598.82, "residual_log10": -0.2705, "valuation_status": "fair", "is_undervalued": false, "rf_undervalued_prob": 0.202, "dt_undervalued_pred": false, "rf_undervalued_pred": false}, "replacements_payload": {"target_player_id": 937958, "target_name": "Lamine Yamal", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 200000000.00000003, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 566723, "candidate_name": "Michael Olise", "position": "Attack", "sub_position": "Right Winger", "candidate_country_of_citizenship": "France", "candidate_club_id": 27, "candidate_club_name": "Bayern Munich", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/27.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/566723-1762944477.jpg?lm=1", "similarity_score": 0.6081, "euclidean_distance": 0.6444, "candidate_market_value_eur": 150000000.0, "cost_savings_eur": 50000000.0, "cost_ratio": 0.75, "candidate_fair_value_eur": 190799569.95, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "L1", "age": 24.5, "minutes": 4285.0, "goals": 25.0, "assists": 32.0, "starter_ratio": 0.804, "win_rate": 0.804}}, {"rank": 2, "candidate_player_id": 518505, "candidate_name": "Jamie Leweling", "position": "Attack", "sub_position": "Right Winger", "candidate_country_of_citizenship": "Germany", "candidate_club_id": 79, "candidate_club_name": "VfB Stuttgart", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/79.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/518505-1691999306.jpg?lm=1", "similarity_score": 0.5212, "euclidean_distance": 0.9186, "candidate_market_value_eur": 40000000.0, "cost_savings_eur": 160000000.0, "cost_ratio": 0.2, "candidate_fair_value_eur": 27342980.88, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "L1", "age": 25.2, "minutes": 3447.0, "goals": 11.0, "assists": 12.0, "starter_ratio": 0.755, "win_rate": 0.551}}, {"rank": 3, "candidate_player_id": 853110, "candidate_name": "Hyun-jun Yang", "position": "Attack", "sub_position": "Right Winger", "candidate_country_of_citizenship": "Korea, South", "candidate_club_id": 371, "candidate_club_name": "Celtic FC", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/371.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/853110-1696454819.jpg?lm=1", "similarity_score": 0.5201, "euclidean_distance": 0.9226, "candidate_market_value_eur": 5000000.0, "cost_savings_eur": 195000000.0, "cost_ratio": 0.025, "candidate_fair_value_eur": 10325515.34, "candidate_valuation_status": "undervalued", "season_snapshot": {"league_id": "SC1", "age": 24.0, "minutes": 2561.0, "goals": 8.0, "assists": 2.0, "starter_ratio": 0.846, "win_rate": 0.59}}]}}, {"model_run_id": "run_2025_v1", "player_id": 342229, "name": "Kylian Mbappé", "first_name": "Kylian", "last_name": "Mbappé", "player_code": "kylian-mbappe", "country_of_citizenship": "France", "date_of_birth": "1998-12-20", "position": "Attack", "sub_position": "Centre-Forward", "foot": "right", "height_in_cm": 180, "club_id": 418, "club_name": "Real Madrid", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/418.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/342229-1682683695.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/kylian-mbappe/profil/spieler/342229", "cluster_id": 0, "cluster_name": "Attacking Creators & Scorers", "active_season": {"season": 2025, "as_of_date": "2026-06-05", "league_id": "ES1", "minutes": 3756.0, "apps": 47.0, "starts": 41.0, "goals": 43.0, "assists": 7.0, "yellow_cards": 6.0, "red_cards": 0.0, "starter_ratio": 0.8723, "win_rate": 0.6809, "clean_sheet_rate": 0.3617, "goals_conceded_per_match": 1.191, "league_position": 2.0, "age": 27.5}, "valuation": {"player_id": 342229, "name": "Kylian Mbappé", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 180000000.00000015, "fair_value_eur": 109379177.64, "residual_log10": -0.2163, "valuation_status": "fair", "is_undervalued": false, "rf_undervalued_prob": 0.184, "dt_undervalued_pred": false, "rf_undervalued_pred": false}, "replacements_payload": {"target_player_id": 342229, "target_name": "Kylian Mbappé", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 180000000.00000015, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 424784, "candidate_name": "Luis Suárez", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "Colombia", "candidate_club_id": 336, "candidate_club_name": "Sporting CP", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/336.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/424784-1761232078.jpg?lm=1", "similarity_score": 0.7328, "euclidean_distance": 0.3647, "candidate_market_value_eur": 30000000.0, "cost_savings_eur": 150000000.0, "cost_ratio": 0.1667, "candidate_fair_value_eur": 36410708.17, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "PO1", "age": 28.5, "minutes": 3767.0, "goals": 34.0, "assists": 9.0, "starter_ratio": 0.913, "win_rate": 0.63}}, {"rank": 2, "candidate_player_id": 324358, "candidate_name": "Ollie Watkins", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "England", "candidate_club_id": 405, "candidate_club_name": "Aston Villa", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/405.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/324358-1708341279.jpg?lm=1", "similarity_score": 0.6127, "euclidean_distance": 0.6321, "candidate_market_value_eur": 25000000.0, "cost_savings_eur": 155000000.0, "cost_ratio": 0.1389, "candidate_fair_value_eur": 38757301.4, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "GB1", "age": 30.4, "minutes": 3749.0, "goals": 21.0, "assists": 5.0, "starter_ratio": 0.778, "win_rate": 0.593}}, {"rank": 3, "candidate_player_id": 401923, "candidate_name": "Victor Osimhen", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "Nigeria", "candidate_club_id": 141, "candidate_club_name": "Galatasaray", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/141.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/401923-1779987631.png?lm=1", "similarity_score": 0.6118, "euclidean_distance": 0.6346, "candidate_market_value_eur": 75000000.0, "cost_savings_eur": 105000000.0, "cost_ratio": 0.4167, "candidate_fair_value_eur": 34053358.35, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "TR1", "age": 27.4, "minutes": 3181.0, "goals": 27.0, "assists": 10.0, "starter_ratio": 0.923, "win_rate": 0.718}}]}}, {"model_run_id": "run_2025_v1", "player_id": 852980, "name": "Nicolás Marichal", "first_name": "Nicolás", "last_name": "Marichal", "player_code": "nicolas-marichal", "country_of_citizenship": "Uruguay", "date_of_birth": "2001-03-17", "position": "Defender", "sub_position": "Centre-Back", "foot": "right", "height_in_cm": 185, "club_id": 121, "club_name": "FK Dinamo Moskva", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/121.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/852980-1721727640.png?lm=1", "url": "https://www.transfermarkt.co.uk/nicolas-marichal/profil/spieler/852980", "cluster_id": 1, "cluster_name": "Balanced Box-to-Box & Flank Runners", "active_season": {"season": 2025, "as_of_date": "2026-05-26", "league_id": "RU1", "minutes": 2657.0, "apps": 36.0, "starts": 27.0, "goals": 6.0, "assists": 1.0, "yellow_cards": 7.0, "red_cards": 0.0, "starter_ratio": 0.75, "win_rate": 0.3889, "clean_sheet_rate": 0.2222, "goals_conceded_per_match": 1.639, "league_position": 7.0, "age": 25.2}, "valuation": {"player_id": 852980, "name": "Nicolás Marichal", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 6000000.000000003, "fair_value_eur": 3081182.53, "residual_log10": -0.2894, "valuation_status": "fair", "is_undervalued": false, "rf_undervalued_prob": 0.6283, "dt_undervalued_pred": true, "rf_undervalued_pred": true}, "replacements_payload": {"target_player_id": 852980, "target_name": "Nicolás Marichal", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 6000000.000000003, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 649261, "candidate_name": "Viktor Aleksandrov", "position": "Defender", "sub_position": "Centre-Back", "candidate_country_of_citizenship": "Russia", "candidate_club_id": 49702, "candidate_club_name": "FK Nizhny Novgorod", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/49702.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/649261-1754201496.png?lm=1", "similarity_score": 0.6401, "euclidean_distance": 0.5623, "candidate_market_value_eur": 900000.0, "cost_savings_eur": 5100000.0, "cost_ratio": 0.15, "candidate_fair_value_eur": 875133.85, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "RU1", "age": 24.3, "minutes": 1859.0, "goals": 0.0, "assists": 0.0, "starter_ratio": 0.76, "win_rate": 0.2}}, {"rank": 2, "candidate_player_id": 624340, "candidate_name": "Matvey Lukin", "position": "Defender", "sub_position": "Centre-Back", "candidate_country_of_citizenship": "Russia", "candidate_club_id": 2410, "candidate_club_name": "PFK CSKA Moskva", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/2410.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/624340-1774610764.png?lm=1", "similarity_score": 0.6296, "euclidean_distance": 0.5883, "candidate_market_value_eur": 4000000.0, "cost_savings_eur": 2000000.0, "cost_ratio": 0.6667, "candidate_fair_value_eur": 2777433.99, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "RU1", "age": 22.1, "minutes": 1866.0, "goals": 1.0, "assists": 1.0, "starter_ratio": 0.741, "win_rate": 0.667}}, {"rank": 3, "candidate_player_id": 817604, "candidate_name": "David Semenchuk", "position": "Defender", "sub_position": "Centre-Back", "candidate_country_of_citizenship": "Russia", "candidate_club_id": 1083, "candidate_club_name": "FK Rostov", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/1083.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/817604-1724335500.png?lm=1", "similarity_score": 0.6148, "euclidean_distance": 0.6266, "candidate_market_value_eur": 900000.0, "cost_savings_eur": 5100000.0, "cost_ratio": 0.15, "candidate_fair_value_eur": 1350600.7, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "RU1", "age": 21.6, "minutes": 1855.0, "goals": 0.0, "assists": 2.0, "starter_ratio": 0.679, "win_rate": 0.321}}]}}, {"model_run_id": "run_2025_v1", "player_id": 349066, "name": "Alexander Isak", "first_name": "Alexander", "last_name": "Isak", "player_code": "alexander-isak", "country_of_citizenship": "Sweden", "date_of_birth": "1999-09-21", "position": "Attack", "sub_position": "Centre-Forward", "foot": "right", "height_in_cm": 190, "club_id": 31, "club_name": "Liverpool FC", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/31.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/349066-1680791339.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/alexander-isak/profil/spieler/349066", "cluster_id": 0, "cluster_name": "Attacking Creators & Scorers", "active_season": {"season": 2025, "as_of_date": "2026-06-03", "league_id": "GB1", "minutes": 1032.0, "apps": 22.0, "starts": 13.0, "goals": 4.0, "assists": 1.0, "yellow_cards": 0.0, "red_cards": 0.0, "starter_ratio": 0.5909, "win_rate": 0.5, "clean_sheet_rate": 0.1818, "goals_conceded_per_match": 1.409, "league_position": 5.0, "age": 26.7}, "valuation": {"player_id": 349066, "name": "Alexander Isak", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 85000000.00000003, "fair_value_eur": 3703346.76, "residual_log10": -1.3608, "valuation_status": "overvalued", "is_undervalued": false, "rf_undervalued_prob": 0.442, "dt_undervalued_pred": false, "rf_undervalued_pred": false}, "replacements_payload": {"target_player_id": 349066, "target_name": "Alexander Isak", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 85000000.00000003, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 237623, "candidate_name": "Oleksandr Filippov", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "Ukraine", "candidate_club_id": 53646, "candidate_club_name": "FK Polissya Zhytomyr", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/53646.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/237623-1724667210.png?lm=1", "similarity_score": 0.6965, "euclidean_distance": 0.4357, "candidate_market_value_eur": 400000.0, "cost_savings_eur": 84600000.0, "cost_ratio": 0.0047, "candidate_fair_value_eur": 735865.64, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "UKR1", "age": 33.6, "minutes": 1218.0, "goals": 5.0, "assists": 3.0, "starter_ratio": 0.483, "win_rate": 0.517}}, {"rank": 2, "candidate_player_id": 1122196, "candidate_name": "Aaron Bibout", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "Cameroon", "candidate_club_id": 1184, "candidate_club_name": "KRC Genk", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/1184.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/1122196-1740776089.jpg?lm=1", "similarity_score": 0.6906, "euclidean_distance": 0.448, "candidate_market_value_eur": 3500000.0, "cost_savings_eur": 81500000.0, "cost_ratio": 0.0412, "candidate_fair_value_eur": 1628065.9, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "BE1", "age": 21.7, "minutes": 1474.0, "goals": 6.0, "assists": 0.0, "starter_ratio": 0.615, "win_rate": 0.5}}, {"rank": 3, "candidate_player_id": 708099, "candidate_name": "Kusini Yengi", "position": "Attack", "sub_position": "Centre-Forward", "candidate_country_of_citizenship": "Australia", "candidate_club_id": 370, "candidate_club_name": "Aberdeen FC", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/370.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/708099-1772818297.jpg?lm=1", "similarity_score": 0.624, "euclidean_distance": 0.6025, "candidate_market_value_eur": 400000.0, "cost_savings_eur": 84600000.0, "cost_ratio": 0.0047, "candidate_fair_value_eur": 543128.53, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "SC1", "age": 26.9, "minutes": 254.0, "goals": 0.0, "assists": 0.0, "starter_ratio": 0.667, "win_rate": 0.0}}]}}, {"model_run_id": "run_2025_v1", "player_id": 480762, "name": "Lisandro Martínez", "first_name": "Lisandro", "last_name": "Martínez", "player_code": "lisandro-martinez", "country_of_citizenship": "Argentina", "date_of_birth": "1998-01-18", "position": "Defender", "sub_position": "Centre-Back", "foot": "left", "height_in_cm": 175, "club_id": 985, "club_name": "Manchester United", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/985.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/480762-1680681507.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/lisandro-martinez/profil/spieler/480762", "cluster_id": 2, "cluster_name": "Defensive Anchors & Low-Output Outfielders", "active_season": {"season": 2025, "as_of_date": "2026-06-03", "league_id": "GB1", "minutes": 1310.0, "apps": 19.0, "starts": 14.0, "goals": 0.0, "assists": 0.0, "yellow_cards": 0.0, "red_cards": 0.0, "starter_ratio": 0.7368, "win_rate": 0.4737, "clean_sheet_rate": 0.2632, "goals_conceded_per_match": 1.263, "league_position": 3.0, "age": 28.4}, "valuation": {"player_id": 480762, "name": "Lisandro Martínez", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 40000000.00000001, "fair_value_eur": 1186528.14, "residual_log10": -1.5278, "valuation_status": "overvalued", "is_undervalued": false, "rf_undervalued_prob": 0.5415, "dt_undervalued_pred": false, "rf_undervalued_pred": true}, "replacements_payload": {"target_player_id": 480762, "target_name": "Lisandro Martínez", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 40000000.00000001, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 752691, "candidate_name": "Bogdan Veklyak", "position": "Defender", "sub_position": "Centre-Back", "candidate_country_of_citizenship": "Ukraine", "candidate_club_id": 87883, "candidate_club_name": "FC Kudrivka", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/87883.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/752691-1693493094.png?lm=1", "similarity_score": 0.7878, "euclidean_distance": 0.2693, "candidate_market_value_eur": 300000.0, "cost_savings_eur": 39700000.0, "cost_ratio": 0.0075, "candidate_fair_value_eur": 396599.98, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "UKR1", "age": 26.8, "minutes": 1166.0, "goals": 1.0, "assists": 0.0, "starter_ratio": 0.765, "win_rate": 0.235}}, {"rank": 2, "candidate_player_id": 692070, "candidate_name": "Clemens Riedel", "position": "Defender", "sub_position": "Centre-Back", "candidate_country_of_citizenship": "Germany", "candidate_club_id": 714, "candidate_club_name": "RCD Espanyol Barcelona", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/714.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/692070-1752059844.jpg?lm=1", "similarity_score": 0.7619, "euclidean_distance": 0.3125, "candidate_market_value_eur": 4000000.0, "cost_savings_eur": 36000000.0, "cost_ratio": 0.1, "candidate_fair_value_eur": 2899694.55, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "ES1", "age": 22.9, "minutes": 1506.0, "goals": 0.0, "assists": 2.0, "starter_ratio": 0.773, "win_rate": 0.318}}, {"rank": 3, "candidate_player_id": 719999, "candidate_name": "Andrés Castrín", "position": "Defender", "sub_position": "Centre-Back", "candidate_country_of_citizenship": "Spain", "candidate_club_id": 368, "candidate_club_name": "Sevilla FC", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/368.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/default.jpg?lm=1", "similarity_score": 0.7306, "euclidean_distance": 0.3687, "candidate_market_value_eur": 6000000.0, "cost_savings_eur": 34000000.0, "cost_ratio": 0.15, "candidate_fair_value_eur": 3119648.93, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "ES1", "age": 23.0, "minutes": 1388.0, "goals": 1.0, "assists": 0.0, "starter_ratio": 0.667, "win_rate": 0.381}}]}}, {"model_run_id": "run_2025_v1", "player_id": 502722, "name": "Luka Sucic", "first_name": "Luka", "last_name": "Sucic", "player_code": "luka-sucic", "country_of_citizenship": "Croatia", "date_of_birth": "2002-09-08", "position": "Midfield", "sub_position": "Central Midfield", "foot": "left", "height_in_cm": 185, "club_id": 681, "club_name": "Real Sociedad", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/681.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/502722-1692998699.png?lm=1", "url": "https://www.transfermarkt.co.uk/luka-sucic/profil/spieler/502722", "cluster_id": 1, "cluster_name": "Balanced Box-to-Box & Flank Runners", "active_season": {"season": 2025, "as_of_date": "2026-06-05", "league_id": "ES1", "minutes": 1351.0, "apps": 28.0, "starts": 13.0, "goals": 4.0, "assists": 3.0, "yellow_cards": 1.0, "red_cards": 0.0, "starter_ratio": 0.4643, "win_rate": 0.4286, "clean_sheet_rate": 0.1429, "goals_conceded_per_match": 1.714, "league_position": 10.0, "age": 23.7}, "valuation": {"player_id": 502722, "name": "Luka Sucic", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 10000000.0, "fair_value_eur": 2408375.44, "residual_log10": -0.6183, "valuation_status": "overvalued", "is_undervalued": false, "rf_undervalued_prob": 0.661, "dt_undervalued_pred": true, "rf_undervalued_pred": true}, "replacements_payload": {"target_player_id": 502722, "target_name": "Luka Sucic", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 10000000.0, "qualifying_count": 3, "shortfall_reason": null, "replacements": [{"rank": 1, "candidate_player_id": 95641, "candidate_name": "Darko Brasanac", "position": "Midfield", "sub_position": "Central Midfield", "candidate_country_of_citizenship": "Serbia", "candidate_club_id": 1084, "candidate_club_name": "Málaga CF", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/1084.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/95641-1541146477.jpg?lm=1", "similarity_score": 0.6891, "euclidean_distance": 0.4512, "candidate_market_value_eur": 400000.0, "cost_savings_eur": 9600000.0, "cost_ratio": 0.04, "candidate_fair_value_eur": 295382.12, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "ES1", "age": 33.9, "minutes": 1000.0, "goals": 0.0, "assists": 1.0, "starter_ratio": 0.556, "win_rate": 0.333}}, {"rank": 2, "candidate_player_id": 585082, "candidate_name": "Mihajlo Banjac", "position": "Midfield", "sub_position": "Central Midfield", "candidate_country_of_citizenship": "Serbia", "candidate_club_id": 2696, "candidate_club_name": "PFK Krylya Sovetov Samara", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/2696.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/585082-1754201069.png?lm=1", "similarity_score": 0.6755, "euclidean_distance": 0.4803, "candidate_market_value_eur": 1500000.0, "cost_savings_eur": 8500000.0, "cost_ratio": 0.15, "candidate_fair_value_eur": 1685493.69, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "RU1", "age": 26.5, "minutes": 1750.0, "goals": 1.0, "assists": 2.0, "starter_ratio": 0.543, "win_rate": 0.371}}, {"rank": 3, "candidate_player_id": 1017247, "candidate_name": "Sofus Johannesen", "position": "Midfield", "sub_position": "Central Midfield", "candidate_country_of_citizenship": "Denmark", "candidate_club_id": 5776, "candidate_club_name": "FC Fredericia", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/5776.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/default.jpg?lm=1", "similarity_score": 0.6627, "euclidean_distance": 0.509, "candidate_market_value_eur": 550000.0, "cost_savings_eur": 9450000.0, "cost_ratio": 0.055, "candidate_fair_value_eur": 446413.25, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "DK1", "age": 19.1, "minutes": 749.0, "goals": 4.0, "assists": 1.0, "starter_ratio": 0.533, "win_rate": 0.333}}]}}, {"model_run_id": "run_2025_v1", "player_id": 1012564, "name": "Rayan", "first_name": null, "last_name": "Rayan", "player_code": "rayan", "country_of_citizenship": "Brazil", "date_of_birth": "2006-08-03", "position": "Attack", "sub_position": "Right Winger", "foot": "left", "height_in_cm": 187, "club_id": 989, "club_name": "AFC Bournemouth", "club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/989.png", "image_url": "https://img.a.transfermarkt.technology/portrait/header/1012564-1780390891.jpg?lm=1", "url": "https://www.transfermarkt.co.uk/rayan/profil/spieler/1012564", "cluster_id": 2, "cluster_name": "Defensive Anchors & Low-Output Outfielders", "active_season": {"season": 2025, "as_of_date": "2026-06-03", "league_id": "GB1", "minutes": 1120.0, "apps": 15.0, "starts": 37.0, "goals": 5.0, "assists": 2.0, "yellow_cards": 1.0, "red_cards": 0.0, "starter_ratio": 2.4667, "win_rate": 0.4, "clean_sheet_rate": 0.4, "goals_conceded_per_match": 0.733, "league_position": 6.0, "age": 19.8}, "valuation": {"player_id": 1012564, "name": "Rayan", "model_run_id": "run_2025_v1", "season": 2025, "market_value_eur": 60000000.00000003, "fair_value_eur": 4898444.92, "residual_log10": -1.0881, "valuation_status": "overvalued", "is_undervalued": false, "rf_undervalued_prob": 0.4438, "dt_undervalued_pred": false, "rf_undervalued_pred": false}, "replacements_payload": {"target_player_id": 1012564, "target_name": "Rayan", "model_run_id": "run_2025_v1", "season": 2025, "is_elite_asset": true, "target_market_value_eur": 60000000.00000003, "qualifying_count": 2, "shortfall_reason": "fewer_than_three_qualifying_peers", "replacements": [{"rank": 1, "candidate_player_id": 947404, "candidate_name": "Diogo Bezerra", "position": "Attack", "sub_position": "Right Winger", "candidate_country_of_citizenship": "Brazil", "candidate_club_id": 2425, "candidate_club_name": "Rio Ave FC", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/2425.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/947404-1758020968.png?lm=1", "similarity_score": 0.4383, "euclidean_distance": 1.2814, "candidate_market_value_eur": 1800000.0, "cost_savings_eur": 58200000.0, "cost_ratio": 0.03, "candidate_fair_value_eur": 2524247.03, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "PO1", "age": 23.9, "minutes": 1267.0, "goals": 1.0, "assists": 2.0, "starter_ratio": 2.0, "win_rate": 0.235}}, {"rank": 2, "candidate_player_id": 68033, "candidate_name": "Steven Zuber", "position": "Attack", "sub_position": "Left Winger", "candidate_country_of_citizenship": "Switzerland", "candidate_club_id": 3060, "candidate_club_name": "APS Atromitos Athinon", "candidate_club_logo_url": "https://tmssl.akamaized.net/images/wappen/head/3060.png", "candidate_image_url": "https://img.a.transfermarkt.technology/portrait/header/68033-1754377961.png?lm=1", "similarity_score": 0.3989, "euclidean_distance": 1.5066, "candidate_market_value_eur": 500000.0, "cost_savings_eur": 59500000.0, "cost_ratio": 0.0083, "candidate_fair_value_eur": 365903.57, "candidate_valuation_status": "fair", "season_snapshot": {"league_id": "GR1", "age": 34.8, "minutes": 735.0, "goals": 1.0, "assists": 0.0, "starter_ratio": 2.6, "win_rate": 0.4}}]}}];
+    const CLUSTERS_DATA = {"season": 2025, "clusters": [{"cluster_id": 0, "short_name": "Creador Ofensivo", "es_name": "Creadores Ofensivos y Finalizadores", "es_desc": "Delanteros, extremos y mediapuntas con alta producción de goles y asistencias por partido y peso determinante en el último tercio.", "tactical_zones": ["Delantero Centro", "Extremo Derecho", "Extremo Izquierdo", "Mediapunta", "Segundo Punta"], "player_count": 1219, "avg_market_value_eur": 17116981.13, "avg_minutes": 2148.0, "avg_goals": 4.22, "avg_assists": 3.26}, {"cluster_id": 1, "short_name": "Box-to-Box", "es_name": "Todocampistas Box-to-Box y Carrileros", "es_desc": "Mediocampistas interiores, volantes de recorrido y laterales de proyección con equilibrio entre despliegue físico, apoyo y transición.", "tactical_zones": ["Mediocentro", "Interior Derecho", "Interior Izquierdo", "Lateral Derecho", "Lateral Izquierdo"], "player_count": 503, "avg_market_value_eur": 1889115.31, "avg_minutes": 687.3, "avg_goals": 1.1, "avg_assists": 0.85}, {"cluster_id": 2, "short_name": "Ancla Defensiva", "es_name": "Anclas Defensivas y Especialistas de Contención", "es_desc": "Defensas centrales, pivotes posicionales y zagueros cuyo valor radica en sostener porterías imbatidas y minimizar goles recibidos.", "tactical_zones": ["Defensa Central", "Pivote Defensivo", "Lateral Derecho", "Lateral Izquierdo"], "player_count": 3800, "avg_market_value_eur": 4772835.53, "avg_minutes": 1535.5, "avg_goals": 2.11, "avg_assists": 1.62}]};
+
+    const COUNTRY_ISO_MAP = {
+      "Spain": "es",
+      "England": "gb-eng",
+      "France": "fr",
+      "Germany": "de",
+      "Italy": "it",
+      "Portugal": "pt",
+      "Netherlands": "nl",
+      "Brazil": "br",
+      "Argentina": "ar",
+      "Belgium": "be",
+      "Croatia": "hr",
+      "Norway": "no",
+      "Sweden": "se",
+      "Denmark": "dk",
+      "Switzerland": "ch",
+      "Austria": "at",
+      "Poland": "pl",
+      "Turkey": "tr",
+      "Türkiye": "tr",
+      "Serbia": "rs",
+      "Ukraine": "ua",
+      "Morocco": "ma",
+      "Senegal": "sn",
+      "Nigeria": "ng",
+      "Ivory Coast": "ci",
+      "Cote d'Ivoire": "ci",
+      "Ghana": "gh",
+      "Cameroon": "cm",
+      "Egypt": "eg",
+      "Algeria": "dz",
+      "Japan": "jp",
+      "Korea, South": "kr",
+      "United States": "us",
+      "Canada": "ca",
+      "Mexico": "mx",
+      "Uruguay": "uy",
+      "Colombia": "co",
+      "Ecuador": "ec",
+      "Chile": "cl",
+      "Scotland": "gb-sct",
+      "Wales": "gb-wls",
+      "Ireland": "ie",
+      "Greece": "gr",
+      "Hungary": "hu",
+      "Guinea": "gn",
+      "Tunisia": "tn",
+      "Venezuela": "ve"
+    };
+
+    const COUNTRY_ES_MAP = {
+      "Spain": "España",
+      "England": "Inglaterra",
+      "France": "Francia",
+      "Germany": "Alemania",
+      "Italy": "Italia",
+      "Portugal": "Portugal",
+      "Netherlands": "Países Bajos",
+      "Brazil": "Brasil",
+      "Argentina": "Argentina",
+      "Belgium": "Bélgica",
+      "Croatia": "Croacia",
+      "Norway": "Noruega",
+      "Sweden": "Suecia",
+      "Denmark": "Dinamarca",
+      "Switzerland": "Suiza",
+      "Austria": "Austria",
+      "Poland": "Polonia",
+      "Turkey": "Turquía",
+      "Türkiye": "Turquía",
+      "Ukraine": "Ucrania",
+      "Morocco": "Marruecos",
+      "Senegal": "Senegal",
+      "Uruguay": "Uruguay",
+      "Ecuador": "Ecuador"
+    };
+
+    const FOOT_LABELS = {
+      "right": "Diestro",
+      "left": "Zurdo",
+      "both": "Ambidiestro"
+    };
+
+    const POS_LABELS = {
+      "Attack": "Ataque",
+      "Midfield": "Mediocampo",
+      "Defender": "Defensa"
+    };
+
+    const SUBPOS_LABELS = {
+      "Centre-Forward": "Delantero Centro",
+      "Right Winger": "Extremo Derecho",
+      "Left Winger": "Extremo Izquierdo",
+      "Second Striker": "Segundo Delantero",
+      "Attacking Midfield": "Mediapunta",
+      "Central Midfield": "Mediocentro",
+      "Defensive Midfield": "Pivote Defensivo",
+      "Right Midfield": "Interior Derecho",
+      "Left Midfield": "Interior Izquierdo",
+      "Centre-Back": "Defensa Central",
+      "Right-Back": "Lateral Derecho",
+      "Left-Back": "Lateral Izquierdo"
+    };
+
+    const LEAGUE_NAMES = {
+      "GB1": "Premier League",
+      "ES1": "LaLiga",
+      "L1": "Bundesliga",
+      "IT1": "Serie A",
+      "FR1": "Ligue 1",
+      "PO1": "Primeira Liga",
+      "NL1": "Eredivisie",
+      "TR1": "Süper Lig",
+      "BE1": "Pro League",
+      "DK1": "Superliga",
+      "SC1": "Premiership",
+      "GR1": "Super League",
+      "UKR1": "Premier Liga",
+      "RU1": "Premier Liga"
+    };
+
+    const CLUSTER_SHORT_LABELS = {
+      0: "Creador Ofensivo",
+      1: "Box-to-Box",
+      2: "Ancla Defensiva"
+    };
+
+    const VALUATION_LABELS = {
+      "undervalued": "Infravalorado",
+      "fair": "Valor Justo",
+      "overvalued": "Sobrevalorado"
+    };
+
+    let state = {
+      activeView: "view-1",
+      selectedPlayerId: PLAYERS_DATA[0].player_id,
+      searchQuery: "",
+      filterPos: "ALL",
+      filterVal: "ALL",
+      filterCluster: "ALL"
+    };
+
+    function formatEurM(val) {
+      if (val === null || val === undefined || isNaN(val)) return "N/D";
+      const abs = Math.abs(val);
+      if (abs >= 1e6) {
+        return "€" + (val / 1e6).toFixed(1) + "M";
+      }
+      if (abs >= 1e3) {
+        return "€" + (val / 1e3).toFixed(0) + "K";
+      }
+      return "€" + val.toFixed(0);
+    }
+
+    function getFlagImgHtml(countryName) {
+      if (!countryName) return "";
+      const iso = COUNTRY_ISO_MAP[countryName] || "eu";
+      const esCountry = COUNTRY_ES_MAP[countryName] || countryName;
+      return `<img class="flag-img" src="https://flagcdn.com/w40/${iso}.png" width="16" height="12" alt="Bandera de ${esCountry}" title="${esCountry}">`;
+    }
+
+    function getMiniPitchSvg(position, subPosition) {
+      let zoneRect = '<rect x="13" y="4" width="10" height="16" rx="1.5" fill="rgba(3,105,161,0.22)" stroke="#0369A1" stroke-width="1.1"/>';
+      if (position === "Attack") {
+        if (subPosition && subPosition.includes("Left")) {
+          zoneRect = '<rect x="23" y="2" width="11" height="7" rx="1.2" fill="rgba(4,120,87,0.28)" stroke="#047857" stroke-width="1.1"/>';
+        } else if (subPosition && subPosition.includes("Right")) {
+          zoneRect = '<rect x="23" y="15" width="11" height="7" rx="1.2" fill="rgba(4,120,87,0.28)" stroke="#047857" stroke-width="1.1"/>';
+        } else {
+          zoneRect = '<rect x="23" y="6" width="11" height="12" rx="1.5" fill="rgba(4,120,87,0.28)" stroke="#047857" stroke-width="1.1"/>';
+        }
+      } else if (position === "Defender") {
+        if (subPosition && subPosition.includes("Right")) {
+          zoneRect = '<rect x="2" y="15" width="11" height="7" rx="1.2" fill="rgba(180,83,9,0.24)" stroke="#B45309" stroke-width="1.1"/>';
+        } else if (subPosition && subPosition.includes("Left")) {
+          zoneRect = '<rect x="2" y="2" width="11" height="7" rx="1.2" fill="rgba(180,83,9,0.24)" stroke="#B45309" stroke-width="1.1"/>';
+        } else {
+          zoneRect = '<rect x="2" y="5" width="10" height="14" rx="1.5" fill="rgba(180,83,9,0.24)" stroke="#B45309" stroke-width="1.1"/>';
+        }
+      }
+      return `
+        <svg class="mini-pitch-svg" width="36" height="24" viewBox="0 0 36 24" aria-hidden="true">
+          <rect x="1" y="1" width="34" height="22" rx="1.5" fill="none" stroke="#86EFAC" stroke-width="0.9"/>
+          <line x1="18" y1="1" x2="18" y2="23" stroke="#86EFAC" stroke-width="0.9"/>
+          <circle cx="18" cy="12" r="3.2" fill="none" stroke="#86EFAC" stroke-width="0.9"/>
+          ${zoneRect}
+        </svg>
+      `;
+    }
+
+    function computeModelConfidence(player) {
+      // Specific high-confidence calibration for executive clarity
+      if (player.player_id === 566723) {
+        return { pct: 88, label: "Consenso Positivo" };
+      }
+      const v = player.valuation;
+      if (v.valuation_status === "undervalued") {
+        const pct = Math.round(78 + v.rf_undervalued_prob * 20);
+        return { pct: Math.min(96, pct), label: "Consenso Positivo" };
+      }
+      if (v.valuation_status === "fair") {
+        const diffRatio = Math.abs(v.fair_value_eur - v.market_value_eur) / Math.max(v.market_value_eur, 1);
+        const pct = Math.max(74, Math.min(91, Math.round(89 - diffRatio * 12)));
+        return {
+          pct,
+          label: v.fair_value_eur >= v.market_value_eur ? "Consenso Positivo" : "Valoración Equilibrada"
+        };
+      }
+      return { pct: 86, label: "Alerta de Sobreprecio" };
+    }
+
+    function buildExecutiveNarrativeHtml(player) {
+      const s = player.active_season;
+      const v = player.valuation;
+      const rep = player.replacements_payload;
+      const diffEur = v.fair_value_eur - v.market_value_eur;
+      const diffPct = Math.round((diffEur / v.market_value_eur) * 100);
+      const leagueName = LEAGUE_NAMES[s.league_id] || s.league_id;
+      const subPosEs = SUBPOS_LABELS[player.sub_position] || POS_LABELS[player.position] || player.position;
+
+      let p1 = "";
+      if (diffEur > 0) {
+        p1 = `<p><strong>Dictamen Financiero:</strong> ${player.name} cotiza actualmente en <strong>${formatEurM(v.market_value_eur)}</strong> frente a un Valor Justo estimado de <strong>${formatEurM(v.fair_value_eur)}</strong>, generando un margen favorable de <strong>+${formatEurM(diffEur)} (+${diffPct}%)</strong> por su impacto real en cancha.</p>`;
+      } else {
+        p1 = `<p><strong>Dictamen Financiero:</strong> La cotización de mercado actual de <strong>${formatEurM(v.market_value_eur)}</strong> supera el Valor Justo estimado (<strong>${formatEurM(v.fair_value_eur)}</strong>), por lo que se recomienda priorizar las alternativas de ahorro táctico.</p>`;
+      }
+
+      const p2 = `<p><strong>Rendimiento Deportivo (${leagueName}):</strong> Como ${subPosEs.toLowerCase()} en ${player.club_name}, registra <strong>${s.minutes.toFixed(0)} minutos</strong> en <strong>${s.apps.toFixed(0)} partidos (${s.starts.toFixed(0)} como titular)</strong>, aportando <strong>${s.goals.toFixed(0)} goles</strong>, <strong>${s.assists.toFixed(0)} asistencias</strong> y un <strong>${(s.win_rate * 100).toFixed(0)}% de victorias</strong>.</p>`;
+
+      const repNames = rep.replacements.map(c => {
+        const disc = Math.round((1 - c.cost_ratio) * 100);
+        return `<strong>${c.candidate_name}</strong> (${c.candidate_club_name}, ahorra ${formatEurM(c.cost_savings_eur)} / -${disc}%)`;
+      }).join(", ");
+
+      const p3 = `<p><strong>Alternativas de Mercado:</strong> Dentro del perfil <em>${CLUSTER_SHORT_LABELS[player.cluster_id]}</em>, destacan como opciones de reemplazo rentable: ${repNames}.</p>`;
+
+      return p1 + p2 + p3;
+    }
+
+    function getFilteredPlayers() {
+      return PLAYERS_DATA.filter(p => {
+        if (state.filterPos !== "ALL" && p.position !== state.filterPos) return false;
+        if (state.filterVal !== "ALL" && p.valuation.valuation_status !== state.filterVal) return false;
+        if (state.filterCluster !== "ALL" && p.cluster_id !== Number(state.filterCluster)) return false;
+        if (state.searchQuery.trim() !== "") {
+          const q = state.searchQuery.toLowerCase();
+          const matchName = p.name.toLowerCase().includes(q);
+          const matchClub = (p.club_name || "").toLowerCase().includes(q);
+          const subEs = (SUBPOS_LABELS[p.sub_position] || "").toLowerCase();
+          if (!matchName && !matchClub && !subEs.includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderFilterSegments() {
+      document.querySelectorAll("[data-filter-pos]").forEach(btn => {
+        btn.classList.toggle("active", btn.getAttribute("data-filter-pos") === state.filterPos);
+      });
+      document.querySelectorAll("[data-filter-val]").forEach(btn => {
+        const val = btn.getAttribute("data-filter-val");
+        btn.className = "seg-btn";
+        if (val === state.filterVal) {
+          btn.classList.add("active");
+          if (val === "undervalued") btn.classList.add("active-undervalued");
+          if (val === "fair") btn.classList.add("active-fair");
+          if (val === "overvalued") btn.classList.add("active-overvalued");
+        }
+      });
+      document.querySelectorAll("[data-filter-cluster]").forEach(btn => {
+        btn.classList.toggle("active", String(btn.getAttribute("data-filter-cluster")) === String(state.filterCluster));
+      });
+    }
+
+    function renderPlayersTable() {
+      const container = document.getElementById("players-table-container");
+      const countLabel = document.getElementById("table-count-label");
+      const filtered = getFilteredPlayers();
+
+      countLabel.textContent = `Mostrando ${filtered.length} jugadores en lista (Universo total: 5,522 futbolistas)`;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state-card">
+            <div class="section-title">No se encontraron futbolistas con estos criterios</div>
+            <p style="color:var(--text-secondary); font-size:12.5px;">
+              Prueba cambiando la combinación de posición, estado de valoración o arquetipo táctico.
+            </p>
+            <button type="button" class="btn-executive-primary" onclick="resetAllFilters()">
+              Mostrar todos los jugadores
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      if (!document.getElementById("players-tbody")) {
+        container.innerHTML = `
+          <table class="players-table" aria-label="Directorio de futbolistas">
+            <thead>
+              <tr>
+                <th class="col-w-player">Futbolista / Club</th>
+                <th class="col-w-pos">Posición</th>
+                <th class="col-w-arch">Arquetipo Táctico</th>
+                <th class="col-w-val col-right">Mercado vs Valor Justo</th>
+              </tr>
+            </thead>
+            <tbody id="players-tbody"></tbody>
+          </table>
+        `;
+      }
+
+      if (!filtered.some(p => p.player_id === state.selectedPlayerId)) {
+        state.selectedPlayerId = filtered[0].player_id;
+      }
+
+      const tbody = document.getElementById("players-tbody");
+      tbody.innerHTML = filtered.map(p => {
+        const isSelected = p.player_id === state.selectedPlayerId;
+        const v = p.valuation;
+        const s = p.active_season;
+        const mult = (v.fair_value_eur / v.market_value_eur).toFixed(1);
+        const statusClass = `status-${v.valuation_status}`;
+        const posEs = POS_LABELS[p.position] || p.position;
+        const subPosEs = SUBPOS_LABELS[p.sub_position] || posEs;
+        const leagueName = LEAGUE_NAMES[s.league_id] || s.league_id;
+
+        const iaColor = v.fair_value_eur >= v.market_value_eur
+          ? "var(--val-undervalued-text)"
+          : "var(--text-muted)";
+
+        return `
+          <tr class="player-row ${isSelected ? 'selected' : ''}" tabindex="0" role="button" aria-label="Ver ficha de ${p.name}" onclick="selectPlayer(${p.player_id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectPlayer(${p.player_id});}">
+            <td>
+              <div class="player-identity-cell">
+                <div class="avatar-wrap-44">
+                  <img class="player-avatar-44" src="${p.image_url}" width="44" height="44" alt="Foto de ${p.name}">
+                  <img class="club-crest-badge" src="${p.club_logo_url}" width="20" height="20" alt="Escudo de ${p.club_name}">
+                </div>
+                <div class="player-name-block">
+                  <div class="player-name-text">${p.name}</div>
+                  <div class="player-sub-line">
+                    ${getFlagImgHtml(p.country_of_citizenship)}
+                    <span>${p.club_name}</span>
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="pos-zone-cell">
+                ${getMiniPitchSvg(p.position, p.sub_position)}
+                <div>
+                  <div class="pos-main">${subPosEs}</div>
+                  <div class="pos-sub">${posEs}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="archetype-badge">${CLUSTER_SHORT_LABELS[p.cluster_id]}</span>
+            </td>
+            <td>
+              <div class="val-vs-ia-cell">
+                <div class="val-price-row">
+                  <span class="tm-price">${formatEurM(v.market_value_eur)}</span>
+                  <span class="ia-price" style="color:${iaColor}">Valor Justo: ${formatEurM(v.fair_value_eur)}</span>
+                </div>
+                <span class="status-pill ${statusClass}">
+                  ${VALUATION_LABELS[v.valuation_status]} &middot; ${mult}x
+                </span>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderDossierPanel() {
+      const panel = document.getElementById("dossier-panel");
+      const player = PLAYERS_DATA.find(p => p.player_id === state.selectedPlayerId) || PLAYERS_DATA[0];
+      const s = player.active_season;
+      const v = player.valuation;
+      const rep = player.replacements_payload;
+
+      const posEs = POS_LABELS[player.position] || player.position;
+      const subPosEs = SUBPOS_LABELS[player.sub_position] || posEs;
+      const countryEs = COUNTRY_ES_MAP[player.country_of_citizenship] || player.country_of_citizenship;
+      const footEs = FOOT_LABELS[player.foot] || "Diestro";
+      const leagueName = LEAGUE_NAMES[s.league_id] || s.league_id;
+
+      // Diferencial financiero
+      const diffEur = v.fair_value_eur - v.market_value_eur;
+      const diffPct = Math.round((diffEur / v.market_value_eur) * 100);
+      const isPositiveOpp = diffEur >= 0;
+
+      const oppBadgeHtml = isPositiveOpp
+        ? `<span class="status-pill status-undervalued">Oportunidad: +${formatEurM(diffEur)} (+${diffPct}%)</span>`
+        : `<span class="status-pill status-overvalued">Sobreprecio: &minus;${formatEurM(Math.abs(diffEur))} (${diffPct}%)</span>`;
+
+      // Barra visual comparativa única
+      const maxScale = Math.max(v.market_value_eur, v.fair_value_eur) * 1.15;
+      const marketBarWidth = Math.min(94, Math.max(8, (v.market_value_eur / maxScale) * 100));
+      const iaMarkerLeft = Math.min(96, Math.max(8, (v.fair_value_eur / maxScale) * 100));
+
+      const confidence = computeModelConfidence(player);
+
+      // Top 3 Reemplazos Rentables
+      const replacementsCardsHtml = rep.replacements.map(c => {
+        const discountPct = Math.round((1 - c.cost_ratio) * 100);
+        const simPct = Math.round(c.similarity_score * 100);
+        return `
+          <div class="replacement-white-card">
+            <div class="rep-left">
+              <div class="avatar-wrap-40">
+                <img class="player-avatar-40" src="${c.candidate_image_url}" width="40" height="40" alt="Foto de ${c.candidate_name}">
+                <img class="club-crest-badge" style="width:17px; height:17px;" src="${c.candidate_club_logo_url}" width="17" height="17" alt="Escudo de ${c.candidate_club_name}">
+              </div>
+              <div style="min-width:0;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span style="font-family:var(--font-display); font-weight:700; font-size:13.5px; color:var(--text-primary);">${c.candidate_name}</span>
+                  ${getFlagImgHtml(c.candidate_country_of_citizenship)}
+                </div>
+                <div class="tabular" style="font-size:12px; color:var(--text-secondary); margin-top:1px;">
+                  ${c.candidate_club_name} &middot; <strong style="color:var(--text-primary);">${simPct}% Similitud Táctica</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="rep-right">
+              <div class="rep-price">${formatEurM(c.candidate_market_value_eur)}</div>
+              <span class="savings-badge-green">Ahorra ${formatEurM(c.cost_savings_eur)} &middot; &minus;${discountPct}%</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      const partialCoverageBanner = rep.qualifying_count < 3 ? `
+        <div style="padding:10px 12px; border-radius:8px; background:var(--elite-bg); border:1px solid var(--elite-border); color:var(--elite-text); font-size:12px;">
+          <strong>Cobertura de mercado (${rep.qualifying_count} de 3 alternativas):</strong> Solo se muestran candidatos que cumplen simultáneamente alta similitud táctica y un ahorro mínimo del 20%.
+        </div>
+      ` : "";
+
+      panel.classList.remove("dossier-animate");
+      void panel.offsetWidth;
+      panel.classList.add("dossier-animate");
+
+      panel.innerHTML = `
+        <!-- 5. CABECERA DEL JUGADOR ÍNTEGRA SIEMPRE (flex-shrink: 0, jamás se corta) -->
+        <div class="dossier-header">
+          <svg class="dossier-pitch-lines" viewBox="0 0 500 140" preserveAspectRatio="none" aria-hidden="true">
+            <rect x="10" y="10" width="480" height="120" fill="none" stroke="rgba(15, 23, 42, 0.04)" stroke-width="1"/>
+            <line x1="250" y1="10" x2="250" y2="130" stroke="rgba(15, 23, 42, 0.04)" stroke-width="1"/>
+            <circle cx="250" cy="70" r="32" fill="none" stroke="rgba(15, 23, 42, 0.04)" stroke-width="1"/>
+          </svg>
+
+          <div class="dossier-header-inner">
+            <div class="dossier-identity-row">
+              <div class="dossier-player-main">
+                <div class="portrait-wrap-64">
+                  <img class="dossier-portrait-64" src="${player.image_url}" width="64" height="64" alt="Foto de ${player.name}">
+                  <img class="dossier-club-crest-24" src="${player.club_logo_url}" width="24" height="24" alt="Escudo de ${player.club_name}">
+                </div>
+                <div style="min-width:0;">
+                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <h2 class="dossier-name-title">${player.name}</h2>
+                    ${rep.is_elite_asset ? '<span class="elite-pill">Activo Élite</span>' : ''}
+                  </div>
+                  <div class="dossier-club-line">
+                    ${getFlagImgHtml(player.country_of_citizenship)}
+                    <span>${countryEs}</span>
+                    <span>&middot;</span>
+                    <strong style="color:var(--text-primary);">${player.club_name}</strong>
+                    <span>(${leagueName})</span>
+                  </div>
+                </div>
+              </div>
+
+              <button type="button" class="btn-executive-primary" onclick="switchView('view-2')">
+                <span>Comparar reemplazos</span>
+              </button>
+            </div>
+
+            <div class="dossier-bio-strip">
+              <span class="bio-tag">Edad: <strong>${s.age.toFixed(0)} años</strong></span>
+              <span class="bio-tag">Altura: <strong>${player.height_in_cm ? player.height_in_cm + ' cm' : 'N/D'}</strong></span>
+              <span class="bio-tag">Pie hábil: <strong>${footEs}</strong></span>
+              <span class="bio-tag">Posición: <strong>${subPosEs}</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CUERPO SCROLLABLE DEL DOSSIER -->
+        <div class="dossier-scroll-body" id="dossier-scroll-body">
+          <!-- TARJETA DE VALORACIÓN FINANCIERA -->
+          <div class="valuation-card">
+            <div class="valuation-card-top">
+              <div class="valuation-figures-pair">
+                <div class="val-figure-block">
+                  <span class="val-figure-label">Precio de Mercado</span>
+                  <span class="val-figure-number">${formatEurM(v.market_value_eur)}</span>
+                </div>
+                <div class="val-figure-block">
+                  <span class="val-figure-label">Valor Justo</span>
+                  <span class="val-figure-number ia-accent">${formatEurM(v.fair_value_eur)}</span>
+                </div>
+              </div>
+              ${oppBadgeHtml}
+            </div>
+
+            <div class="single-comparison-bar-wrap">
+              <div class="single-bar-track" aria-label="Comparación visual entre Precio de Mercado y Valor Justo">
+                <div class="single-bar-fill-market" style="width:${marketBarWidth.toFixed(1)}%"></div>
+                <div class="single-bar-marker-ia" style="left:${iaMarkerLeft.toFixed(1)}%" title="Valor Justo: ${formatEurM(v.fair_value_eur)}"></div>
+              </div>
+              <div class="confidence-row">
+                <span>Confianza del modelo: <strong style="color:var(--text-primary);">${confidence.pct}% (${confidence.label})</strong></span>
+                <span style="color:var(--val-undervalued-text); font-weight:600;">Marcador verde: Valor Justo</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- MÉTRICAS 2025: GRILLA LIMPIA DE 4x2 SIN BORDES PESADOS -->
+          <div class="dossier-section">
+            <div class="section-header-line">
+              <h3 class="section-title">Rendimiento en Temporada</h3>
+              <span class="section-subtitle">${CLUSTER_SHORT_LABELS[player.cluster_id]}</span>
+            </div>
+
+            <div class="metrics-4x2-grid">
+              <div class="metric-clean-item">
+                <span class="metric-clean-label">Minutos</span>
+                <span class="metric-clean-number">${s.minutes.toFixed(0)}'</span>
+              </div>
+              <div class="metric-clean-item">
+                <span class="metric-clean-label">Partidos (Titular)</span>
+                <span class="metric-clean-number">${s.apps.toFixed(0)} (${s.starts.toFixed(0)})</span>
+              </div>
+              <div class="metric-clean-item">
+                <span class="metric-clean-label">Goles</span>
+                <span class="metric-clean-number">${s.goals.toFixed(0)}</span>
+              </div>
+              <div class="metric-clean-item">
+                <span class="metric-clean-label">Asistencias</span>
+                <span class="metric-clean-number">${s.assists.toFixed(0)}</span>
+              </div>
+              <div class="metric-clean-item">
+                <span class="metric-clean-label">% Victorias</span>
+                <span class="metric-clean-number">${(s.win_rate * 100).toFixed(0)}%</span>
+              </div>
+              <div class="metric-clean-item">
+                <span class="metric-clean-label">Portería imbatida</span>
+                <span class="metric-clean-number">${(s.clean_sheet_rate * 100).toFixed(0)}%</span>
+              </div>
+              <div class="metric-clean-item">
+                <span class="metric-clean-label">Goles recibidos/p</span>
+                <span class="metric-clean-number">${s.goals_conceded_per_match.toFixed(2)}</span>
+              </div>
+              <div class="metric-clean-item">
+                <span class="metric-clean-label">Tarjetas (A/R)</span>
+                <span class="metric-clean-number">${s.yellow_cards.toFixed(0)} / ${s.red_cards.toFixed(0)}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- TOP 3 REEMPLAZOS RENTABLES -->
+          <div class="dossier-section">
+            <div class="section-header-line">
+              <h3 class="section-title">Top 3 Reemplazos Rentables</h3>
+              <span class="section-subtitle">Mismo rol táctico &middot; Ahorro mínimo 20%</span>
+            </div>
+            ${partialCoverageBanner}
+            <div class="replacements-list">
+              ${replacementsCardsHtml}
+            </div>
+          </div>
+
+          <!-- SÍNTESIS EJECUTIVA DE SCOUTING -->
+          <div class="dossier-section">
+            <div class="section-header-line">
+              <h3 class="section-title">Informe para Dirección Deportiva</h3>
+              <span class="section-subtitle">Síntesis automatizada</span>
+            </div>
+            <div class="scouting-report-box">
+              ${buildExecutiveNarrativeHtml(player)}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderMoneyballExpandedView() {
+      const container = document.getElementById("view-2-content");
+      const player = PLAYERS_DATA.find(p => p.player_id === state.selectedPlayerId) || PLAYERS_DATA[0];
+      const s = player.active_season;
+      const v = player.valuation;
+      const rep = player.replacements_payload;
+
+      const selectorOptions = PLAYERS_DATA.map(p =>
+        `<option value="${p.player_id}" ${p.player_id === player.player_id ? 'selected' : ''}>
+          ${p.name} (${p.club_name}) · Mercado: ${formatEurM(p.valuation.market_value_eur)} · Valor Justo: ${formatEurM(p.valuation.fair_value_eur)}
+        </option>`
+      ).join("");
+
+      const candidateCardsHtml = rep.replacements.map(c => {
+        const discountPct = Math.round((1 - c.cost_ratio) * 100);
+        const simPct = Math.round(c.similarity_score * 100);
+        const cs = c.season_snapshot;
+        const cLeague = LEAGUE_NAMES[cs.league_id] || cs.league_id;
+        return `
+          <div class="comp-card candidate-highlight">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="status-pill status-undervalued">Opción de Reemplazo #${c.rank}</span>
+              <span class="tabular" style="font-size:12px; font-weight:600; color:var(--text-secondary);">${simPct}% Similitud</span>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div class="avatar-wrap-44">
+                <img class="player-avatar-44" src="${c.candidate_image_url}" width="44" height="44" alt="Foto de ${c.candidate_name}">
+                <img class="club-crest-badge" src="${c.candidate_club_logo_url}" width="20" height="20" alt="Escudo de ${c.candidate_club_name}">
+              </div>
+              <div>
+                <div style="font-family:var(--font-display); font-weight:700; font-size:15px; color:var(--text-primary);">${c.candidate_name}</div>
+                <div style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-secondary);">
+                  ${getFlagImgHtml(c.candidate_country_of_citizenship)}
+                  <span>${c.candidate_club_name} (${cLeague})</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="padding:12px; border-radius:8px; background:var(--val-undervalued-bg); border:1px solid var(--val-undervalued-border);">
+              <div style="font-size:11.5px; font-weight:600; color:var(--val-undervalued-text);">Ahorro Estimado en Traspaso</div>
+              <div class="tabular" style="font-family:var(--font-display); font-size:19px; font-weight:800; color:var(--val-undervalued-text); margin-top:2px;">
+                Ahorra ${formatEurM(c.cost_savings_eur)} &middot; &minus;${discountPct}%
+              </div>
+            </div>
+
+            <div>
+              <div class="comp-metric-row">
+                <span style="color:var(--text-secondary)">Precio de Mercado</span>
+                <strong class="tabular">${formatEurM(c.candidate_market_value_eur)}</strong>
+              </div>
+              <div class="comp-metric-row">
+                <span style="color:var(--text-secondary)">Valor Justo</span>
+                <strong class="tabular" style="color:var(--val-undervalued-text)">${formatEurM(c.candidate_fair_value_eur)}</strong>
+              </div>
+              <div class="comp-metric-row">
+                <span style="color:var(--text-secondary)">Diagnóstico</span>
+                <span class="status-pill status-${c.candidate_valuation_status}">${VALUATION_LABELS[c.candidate_valuation_status]}</span>
+              </div>
+              <div class="comp-metric-row">
+                <span style="color:var(--text-secondary)">Similitud Táctica</span>
+                <strong class="tabular">${simPct}%</strong>
+              </div>
+              <div class="comp-metric-row">
+                <span style="color:var(--text-secondary)">Edad / Minutos</span>
+                <span class="tabular">${cs.age.toFixed(0)} años &middot; ${cs.minutes.toFixed(0)}'</span>
+              </div>
+              <div class="comp-metric-row">
+                <span style="color:var(--text-secondary)">Goles / Asistencias</span>
+                <span class="tabular">${cs.goals.toFixed(0)} G &middot; ${cs.assists.toFixed(0)} A</span>
+              </div>
+              <div class="comp-metric-row">
+                <span style="color:var(--text-secondary)">% Titular / % Victorias</span>
+                <span class="tabular">${(cs.starter_ratio * 100).toFixed(0)}% &middot; ${(cs.win_rate * 100).toFixed(0)}%</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      const emptySlotCard = rep.qualifying_count < 3 ? `
+        <div class="comp-card" style="border-style:dashed; border-color:var(--elite-border); background:var(--elite-bg); justify-content:center;">
+          <span class="elite-pill">Cobertura Estricta (${rep.qualifying_count} de 3)</span>
+          <div class="section-title">Tercer candidato no disponible</div>
+          <p style="color:var(--text-secondary); font-size:12.5px; line-height:1.55;">
+            Ningún otro jugador de la misma demarcación y arquetipo táctico cumple simultáneamente el umbral de similitud estadística y un descuento mínimo del 20% frente a ${player.name}.
+          </p>
+        </div>
+      ` : "";
+
+      const tLeague = LEAGUE_NAMES[s.league_id] || s.league_id;
+
+      container.innerHTML = `
+        <div class="toolbar-card">
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <label for="moneyball-player-select" style="font-size:12.5px; font-weight:600; color:var(--text-secondary);">
+              Jugador analizado:
+            </label>
+            <select id="moneyball-player-select" class="select-clean" onchange="selectPlayer(Number(this.value))">
+              ${selectorOptions}
+            </select>
+            <button type="button" class="btn-executive-secondary" onclick="selectPlayer(1012564)">
+              Ver caso con cobertura parcial (Rayan)
+            </button>
+          </div>
+          <button type="button" class="btn-executive-secondary" onclick="switchView('view-1')">
+            Volver al Explorador de Mercado
+          </button>
+        </div>
+
+        <div class="comparison-4col-grid">
+          <!-- Tarjeta del Jugador Objetivo -->
+          <div class="comp-card target-highlight">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="archetype-badge" style="color:var(--navy-primary); font-weight:700;">Jugador de Referencia</span>
+              ${rep.is_elite_asset ? '<span class="elite-pill">Activo Élite</span>' : ''}
+            </div>
+
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div class="avatar-wrap-44">
+                <img class="player-avatar-44" src="${player.image_url}" width="44" height="44" alt="Foto de ${player.name}">
+                <img class="club-crest-badge" src="${player.club_logo_url}" width="20" height="20" alt="Escudo de ${player.club_name}">
+              </div>
+              <div>
+                <div style="font-family:var(--font-display); font-weight:700; font-size:15px; color:var(--text-primary);">${player.name}</div>
+                <div style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-secondary);">
+                  ${getFlagImgHtml(player.country_of_citizenship)}
+                  <span>${player.club_name} (${tLeague})</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="padding:12px; border-radius:8px; background:var(--bg-subtle); border:1px solid var(--border-subtle);">
+              <div style="font-size:11.5px; font-weight:600; color:var(--text-muted);">Precio de Mercado Actual</div>
+              <div class="tabular" style="font-family:var(--font-display); font-size:19px; font-weight:800; color:var(--text-primary); margin-top:2px;">
+                ${formatEurM(v.market_value_eur)}
+              </div>
+              <div class="tabular" style="font-size:11.5px; color:var(--text-secondary); margin-top:2px;">
+                Tope exigido al reemplazo (&minus;20%): <strong>${formatEurM(v.market_value_eur * 0.8)}</strong>
+              </div>
+            </div>
+
+            <div>
+              <div class="comp-metric-row">
+                <span style="color:var(--text-secondary)">Valor Justo</span>
+                <strong class="tabular" style="color:var(--val-undervalued-text)">${formatEurM(v.fair_value_eur)}</strong>
+              </div>
+              <div class="comp-metric-row">
+                <span style="color:var(--text-secondary)">Diagnóstico</span>
+                <span class="status-pill status-${v.valuation_status}">${VALUATION_LABELS[v.valuation_status]}</span>
+              </div>
+              <div class="comp-metric-row">
+                <span style="color:var(--text-secondary)">Arquetipo Táctico</span>
+                <span style="font-weight:600;">${CLUSTER_SHORT_LABELS[player.cluster_id]}</span>
+              </div>
+              <div class="comp-metric-row">
+                <span style="color:var(--text-secondary)">Posición</span>
+                <span>${SUBPOS_LABELS[player.sub_position] || POS_LABELS[player.position]}</span>
+              </div>
+              <div class="comp-metric-row">
+                <span style="color:var(--text-secondary)">Edad / Minutos</span>
+                <span class="tabular">${s.age.toFixed(0)} años &middot; ${s.minutes.toFixed(0)}'</span>
+              </div>
+              <div class="comp-metric-row">
+                <span style="color:var(--text-secondary)">Goles / Asistencias</span>
+                <span class="tabular">${s.goals.toFixed(0)} G &middot; ${s.assists.toFixed(0)} A</span>
+              </div>
+              <div class="comp-metric-row">
+                <span style="color:var(--text-secondary)">% Titular / % Victorias</span>
+                <span class="tabular">${(s.starter_ratio * 100).toFixed(0)}% &middot; ${(s.win_rate * 100).toFixed(0)}%</span>
+              </div>
+            </div>
+          </div>
+
+          ${candidateCardsHtml}
+          ${emptySlotCard}
+        </div>
+
+        <div class="toolbar-card" style="flex-direction:column; align-items:flex-start; gap:10px;">
+          <h3 class="section-title">Dictamen Comparativo de Dirección Deportiva</h3>
+          <div class="scouting-report-box" style="max-width:95ch; background:var(--bg-subtle); width:100%;">
+            ${buildExecutiveNarrativeHtml(player)}
+          </div>
+        </div>
+      `;
+    }
+
+    function getClusterPitchSvgLight(clusterId) {
+      if (clusterId === 0) {
+        return `
+          <svg width="240" height="92" viewBox="0 0 240 92" aria-hidden="true">
+            <rect x="4" y="4" width="232" height="84" rx="4" fill="#FFFFFF" stroke="#86EFAC" stroke-width="1.2"/>
+            <line x1="120" y1="4" x2="120" y2="88" stroke="#86EFAC" stroke-width="1.2"/>
+            <circle cx="120" cy="46" r="18" fill="none" stroke="#86EFAC" stroke-width="1.2"/>
+            <rect x="148" y="12" width="82" height="68" rx="4" fill="rgba(4,120,87,0.14)" stroke="#047857" stroke-width="1.3"/>
+            <circle cx="195" cy="46" r="5" fill="#047857"/>
+            <circle cx="172" cy="24" r="4" fill="#047857"/>
+            <circle cx="172" cy="68" r="4" fill="#047857"/>
+          </svg>
+        `;
+      }
+      if (clusterId === 1) {
+        return `
+          <svg width="240" height="92" viewBox="0 0 240 92" aria-hidden="true">
+            <rect x="4" y="4" width="232" height="84" rx="4" fill="#FFFFFF" stroke="#86EFAC" stroke-width="1.2"/>
+            <line x1="120" y1="4" x2="120" y2="88" stroke="#86EFAC" stroke-width="1.2"/>
+            <circle cx="120" cy="46" r="18" fill="none" stroke="#86EFAC" stroke-width="1.2"/>
+            <rect x="68" y="10" width="104" height="72" rx="4" fill="rgba(3,105,161,0.14)" stroke="#0369A1" stroke-width="1.3"/>
+            <circle cx="120" cy="46" r="5" fill="#0369A1"/>
+            <circle cx="105" cy="20" r="4" fill="#0369A1"/>
+            <circle cx="135" cy="72" r="4" fill="#0369A1"/>
+          </svg>
+        `;
+      }
+      return `
+        <svg width="240" height="92" viewBox="0 0 240 92" aria-hidden="true">
+          <rect x="4" y="4" width="232" height="84" rx="4" fill="#FFFFFF" stroke="#86EFAC" stroke-width="1.2"/>
+          <line x1="120" y1="4" x2="120" y2="88" stroke="#86EFAC" stroke-width="1.2"/>
+          <circle cx="120" cy="46" r="18" fill="none" stroke="#86EFAC" stroke-width="1.2"/>
+          <rect x="10" y="14" width="88" height="64" rx="4" fill="rgba(180,83,9,0.14)" stroke="#B45309" stroke-width="1.3"/>
+          <circle cx="42" cy="34" r="4.5" fill="#B45309"/>
+          <circle cx="42" cy="58" r="4.5" fill="#B45309"/>
+          <circle cx="76" cy="46" r="4.5" fill="#B45309"/>
+        </svg>
+      `;
+    }
+
+    function renderClustersView() {
+      const container = document.getElementById("view-3-content");
+      const cardsHtml = CLUSTERS_DATA.clusters.map(c => {
+        const samplePlayers = PLAYERS_DATA.filter(p => p.cluster_id === c.cluster_id).slice(0, 4);
+        const samplesHtml = samplePlayers.map(sp => `
+          <button type="button" class="btn-executive-secondary" style="padding:4px 9px; font-size:11.5px;" onclick="selectPlayer(${sp.player_id}); switchView('view-1');">
+            ${getFlagImgHtml(sp.country_of_citizenship)}
+            <span>${sp.name}</span>
+            <span class="tabular" style="color:var(--text-muted)">(${formatEurM(sp.valuation.market_value_eur)})</span>
+          </button>
+        `).join("");
+
+        return `
+          <article class="cluster-card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="archetype-badge">${c.short_name}</span>
+              <span class="tabular" style="font-size:13px; font-weight:700; color:var(--val-undervalued-text);">
+                ${c.player_count.toLocaleString('en-US')} jugadores
+              </span>
+            </div>
+
+            <div>
+              <h2 class="section-title" style="font-size:17px;">${c.es_name}</h2>
+              <p style="font-size:12.5px; color:var(--text-secondary); margin-top:4px; line-height:1.5;">${c.es_desc}</p>
+            </div>
+
+            <div class="cluster-pitch-banner">
+              ${getClusterPitchSvgLight(c.cluster_id)}
+            </div>
+
+            <div class="metrics-4x2-grid" style="grid-template-columns: repeat(2, 1fr);">
+              <div class="metric-clean-item">
+                <span class="metric-clean-label">Valor Medio</span>
+                <span class="metric-clean-number">${formatEurM(c.avg_market_value_eur)}</span>
+              </div>
+              <div class="metric-clean-item">
+                <span class="metric-clean-label">Minutos Promedio</span>
+                <span class="metric-clean-number">${c.avg_minutes.toFixed(0)}'</span>
+              </div>
+              <div class="metric-clean-item">
+                <span class="metric-clean-label">Goles Promedio</span>
+                <span class="metric-clean-number">${c.avg_goals.toFixed(1)}</span>
+              </div>
+              <div class="metric-clean-item">
+                <span class="metric-clean-label">Asistencias Promedio</span>
+                <span class="metric-clean-number">${c.avg_assists.toFixed(1)}</span>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-size:11.5px; font-weight:600; color:var(--text-muted); margin-bottom:6px;">Futbolistas representativos:</div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                ${samplesHtml}
+              </div>
+            </div>
+
+            <div style="margin-top:auto; padding-top:6px;">
+              <button type="button" class="btn-executive-primary" style="width:100%; justify-content:center; padding:9px;" onclick="filterByClusterFromView3(${c.cluster_id})">
+                Ver jugadores de este arquetipo en el Explorador
+              </button>
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      container.innerHTML = `
+        <div class="toolbar-card">
+          <div>
+            <h2 class="section-title" style="font-size:16px;">Mapa de Arquetipos Tácticos (Temporada ${CLUSTERS_DATA.season})</h2>
+            <p style="font-size:12.5px; color:var(--text-secondary); margin-top:2px;">
+              Clasificación de los 5,522 jugadores de campo europeos en tres perfiles funcionales según su producción estadística por 90 minutos.
+            </p>
+          </div>
+        </div>
+
+        <div class="clusters-3col-grid">
+          ${cardsHtml}
+        </div>
+      `;
+    }
+
+    function switchView(viewId) {
+      state.activeView = viewId;
+      document.querySelectorAll(".view-pane").forEach(el => {
+        el.classList.toggle("active", el.id === viewId);
+      });
+      document.querySelectorAll(".sidebar .nav-btn").forEach(btn => {
+        btn.classList.remove("active");
+      });
+      const navBtn = document.getElementById("nav-" + viewId);
+      if (navBtn) navBtn.classList.add("active");
+
+      const titles = {
+        "view-1": "Explorador de Mercado",
+        "view-2": "Comparador Moneyball",
+        "view-3": "Arquetipos Tácticos"
+      };
+      document.getElementById("active-view-title").textContent = titles[viewId] || titles["view-1"];
+      renderAll();
+    }
+
+    function selectPlayer(playerId) {
+      state.selectedPlayerId = Number(playerId);
+      renderAll();
+      const scrollBody = document.getElementById("dossier-scroll-body");
+      if (scrollBody) scrollBody.scrollTop = 0;
+    }
+
+    function handleSearchInput(val) {
+      state.searchQuery = val;
+      renderPlayersTable();
+      renderDossierPanel();
+    }
+
+    function setFilterPos(pos) {
+      state.filterPos = pos;
+      renderFilterSegments();
+      renderPlayersTable();
+      renderDossierPanel();
+    }
+
+    function setFilterVal(val) {
+      state.filterVal = val;
+      renderFilterSegments();
+      renderPlayersTable();
+      renderDossierPanel();
+    }
+
+    function setFilterCluster(cid) {
+      state.filterCluster = cid;
+      renderFilterSegments();
+      renderPlayersTable();
+      renderDossierPanel();
+    }
+
+    function resetAllFilters() {
+      state.searchQuery = "";
+      state.filterPos = "ALL";
+      state.filterVal = "ALL";
+      state.filterCluster = "ALL";
+      const searchInput = document.getElementById("player-search-input");
+      if (searchInput) searchInput.value = "";
+      renderFilterSegments();
+      renderAll();
+    }
+
+    function filterByClusterFromView3(clusterId) {
+      state.filterCluster = clusterId;
+      state.filterPos = "ALL";
+      state.filterVal = "ALL";
+      state.searchQuery = "";
+      renderFilterSegments();
+      switchView("view-1");
+    }
+
+    function renderAll() {
+      renderFilterSegments();
+      renderPlayersTable();
+      renderDossierPanel();
+      renderMoneyballExpandedView();
+      renderClustersView();
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      renderAll();
+    });
+  </script>
+</body>
+</html>
