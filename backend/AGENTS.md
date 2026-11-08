@@ -31,9 +31,10 @@ Run every uv command from `backend/`:
 backend/
 ├── src/delphos_backend/
 │   ├── core/           # Configuration, lifecycle, and connection pool
-│   ├── api/            # Route controllers grouped by resource (health, players, clusters)
+│   ├── api/            # Route controllers grouped by resource (health, players, clusters, reports)
 │   ├── schemas/        # Pydantic request/response models
 │   ├── repositories/   # SQL queries against PostgreSQL schemas
+│   ├── services/       # Local LLM context assembly and OpenAI-compatible HTTP client
 │   └── main.py         # FastAPI application factory
 ├── tests/              # Pytest test suite using httpx.AsyncClient
 ├── Dockerfile          # Production container build

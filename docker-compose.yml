@@ -57,6 +57,7 @@ services:
       DELPHOS_APP_DB_PASSWORD: ${DELPHOS_APP_DB_PASSWORD:-delphos_app_user_secret}
       DELPHOS_API_PORT: ${DELPHOS_API_PORT:-8000}
       DELPHOS_CORS_ORIGINS: ${DELPHOS_CORS_ORIGINS:-http://localhost,http://localhost:80,http://localhost:3000}
+      DELPHOS_LLM_API_URL: ${DELPHOS_LLM_API_URL:-http://inference-chat:8080/v1}
     ports:
       - "${DELPHOS_API_PORT:-8000}:8000"
     volumes:

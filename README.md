@@ -74,7 +74,7 @@ Each root file sits where its tool looks for it, so none of them can move into a
 | `migrations/` | Alembic migration environment and version scripts (`0001` to `0003`) defining schemas `analytics` and `app`. | Database schema evolution decoupled from application and pipeline code. |
 | `ml/` | The `delphos_ml` uv project: pipeline stages under `ml/src/`, unit tests in `ml/tests/`, stage outputs in `ml/data/<stage>/` (gitignored), and its own `pyproject.toml` and `uv.lock`. | Independent Python component for data ingest, cleaning, feature transformation, training, evaluation, and publishing. |
 
-Planned: `frontend/` (Flutter mobile client, scheduled for Week 7) and `llms/models/` (local GGUF weights for AI scouting reports). See [Repository layout](docs/ARCHITECTURE.md#repository-layout) in ARCHITECTURE.md for what each will hold.
+Planned: `frontend/` (Flutter Web client, scheduled for Week 7) and `llms/models/` (local GGUF weights for AI scouting reports). See [Repository layout](docs/ARCHITECTURE.md#repository-layout) in ARCHITECTURE.md for what each will hold.
 
 ## 4. Documentation
 

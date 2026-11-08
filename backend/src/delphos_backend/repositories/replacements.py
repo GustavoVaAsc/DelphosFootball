@@ -6,6 +6,8 @@ from typing import Any
 
 from psycopg import AsyncConnection
 
+from delphos_backend.repositories.players import build_club_logo_url
+
 
 async def get_player_replacements(
     conn: AsyncConnection, model_run_id: str, target_player_id: int
@@ -31,18 +33,26 @@ async def get_player_replacements(
         if not target:
             return None
 
-        # 2. Fetch up to 3 precalculated replacement candidates
+        # 2. Fetch up to 3 precalculated replacement candidates with bio/club metadata
         await cur.execute(
             """
             SELECT
                 r.rank, r.candidate_player_id, cand.name AS candidate_name,
-                r.position, r.similarity_score, r.euclidean_distance,
+                r.position, cand.country_of_citizenship AS candidate_country_of_citizenship,
+                cand.image_url AS candidate_image_url,
+                cs.club_id AS candidate_club_id, c.name AS candidate_club_name,
+                r.similarity_score, r.euclidean_distance,
                 r.candidate_market_value_eur, r.cost_savings_eur,
                 r.cost_ratio, r.candidate_fair_value_eur,
                 r.candidate_valuation_status
             FROM analytics.fct_replacements r
             JOIN analytics.dim_players cand
               ON cand.model_run_id = r.model_run_id AND cand.player_id = r.candidate_player_id
+            LEFT JOIN analytics.fct_player_seasons cs
+              ON cs.model_run_id = r.model_run_id
+             AND cs.player_id = r.candidate_player_id AND cs.season = r.season
+            LEFT JOIN analytics.dim_clubs c
+              ON c.model_run_id = r.model_run_id AND c.club_id = cs.club_id
             WHERE r.model_run_id = %s AND r.target_player_id = %s
             ORDER BY r.rank ASC;
             """,
@@ -52,5 +62,11 @@ async def get_player_replacements(
 
     return {
         **dict(target),
-        "replacements": [dict(row) for row in rows],
+        "replacements": [
+            {
+                **dict(row),
+                "candidate_club_logo_url": build_club_logo_url(row.get("candidate_club_id")),
+            }
+            for row in rows
+        ],
     }

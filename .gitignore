@@ -1,6 +1,8 @@
 # Local-only material (reference docs, personal AI tool settings), never committed
 /docs/complementos/
+/docs/design/
 /.claude/
+/.playwright-mcp/
 
 # Secrets and local configuration
 .env
