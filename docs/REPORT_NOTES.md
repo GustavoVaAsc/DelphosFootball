@@ -9,7 +9,9 @@
 5. [Transformación e ingeniería de atributos (`transform`)](#5-transformación-e-ingeniería-de-atributos-transform)
 6. [Entrenamiento de modelos y etiquetado (`train`)](#6-entrenamiento-de-modelos-y-etiquetado-train)
 7. [Evaluación, ineficiencia del mercado y reemplazos (`evaluate`)](#7-evaluación-ineficiencia-del-mercado-y-reemplazos-evaluate)
-8. [Referencias internas](#8-referencias-internas)
+8. [Persistencia, base de datos y publicación (`publish`)](#8-persistencia-base-de-datos-y-publicación-publish)
+9. [Discusión metodológica y análisis de casos límite](#9-discusión-metodológica-y-análisis-de-casos-límite)
+10. [Referencias internas](#10-referencias-internas)
 
 ---
 
@@ -249,15 +251,6 @@ Finalmente, la evaluación unificada de los cinco esquemas de minería de datos 
 
 En regresión, la cobertura contextual y posicional de `FULL` supera en `0.060` puntos de `RMSE` `log10` a la curvatura cuadrática sobre el subconjunto reducido `POLY_REDUCED`. En clasificación, el ensamblado de `300` árboles mantiene en `2025` una ventaja de `+0.0716` en `PR-AUC` (`+24.3%` relativo) y `+0.0641` en `ROC-AUC` sobre el árbol individual podado. En agrupamiento, los tres arquetipos tácticos (`cluster 0`: titulares de clubes con exposición UEFA y mayor aporte ofensivo, `20.3%`; `cluster 1`: rotación de bajo minutaje, `7.6%`; `cluster 2`: titulares domésticos regulares, `72.1%`) conservan en `2025` una silueta de `0.4176` sin reajuste. Las salidas quedan en `analysis/output/model_comparison/`.
 
-## 9. Referencias internas
-
-- [docs/CONTEXT.md](CONTEXT.md): propuesta base, estrategia KDD y calendario original.
-- [docs/ARCHITECTURE.md](ARCHITECTURE.md): arquitectura de software y registro de decisiones ADR-001 a ADR-014.
-- [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md): lista de decisiones de diseño de minería de datos (§3.1 a §3.18).
-- [docs/TRANSFORM_PLAN.md](TRANSFORM_PLAN.md): plan de trabajo de la etapa `transform` (conjuntos de atributos, preprocesador ajustado y experimentos E1 a E7).
-- [docs/WORK_PLAN.md](WORK_PLAN.md): comparativa entre calendario base y avance real, varianzas V-01 a V-03 y bitácora de decisiones.
-
-
 ## 8. Persistencia, base de datos y publicación (`publish`)
 
 ### H-19. Esquema relacional en PostgreSQL y protocolo de activación atómica (ADR-002, ADR-008, §3.14)
@@ -271,3 +264,22 @@ Las diez tablas analíticas se mapean exactamente desde los archivos Parquet de 
 Al concluir la totalidad del pipeline analítico y los endpoints de lectura del backend con holgura al inicio de la Semana 6, el equipo decidió formalmente el 2026-11-04 promover la generación de informes técnicos de scouting en lenguaje natural mediante un LLM local (`POST /reports/generate`) de "meta secundaria sujeta a tiempo" a alcance comprometido para la Semana 7.
 
 El reporte sintetizará el diagnóstico cuantitativo del jugador activo: perfil biográfico, métricas de desempeño por 90 minutos con contracción de Bayes, valor justo predicho por OLS, clasificación de subvaloración por Random Forest y arquetipo táctico de K-Means. Para garantizar reproducibilidad y privacidad sin costos de API externa, la inferencia operará sobre un contenedor local con `llama.cpp` sirviendo un modelo compacto cuantizado a 4 bits (`Qwen2.5-3B-Instruct` o `Llama-3.2-3B-Instruct`), desacoplado deliberadamente de la sonda de salud del backend (`/health/ready`) para que una sobrecarga del modelo de lenguaje jamás impida consultar las valuaciones analíticas de la base de datos.
+
+## 9. Discusión metodológica y análisis de casos límite
+
+### H-21. Diagnóstico de sobrevaloración por inactividad y límites del modelo: el caso Lisandro Martínez
+
+Al analizar las predicciones del modelo sobre la temporada activa 2025, resalta una aparente anomalía en el perfil del defensor central Lisandro Martínez (Manchester United, `player_id = 480762`): registra una tasación de mercado en Transfermarkt de €40.0M frente a un valor deportivo justo estimado por la regresión OLS de €1.19M, arrojando un residuo de `residual_log10 = -1.5278` y una clasificación inequívoca de sobrevalorado (`overvalued`). El análisis empírico de esta discrepancia revela cómo interactúan las restricciones metodológicas del KDD y documenta las limitaciones analíticas del proyecto de cara al reporte final:
+
+1. **Penalización por volumen tras inactividad (efecto lesiones):** En la ventana móvil de 365 días previa a la fecha de corte (`as_of_date = 2026-06-03`), el jugador acumuló únicamente 1,310 minutos (14 titularidades en 19 partidos disputados) como consecuencia directa de lesiones recurrentes de gravedad en metatarso y rodilla. En la función de producción del modelo lineal, un volumen de 1,300 minutos ubica al futbolista en el percentil de exposición propio de un suplente de rotación o fondo de armario, lejos de los 3,000 a 4,200 minutos que promedian los titulares indiscutidos de élite.
+2. **Contexto competitivo deprimido del club:** Durante esa misma ventana de observación, el Manchester United registró cifras colectivas desfavorables: 47.4% de victorias (`win_rate = 0.4737`), apenas 26.3% de porterías a cero (`clean_sheet_rate = 0.2632`) y 1.263 goles concedidos por partido. Dado que las variables de contexto defensivo penalizan a los zagueros de plantillas con baja solidez colectiva, la estimación del valor intrínseco se contrae aún más.
+3. **Aislamiento de la inercia de reputación y prima de liga:** El modelo excluyó conscientemente tanto el valor de mercado histórico (H-09) como la liga de pertenencia (H-13). De haberse incorporado el precio previo o el identificador de la Premier League (`GB1`), la regresión habría replicado mecánicamente la cotización mediática del activo o su estatus de campeón mundial. Al forzar una evaluación basada estrictamente en rendimiento deportivo reciente frente a precio, el modelo actúa como un detector objetivo de riesgo financiero para una dirección deportiva: pagar o retener un activo tasado en €40.0M con salario de estrella cuya producción efectiva reciente fue de 1,300 minutos representa una ineficiencia presupuestaria severa.
+4. **Limitación analítica en defensores para el reporte final:** El dataset público de Transfermarkt carece de métricas de eventos defensivos avanzados (duelos aéreos ganados, entradas con éxito, intercepciones, presiones y pases progresivos). Los centrales son juzgados casi exclusivamente por edad, minutos, titularidades y solidez global del equipo. Por ello, una baja prolongada por lesión erosiona de forma extrema la tasación estimada, constituyendo una limitación metodológica fundamental que debe explicarse en la discusión de resultados y en las líneas de trabajo futuro del informe.
+
+## 10. Referencias internas
+
+- [docs/CONTEXT.md](CONTEXT.md): propuesta base, estrategia KDD y calendario original.
+- [docs/ARCHITECTURE.md](ARCHITECTURE.md): arquitectura de software y registro de decisiones ADR-001 a ADR-014.
+- [docs/ML_ARCHITECTURE.md](ML_ARCHITECTURE.md): lista de decisiones de diseño de minería de datos (§3.1 a §3.18).
+- [docs/TRANSFORM_PLAN.md](TRANSFORM_PLAN.md): plan de trabajo de la etapa `transform` (conjuntos de atributos, preprocesador ajustado y experimentos E1 a E7).
+- [docs/WORK_PLAN.md](WORK_PLAN.md): comparativa entre calendario base y avance real, varianzas V-01 a V-03 y bitácora de decisiones.
