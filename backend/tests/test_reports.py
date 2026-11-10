@@ -2,12 +2,51 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi import HTTPException, status
 from httpx import AsyncClient
+
+from delphos_backend.services.llm_client import CompletionResult, InferenceTimeout, TokenUsage
+from delphos_backend.services.report_prompt import PROMPT_VERSION
+
+_DRAFT = {
+    "dictamen_financiero": {
+        "headline": "Margen favorable.",
+        "body": "Cotiza {market_value_eur} frente a {fair_value_eur}.",
+    },
+    "rendimiento": {
+        "headline": "Temporada sólida.",
+        "body": "Autor de {goals} goles en {minutes} minutos.",
+    },
+    "alternativas": {
+        "headline": "Sin alternativas cualificadas.",
+        "body": "Perfil {cluster_id} con {qualifying_count} pares.",
+        "candidatos": [],
+    },
+}
+
+
+def _completion(content: str) -> CompletionResult:
+    """A fake structured completion as llm_client would return it."""
+    return CompletionResult(
+        content=content,
+        reasoning_content=None,
+        usage=TokenUsage(),
+        timings=None,
+        model="qwen/qwen3.5-9b",
+    )
+
+
+def _stored_insert(cur: AsyncMock) -> object:
+    """The single INSERT into app.reports the route executed."""
+    matches = [
+        call for call in cur.execute.call_args_list if "INSERT INTO app.reports" in call.args[0]
+    ]
+    assert len(matches) == 1, "expected exactly one INSERT into app.reports"
+    return matches[0]
 
 
 @pytest.mark.asyncio
@@ -120,10 +159,8 @@ async def test_generate_report_calls_llm_and_persists(
     ]
     cur.fetchall.return_value = []
 
-    with patch(
-        "delphos_backend.api.reports.generate_llm_report_text",
-        new=AsyncMock(return_value="Generated executive scouting report."),
-    ):
+    with patch("delphos_backend.services.llm_reports.chat_completion") as chat:
+        chat.side_effect = [_completion(json.dumps(_DRAFT, ensure_ascii=False))]
         response = await client.post("/reports/generate", json={"player_id": 100})
 
     assert response.status_code == 200
@@ -131,11 +168,15 @@ async def test_generate_report_calls_llm_and_persists(
     assert data["id"] == 8
     assert data["player_name"] == "Lionel Messi"
     assert data["content"] == "Generated executive scouting report."
+    stored_content, source, llm_model, prompt_version = _stored_insert(cur).args[1][3:]
+    assert (source, llm_model, prompt_version) == ("llm", "qwen/qwen3.5-9b", PROMPT_VERSION)
+    assert "€45.0M" in stored_content  # {fair_value_eur} substituted from the fact card
+    assert chat.call_count == 1
     mock_db.commit.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_generate_report_llm_unavailable_returns_503_problem(
+async def test_generate_report_llm_unavailable_returns_deterministic_report(
     client: AsyncClient, mock_db: AsyncMock
 ) -> None:
     cur = mock_db.cursor.return_value.__aenter__.return_value
@@ -177,24 +218,32 @@ async def test_generate_report_llm_unavailable_returns_503_problem(
             "rf_undervalued_pred": True,
         },
         None,
+        {
+            "id": 9,
+            "player_id": 100,
+            "model_run_id": "run_test_001",
+            "report_type": "scouting",
+            "content": "Deterministic scouting report.",
+            "created_at": datetime(2026, 11, 7, 12, 5, tzinfo=UTC),
+            "source": "deterministic",
+            "llm_model": None,
+            "prompt_version": None,
+        },
     ]
 
-    with patch(
-        "delphos_backend.api.reports.generate_llm_report_text",
-        new=AsyncMock(
-            side_effect=HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="LLM inference service unavailable",
-            )
-        ),
-    ):
+    with patch("delphos_backend.services.llm_reports.chat_completion") as chat:
+        chat.side_effect = InferenceTimeout("timed out after 120s")
         response = await client.post("/reports/generate", json={"player_id": 100})
 
-    assert response.status_code == 503
-    assert response.headers["content-type"] == "application/problem+json"
-    problem = response.json()
-    assert problem["status"] == 503
-    assert "LLM inference service unavailable" in problem["detail"]
+    assert response.status_code == 200
+    data = response.json()
+    assert data["source"] == "deterministic"
+    assert data["llm_model"] is None
+    assert data["prompt_version"] is None
+    stored_content, source, llm_model, prompt_version = _stored_insert(cur).args[1][3:]
+    assert (source, llm_model, prompt_version) == ("deterministic", None, None)
+    assert stored_content.startswith("<p><strong>Dictamen Financiero:</strong>")
+    assert chat.call_count == 1
 
 
 @pytest.mark.asyncio

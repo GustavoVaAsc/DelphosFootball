@@ -31,6 +31,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 analysis = [
+    "httpx>=0.28.0",
     "matplotlib>=3.11.2",
     "seaborn>=0.13.2",
 ]

@@ -1,8 +1,9 @@
-"""Database repository queries for persisted AI scouting reports in app.reports.
+"""Database queries for AI scouting reports in app.reports.
 
-Input: Active model_run_id, player_id, report_id, and generated report content.
-Output: Report dictionary rows from app.reports joined with analytics.dim_players.
-Responsibility: Reads and writes scouting report records in the app schema.
+Input: player/run/report ids, generated content, and provenance. Output: report
+rows joined with analytics.dim_players. Responsibility: read and write
+scouting-report records in the app schema. The cache lookup lives in
+`report_cache.py`, which owns the provenance keys of a stored report.
 """
 
 from __future__ import annotations
@@ -12,42 +13,15 @@ from typing import Any
 from psycopg import AsyncConnection
 
 
-async def get_latest_player_report(
-    conn: AsyncConnection,
-    player_id: int,
-    model_run_id: str,
-    report_type: str = "scouting",
-) -> dict[str, Any] | None:
-    """Fetch the most recent report for a player and model run from app.reports."""
-    async with conn.cursor() as cur:
-        await cur.execute(
-            """
-            SELECT
-                r.id, r.player_id, p.name AS player_name,
-                r.model_run_id, r.report_type, r.content, r.created_at
-            FROM app.reports r
-            LEFT JOIN analytics.dim_players p
-              ON p.model_run_id = r.model_run_id AND p.player_id = r.player_id
-            WHERE r.player_id = %s AND r.model_run_id = %s AND r.report_type = %s
-            ORDER BY r.created_at DESC, r.id DESC
-            LIMIT 1;
-            """,
-            (player_id, model_run_id, report_type),
-        )
-        return await cur.fetchone()
-
-
-async def get_report_by_id(
-    conn: AsyncConnection,
-    report_id: int,
-) -> dict[str, Any] | None:
+async def get_report_by_id(conn: AsyncConnection, report_id: int) -> dict[str, Any] | None:
     """Fetch a single persisted scouting report by primary key id."""
     async with conn.cursor() as cur:
         await cur.execute(
             """
             SELECT
                 r.id, r.player_id, p.name AS player_name,
-                r.model_run_id, r.report_type, r.content, r.created_at
+                r.model_run_id, r.report_type, r.content, r.created_at,
+                r.source, r.llm_model, r.prompt_version
             FROM app.reports r
             LEFT JOIN analytics.dim_players p
               ON p.model_run_id = r.model_run_id AND p.player_id = r.player_id
@@ -77,7 +51,8 @@ async def list_reports(
             f"""
             SELECT
                 r.id, r.player_id, p.name AS player_name,
-                r.model_run_id, r.report_type, r.content, r.created_at
+                r.model_run_id, r.report_type, r.content, r.created_at,
+                r.source, r.llm_model, r.prompt_version
             FROM app.reports r
             LEFT JOIN analytics.dim_players p
               ON p.model_run_id = r.model_run_id AND p.player_id = r.player_id
@@ -97,16 +72,21 @@ async def save_report(
     content: str,
     report_type: str = "scouting",
     player_name: str | None = None,
+    source: str = "llm",
+    llm_model: str | None = None,
+    prompt_version: str | None = None,
 ) -> dict[str, Any]:
-    """Insert a newly generated scouting report into app.reports and commit."""
+    """Insert a generated report with its provenance and commit (LLM_PLAN §12)."""
     async with conn.cursor() as cur:
         await cur.execute(
             """
-            INSERT INTO app.reports (player_id, model_run_id, report_type, content)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id, player_id, model_run_id, report_type, content, created_at;
+            INSERT INTO app.reports
+                (player_id, model_run_id, report_type, content, source, llm_model, prompt_version)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, player_id, model_run_id, report_type, content, created_at,
+                source, llm_model, prompt_version;
             """,
-            (player_id, model_run_id, report_type, content),
+            (player_id, model_run_id, report_type, content, source, llm_model, prompt_version),
         )
         row = await cur.fetchone()
     await conn.commit()

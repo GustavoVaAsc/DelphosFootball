@@ -65,6 +65,7 @@ name = "delphos-backend"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "delphos-domain" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "psycopg", extra = ["binary"] },
@@ -83,6 +84,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "delphos-domain", directory = "../ml/src" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.0" },
@@ -98,6 +100,11 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.24.0" },
     { name = "ruff", specifier = ">=0.8.0" },
 ]
+
+[[package]]
+name = "delphos-domain"
+version = "0.1.0"
+source = { directory = "../ml/src" }
 
 [[package]]
 name = "fastapi"

@@ -1,0 +1,28 @@
+[project]
+name = "delphos-domain"
+version = "0.1.0"
+description = "DelphosFootball Spanish football vocabulary: positions, leagues, valuation statuses, and cluster archetypes."
+license = "BSD-3-Clause"
+requires-python = ">=3.13,<3.14"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.10.7,<0.11"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# The project root is ml/src, so the package itself is the module directory; this keeps
+# `delphos_domain` importable from ml/src the way `delphos_ml` is.
+module-root = ""
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+# This config also governs the neighbouring delphos_ml package (nearest [tool.ruff] wins
+# for files under ml/src), so the roots keep both packages first-party, as ml/pyproject.toml does.
+src = ["."]
+# Python only: ruff 0.17 also formats Markdown by default, and the docs are hand-written.
+include = ["*.py", "*.pyi", "**/pyproject.toml"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

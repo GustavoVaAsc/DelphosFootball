@@ -5,6 +5,12 @@ WORKDIR /app/backend
 # Copy backend project files
 COPY backend/pyproject.toml backend/README.md ./
 
+# Copy the delphos-domain path dependency to where backend/pyproject.toml's
+# [tool.uv.sources] points (`../ml/src` -> `/app/ml/src`). It is dependency-free,
+# so it adds nothing to the install tree beyond its own two modules.
+COPY ml/src/pyproject.toml ../ml/src/
+COPY ml/src/delphos_domain ../ml/src/delphos_domain
+
 # Install dependencies
 RUN uv sync --no-dev
 

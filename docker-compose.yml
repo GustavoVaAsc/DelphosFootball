@@ -58,6 +58,9 @@ services:
       DELPHOS_API_PORT: ${DELPHOS_API_PORT:-8000}
       DELPHOS_CORS_ORIGINS: ${DELPHOS_CORS_ORIGINS:-http://localhost,http://localhost:80,http://localhost:3000}
       DELPHOS_LLM_API_URL: ${DELPHOS_LLM_API_URL:-http://inference-chat:8080/v1}
+      # Must equal the model id the inference server serves (LLAMA_ARG_ALIAS
+      # below); a mismatch makes every LLM request fail to resolve the model.
+      DELPHOS_LLM_MODEL_NAME: ${DELPHOS_LLM_MODEL_NAME:-qwen/qwen3.5-9b}
     ports:
       - "${DELPHOS_API_PORT:-8000}:8000"
     volumes:
@@ -90,13 +93,40 @@ services:
       - delphos-network
 
   inference-chat:
-    image: ghcr.io/ggml-org/llama.cpp:server
+    # The image tag selects the CUDA or the CPU build of the same server, so the
+    # same compose file serves both. Overridable through LLAMA_ARG_IMAGE.
+    image: ghcr.io/ggml-org/llama.cpp:${LLAMA_ARG_IMAGE:-server-cuda}
     container_name: delphos-inference-chat
     environment:
       LLAMA_ARG_HOST: 0.0.0.0
       LLAMA_ARG_PORT: 8080
+      # The model file inside the mounted directory. Overridable so the same
+      # compose file serves the CUDA and the CPU variant of the model.
+      LLAMA_ARG_MODEL: ${LLAMA_ARG_MODEL:-/models/Qwen3.5-9B-Q5_K_M.gguf}
+      # The id llama.cpp reports for the loaded model. It MUST equal the
+      # DELPHOS_LLM_MODEL_NAME the backend sends in the request body, because
+      # the request is routed by that id.
+      # Verify after the stack starts:
+      #   curl http://inference-chat:8080/v1/models
+      # and confirm the returned "id" equals the id the backend sends.
+      LLAMA_ARG_ALIAS: ${DELPHOS_LLM_MODEL_NAME:-qwen/qwen3.5-9b}
+      LLAMA_ARG_CTX_SIZE: 32768
+      LLAMA_ARG_N_PARALLEL: 4
+      LLAMA_ARG_KV_UNIFIED: "on"
+      LLAMA_ARG_N_GPU_LAYERS: 99
+      LLAMA_ARG_FLASH_ATTN: on
+      LLAMA_ARG_JINJA: on
+      LLAMA_ARG_REASONING: auto
+      LLAMA_ARG_CACHE_TYPE_K: q8_0
+      LLAMA_ARG_CACHE_TYPE_V: q8_0
     volumes:
       - ./llms/models:/models:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     networks:
       - delphos-network
 
