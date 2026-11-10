@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from urllib.parse import quote_plus
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_PREFIX = "DELPHOS_"
@@ -39,11 +40,21 @@ class Settings(BaseSettings):
     artifacts_dir: Path | None = None
 
     # Local LLM inference service settings (llama.cpp OpenAI-compatible HTTP)
-    llm_api_url: str = "http://localhost:8080/v1"
-    llm_model_name: str = "local-gguf"
-    llm_timeout_seconds: float = 45.0
-    llm_max_tokens: int = 512
-    llm_temperature: float = 0.2
+    llm_api_url: str = "http://inference-chat:8080/v1"  # Base URL of the llama.cpp server
+    llm_model_name: str = "qwen/qwen3.5-9b"  # Model id sent in the request body
+    llm_timeout_seconds: float = 120.0  # Per-request timeout in seconds
+    llm_max_tokens: int = Field(default=512, ge=1, le=8192)  # Chat completion token cap
+    llm_report_max_tokens: int = Field(default=1400, ge=1, le=8192)  # Report token cap
+    llm_temperature: float = 0.7  # Sampling temperature
+    llm_top_p: float = 0.8  # Nucleus sampling threshold
+    llm_top_k: int = 20  # Top-k sampling cutoff
+    llm_presence_penalty: float = 0.0  # Repetition penalty
+    llm_enable_thinking: bool = False  # Per-request thinking toggle
+    llm_context_size: int = Field(default=32768, ge=1024, le=131072)  # Mirrored chat budget
+    llm_max_tool_iterations: int = Field(default=4, ge=0, le=10)  # Chat tool-loop cap
+    llm_max_concurrent_llm_calls: int = Field(default=4, ge=1, le=64)  # Chat LLM concurrency cap
+    llm_chat_history_turns: int = Field(default=8, ge=1, le=50)  # Chat history cap in turns
+    llm_report_prompt_version: str = "v1-t0.7-p0.8-k20"  # Report provenance string
 
     @property
     def cors_origins_list(self) -> list[str]:

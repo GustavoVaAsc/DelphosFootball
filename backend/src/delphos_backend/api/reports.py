@@ -1,8 +1,9 @@
 """API route handlers for AI-generated scouting reports (/reports).
 
-Input: ReportGenerateRequest or query filters for saved reports.
-Output: ReportResponse and ReportListResponse payloads.
-Responsibility: Orchestrates context lookup, local LLM generation, and app.reports persistence.
+Input: ReportGenerateRequest or query filters for saved reports. Output:
+ReportResponse and ReportListResponse. Responsibility: orchestrate fact lookup,
+the report pipeline (LLM with deterministic fallback) and persistence; the pipeline
+never raises for an LLM failure, so POST /reports/generate answers 200 (LLM_PLAN §7.1).
 """
 
 from __future__ import annotations
@@ -12,12 +13,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from psycopg import AsyncConnection
 
+from delphos_backend.core.config import get_settings
 from delphos_backend.core.db import get_db
 from delphos_backend.repositories.active_run import get_active_model_run
 from delphos_backend.repositories.players import get_player_profile, get_player_valuation
 from delphos_backend.repositories.replacements import get_player_replacements
 from delphos_backend.repositories.reports import (
-    get_latest_player_report,
     get_report_by_id,
     list_reports,
     save_report,
@@ -27,10 +28,9 @@ from delphos_backend.schemas.reports import (
     ReportListResponse,
     ReportResponse,
 )
-from delphos_backend.services.llm_reports import (
-    assemble_player_scouting_context,
-    generate_llm_report_text,
-)
+from delphos_backend.services import llm_reports
+from delphos_backend.services.report_cache import find_cached_report
+from delphos_backend.services.report_prompt import build_prompt_version
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
@@ -48,26 +48,32 @@ async def _resolve_active_run_id(conn: AsyncConnection) -> str:
 @router.post(
     "/generate",
     response_model=ReportResponse,
-    summary="Generate or retrieve an AI scouting report for a player",
+    summary="Generate or retrieve a scouting report for a player",
 )
 async def generate_report(
     body: ReportGenerateRequest,
     conn: Annotated[AsyncConnection, Depends(get_db)],
 ) -> ReportResponse:
-    """Generate a natural-language scouting report using the local GGUF inference service."""
+    """Generate a scouting report; any LLM failure falls back, so this returns 200."""
     run_id = await _resolve_active_run_id(conn)
+    # One Settings for the request: the cache key and the stored provenance come from it.
+    cfg = get_settings()
 
     if not body.force_regenerate:
-        cached = await get_latest_player_report(conn, body.player_id, run_id, body.report_type)
+        cached = await find_cached_report(
+            conn,
+            player_id=body.player_id,
+            model_run_id=run_id,
+            report_type=body.report_type,
+            llm_model=cfg.llm_model_name,
+            prompt_version=build_prompt_version(cfg),
+        )
         if cached:
             return ReportResponse(**cached)
 
     profile = await get_player_profile(conn, run_id, body.player_id)
     if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found",
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
 
     valuation = await get_player_valuation(conn, run_id, body.player_id)
     if not valuation:
@@ -77,16 +83,18 @@ async def generate_report(
         )
 
     replacements = await get_player_replacements(conn, run_id, body.player_id)
-    context_payload = assemble_player_scouting_context(profile, valuation, replacements)
-    content = await generate_llm_report_text(context_payload)
+    report = await llm_reports.generate_report(profile, valuation, replacements, settings=cfg)
 
     saved = await save_report(
         conn,
         player_id=body.player_id,
         model_run_id=run_id,
-        content=content,
+        content=report.text,
         report_type=body.report_type,
         player_name=profile["name"],
+        source=report.source,
+        llm_model=report.llm_model,
+        prompt_version=report.prompt_version,
     )
     return ReportResponse(**saved)
 

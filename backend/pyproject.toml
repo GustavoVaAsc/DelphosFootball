@@ -5,6 +5,7 @@ description = "DelphosFootball REST API backend serving player valuations, repla
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "delphos-domain",
     "fastapi>=0.115.0",
     "httpx>=0.28.0",
     "psycopg[binary]>=3.2.0",
@@ -41,4 +42,7 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.uv.sources]
+delphos-domain = { path = "../ml/src" }
 
