@@ -1,0 +1,13 @@
+# The image needs only the app sources, its assets, the nginx templates and
+# the lockfile. Secrets never enter the build context.
+.env
+*.env
+design-preview/
+.agents/
+build/
+.dart_tool/
+.idea/
+*.iml
+.flutter-plugins-dependencies
+Dockerfile
+.dockerignore

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <!--
+    The base href is replaced by the value of `flutter build --base-href`;
+    it must start and end with a slash. The app is served from the root.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="DelphosFootball: herramienta de dirección deportiva para detectar jugadores infravalorados.">
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="DelphosFootball">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>DelphosFootball · Dirección Deportiva</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    /* Paper ground while the app loads, so the first frame does not flash white. */
+    html, body { margin: 0; background-color: #F4F2EC; }
+    /* Static loading line (DESIGN.md §5: no animation). Archivo is not loaded
+       yet, so it uses the system sans-serif stack. flutter_bootstrap.js removes
+       it on the first frame. */
+    #app-loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #13233A;
+      font: 500 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="app-loading" role="status">Cargando DelphosFootball…</div>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

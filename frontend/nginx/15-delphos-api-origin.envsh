@@ -1,0 +1,19 @@
+#!/bin/sh
+# Derives DELPHOS_API_ORIGIN (scheme://host[:port]) from DELPHOS_API_URL for
+# the CSP connect-src in security-headers.inc.template. The nginx image
+# sources *.envsh files from /docker-entrypoint.d/ before its
+# 20-envsubst-on-templates.sh step, so the export reaches the templates.
+#
+# A URL that is not http(s)://host[:port][/path] stops the container: an
+# empty or wrong connect-src would block every API call silently.
+
+delphos_api_origin=$(printf '%s' "${DELPHOS_API_URL:-}" |
+  sed -nE 's#^(https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?)(/.*)?$#\1#p')
+
+if [ -z "$delphos_api_origin" ]; then
+  echo "$0: DELPHOS_API_URL '${DELPHOS_API_URL:-}' is not an http(s) URL; refusing to start" >&2
+  exit 1
+fi
+
+export DELPHOS_API_ORIGIN="$delphos_api_origin"
+echo "$0: CSP connect-src allows $DELPHOS_API_ORIGIN"

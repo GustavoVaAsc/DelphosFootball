@@ -32,9 +32,9 @@ This file is the global guide: conventions that hold everywhere in the repositor
 
 - [ml/AGENTS.md](ml/AGENTS.md): the ML component in `ml/` and the analysis scripts in `analysis/` (the `delphos_ml` package, the pipeline CLI, its tests, its stage outputs, the `analysis` dependency group, and their dev commands).
 - [backend/AGENTS.md](backend/AGENTS.md): the FastAPI backend component in `backend/` (the `delphos_backend` package, read endpoints, Dockerfile, tests, and dev commands).
-- `frontend/AGENTS.md`: added when that component lands in week 7.
+- [frontend/AGENTS.md](frontend/AGENTS.md): the Flutter web app in `frontend/` (the `delphos_frontend` package, its layered layout, the Docker build, tests, and dev commands).
 
-Each Python component is its own uv project; there is no root workspace (ADR-013 in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)). Run uv commands from within the relevant component directory (`ml/` or `backend/`).
+Each Python component is its own uv project; there is no root workspace (ADR-013 in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)). Run uv commands from within the relevant component directory (`ml/` or `backend/`). The Flutter app is its own pub package; run `flutter` commands from `frontend/`.
 
 ## 4. Team conventions
 
@@ -56,12 +56,13 @@ Each Python component is its own uv project; there is no root workspace (ADR-013
 
 ## 5. Dev commands
 
-Run every uv command from `ml/`, not from the repo root; Python tooling is scoped per component. The command table lives in [ml/AGENTS.md](ml/AGENTS.md).
+Run every uv command from `ml/`, not from the repo root; Python tooling is scoped per component. The command table lives in [ml/AGENTS.md](ml/AGENTS.md). The backend's commands are in [backend/AGENTS.md](backend/AGENTS.md) and the Flutter app's in [frontend/AGENTS.md](frontend/AGENTS.md).
 
 ## 6. See also
 
 - [README.md](README.md)
 - [ml/AGENTS.md](ml/AGENTS.md): the ML component's dev commands, layout, and pipeline conventions.
+- [frontend/AGENTS.md](frontend/AGENTS.md): the Flutter app's dev commands, layout, and conventions.
 - [docs/CONTEXT.md](docs/CONTEXT.md)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [docs/ML_ARCHITECTURE.md](docs/ML_ARCHITECTURE.md)
