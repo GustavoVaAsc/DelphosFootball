@@ -52,6 +52,7 @@ async def test_live_full_api_flow() -> None:
             assert clusters_data["model_run_id"] == run_id
             assert len(clusters_data["clusters"]) == 3
             assert clusters_data["clusters"][0]["player_count"] > 0
+            assert clusters_data["as_of_date"] is not None
 
             # 3. Player search & filtering
             res_players = await client.get("/players?page=1&page_size=10&cluster_id=0")
@@ -62,6 +63,8 @@ async def test_live_full_api_flow() -> None:
             assert len(players_data["items"]) == 10
             for item in players_data["items"]:
                 assert item["cluster_id"] == 0
+                assert item["age"] is not None
+                assert "fair_value_eur" in item
                 assert item["cluster_name"] == "Attacking Creators & Scorers"
 
             # 4. Target player lookup (Erling Haaland, player_id=418560)

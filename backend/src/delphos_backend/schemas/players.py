@@ -21,7 +21,9 @@ class PlayerSummary(BaseModel):
     club_name: str | None = None
     club_logo_url: str | None = None
     market_value_eur: float | None = None
+    fair_value_eur: float | None = None
     valuation_status: str | None = None
+    age: float | None = None
     cluster_id: int | None = None
     cluster_name: str | None = None
     image_url: str | None = None

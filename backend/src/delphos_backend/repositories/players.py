@@ -94,7 +94,8 @@ async def list_players(
                 p.player_id, p.name, p.first_name, p.last_name,
                 p.position, p.sub_position, p.country_of_citizenship, p.image_url,
                 s.club_id, c.name AS club_name,
-                pred.market_value_eur, pred.valuation_status, cl.cluster_id
+                pred.market_value_eur, pred.fair_value_eur, pred.valuation_status,
+                s.age, cl.cluster_id
             {base_joins}
             WHERE {where_sql}
             ORDER BY pred.market_value_eur DESC NULLS LAST, p.name ASC

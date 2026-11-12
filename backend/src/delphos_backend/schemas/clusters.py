@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from pydantic import BaseModel
 
 
@@ -22,4 +24,5 @@ class ClusterListResponse(BaseModel):
 
     model_run_id: str
     season: int
+    as_of_date: date | None = None
     clusters: list[ClusterArchetype]

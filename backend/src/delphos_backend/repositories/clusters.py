@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from psycopg import AsyncConnection
@@ -13,6 +14,21 @@ CLUSTER_NAMES: dict[int, str] = {
     1: "Balanced Box-to-Box & Flank Runners",
     2: "Defensive Anchors & Low-Output Outfielders",
 }
+
+
+async def get_clusters_as_of_date(conn: AsyncConnection, model_run_id: str) -> date | None:
+    """Return the latest data date across the active season's player-season rows."""
+    async with conn.cursor() as cur:
+        await cur.execute(
+            """
+            SELECT MAX(as_of_date) AS as_of_date
+            FROM analytics.fct_player_seasons
+            WHERE model_run_id = %s AND season = %s;
+            """,
+            (model_run_id, ACTIVE_SEASON),
+        )
+        row = await cur.fetchone()
+    return row["as_of_date"] if row else None
 
 
 async def get_clusters_summary(conn: AsyncConnection, model_run_id: str) -> list[dict[str, Any]]:
