@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from unittest.mock import AsyncMock
 
 import pytest
@@ -11,11 +12,10 @@ from httpx import AsyncClient
 @pytest.mark.asyncio
 async def test_list_clusters_success(client: AsyncClient, mock_db: AsyncMock) -> None:
     cur = mock_db.cursor.return_value.__aenter__.return_value
-    cur.fetchone.return_value = {
-        "model_run_id": "run_test_001",
-        "dataset_version": 679,
-        "activated_at": None,
-    }
+    cur.fetchone.side_effect = [
+        {"model_run_id": "run_test_001", "dataset_version": 679, "activated_at": None},
+        {"as_of_date": date(2026, 6, 5)},
+    ]
     cur.fetchall.return_value = [
         {
             "cluster_id": 0,
@@ -47,6 +47,7 @@ async def test_list_clusters_success(client: AsyncClient, mock_db: AsyncMock) ->
     assert response.status_code == 200
     data = response.json()
     assert data["model_run_id"] == "run_test_001"
+    assert data["as_of_date"] == "2026-06-05"
     assert len(data["clusters"]) == 3
     assert data["clusters"][0]["name"] == "Attacking Creators & Scorers"
     assert data["clusters"][0]["player_count"] == 1200

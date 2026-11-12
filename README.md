@@ -71,10 +71,11 @@ Each root file sits where its tool looks for it, so none of them can move into a
 | `artifacts/` | Staged and active versioned model bundles (`artifacts/<model_run_id>/`) with verified SHA-256 integrity and metadata ([ADR-006](docs/ARCHITECTURE.md#adr-006-file-based-model-artifacts-over-an-external-registry)). | Persisted storage for trained model weights and preprocessor pipelines. |
 | `backend/` | The `delphos_backend` uv project: FastAPI service serving player valuations, tactical replacements, and cluster profiles from PostgreSQL ([ADR-002](docs/ARCHITECTURE.md#adr-002-fastapi-backend-over-monolithic-frameworks), [ADR-013](docs/ARCHITECTURE.md#adr-013-per-component-uv-projects-over-a-root-uv-workspace)). | Independent component with its own dependencies, Dockerfile, and test suite. |
 | `docs/` | The project documents; see [Documentation](#4-documentation). | One folder keeps the architecture, ML decisions, and reports together. |
+| `frontend/` | The Flutter web app (`delphos_frontend`) and the HTML design preview it copies; commands in [frontend/AGENTS.md](frontend/AGENTS.md). | Independent component with its own pub package, lockfile, Dockerfile, and tests. |
 | `migrations/` | Alembic migration environment and version scripts (`0001` to `0003`) defining schemas `analytics` and `app`. | Database schema evolution decoupled from application and pipeline code. |
 | `ml/` | The `delphos_ml` uv project: pipeline stages under `ml/src/`, unit tests in `ml/tests/`, stage outputs in `ml/data/<stage>/` (gitignored), and its own `pyproject.toml` and `uv.lock`. | Independent Python component for data ingest, cleaning, feature transformation, training, evaluation, and publishing. |
 
-Planned: `frontend/` (Flutter Web client, scheduled for Week 7) and `llms/models/` (local GGUF weights for AI scouting reports). See [Repository layout](docs/ARCHITECTURE.md#repository-layout) in ARCHITECTURE.md for what each will hold.
+Planned: `llms/models/` (local GGUF weights for AI scouting reports). See [Repository layout](docs/ARCHITECTURE.md#repository-layout) in ARCHITECTURE.md for what it will hold.
 
 ## 4. Documentation
 

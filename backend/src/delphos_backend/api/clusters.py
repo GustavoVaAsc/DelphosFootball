@@ -9,7 +9,11 @@ from psycopg import AsyncConnection
 
 from delphos_backend.core.db import get_db
 from delphos_backend.repositories.active_run import get_active_model_run
-from delphos_backend.repositories.clusters import ACTIVE_SEASON, get_clusters_summary
+from delphos_backend.repositories.clusters import (
+    ACTIVE_SEASON,
+    get_clusters_as_of_date,
+    get_clusters_summary,
+)
 from delphos_backend.schemas.clusters import ClusterArchetype, ClusterListResponse
 
 router = APIRouter(prefix="/clusters", tags=["Clusters"])
@@ -29,8 +33,10 @@ async def list_clusters(
 
     run_id = active_run["model_run_id"]
     clusters_data = await get_clusters_summary(conn, run_id)
+    as_of_date = await get_clusters_as_of_date(conn, run_id)
     return ClusterListResponse(
         model_run_id=run_id,
         season=ACTIVE_SEASON,
+        as_of_date=as_of_date,
         clusters=[ClusterArchetype(**c) for c in clusters_data],
     )

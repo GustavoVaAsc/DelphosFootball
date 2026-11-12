@@ -1,0 +1,46 @@
+name: delphos_frontend
+description: "DelphosFootball scouting web app."
+publish_to: 'none'
+version: 0.1.0+1
+
+# Exact pins (ARCHITECTURE.md §4.1): the SDK and every direct dependency are
+# bumped only through an explicit dependency-bump commit.
+environment:
+  sdk: 3.13.4
+  flutter: 3.47.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_web_plugins:
+    sdk: flutter
+  flutter_widget_from_html_core: 0.17.4
+  go_router: 18.1.4
+  html: 0.15.7
+  http: 1.6.0
+  material_ui: 1.11.0
+  provider: 6.1.5+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: 6.0.0
+
+flutter:
+  uses-material-design: false
+
+  # The flag set and the font licences ship with every build (ADR-026).
+  assets:
+    - assets/flags/
+    - assets/fonts/archivo/OFL.txt
+    - assets/fonts/source_serif_4/OFL.txt
+
+  fonts:
+    - family: Archivo
+      fonts:
+        - asset: assets/fonts/archivo/Archivo-Variable.ttf
+    - family: SourceSerif4
+      fonts:
+        - asset: assets/fonts/source_serif_4/SourceSerif4-Variable.ttf
+        - asset: assets/fonts/source_serif_4/SourceSerif4-Italic-Variable.ttf
+          style: italic

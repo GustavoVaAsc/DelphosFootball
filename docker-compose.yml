@@ -83,9 +83,30 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # Compiled into the web build (ADR-029). The browser calls the API
+        # from the user's machine, so this is the host URL of the backend,
+        # never the compose-internal http://backend:8000.
+        DELPHOS_API_URL: ${DELPHOS_API_URL:-http://localhost:${DELPHOS_API_PORT:-8000}}
     container_name: delphos-frontend
+    environment:
+      # The same URL at runtime: nginx derives the CSP connect-src from it.
+      DELPHOS_API_URL: ${DELPHOS_API_URL:-http://localhost:${DELPHOS_API_PORT:-8000}}
+    # Unprivileged nginx listens on 8080; the app is published on the host's
+    # loopback only.
     ports:
-      - "80:80"
+      - "127.0.0.1:80:8080"
+    # Read-only root; nginx writes only its pid and temp files (/tmp), its
+    # cache, and the rendered templates (/etc/nginx/conf.d).
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /etc/nginx/conf.d
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       backend:
         condition: service_healthy

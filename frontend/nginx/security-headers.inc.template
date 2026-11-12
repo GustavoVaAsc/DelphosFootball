@@ -1,0 +1,19 @@
+# Security headers for every response (ADR-026, ADR-029). Rendered into
+# /etc/nginx/conf.d/security-headers.inc; the .inc name keeps it out of the
+# image's `include conf.d/*.conf`, so it applies only where it is included.
+#
+# The policy is enforced:
+# - script-src: the build's own scripts; 'wasm-unsafe-eval' lets CanvasKit
+#   compile its WebAssembly. The build uses --csp, so dart2js emits no eval.
+# - style-src 'unsafe-inline': the engine sets inline styles on its DOM.
+# - img-src and connect-src: the dataset's two image hosts. Image.network
+#   fetches portraits and crests as bytes (both hosts send
+#   Access-Control-Allow-Origin: *) and CanvasKit decodes them, so the hosts
+#   need connect-src as well as img-src. Keep both lists in sync with
+#   allowedImageHosts in lib/data/models/image_url_allowlist.dart.
+# - connect-src also allows this origin and the API origin, which
+#   15-delphos-api-origin.envsh derives from DELPHOS_API_URL.
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://img.a.transfermarkt.technology https://tmssl.akamaized.net; font-src 'self'; connect-src 'self' ${DELPHOS_API_ORIGIN} https://img.a.transfermarkt.technology https://tmssl.akamaized.net; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header Referrer-Policy "no-referrer" always;

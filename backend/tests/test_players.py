@@ -31,7 +31,9 @@ async def test_list_players(client: AsyncClient, mock_db: AsyncMock) -> None:
             "club_id": 1,
             "club_name": "Inter Miami",
             "market_value_eur": 25000000.0,
+            "fair_value_eur": 45000000.0,
             "valuation_status": "undervalued",
+            "age": 37.0,
             "cluster_id": 0,
         }
     ]
@@ -49,6 +51,8 @@ async def test_list_players(client: AsyncClient, mock_db: AsyncMock) -> None:
         data["items"][0]["club_logo_url"] == "https://tmssl.akamaized.net/images/wappen/head/1.png"
     )
     assert data["items"][0]["valuation_status"] == "undervalued"
+    assert data["items"][0]["fair_value_eur"] == 45000000.0
+    assert data["items"][0]["age"] == 37.0
     assert data["items"][0]["cluster_name"] == "Attacking Creators & Scorers"
 
 
