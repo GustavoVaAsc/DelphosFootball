@@ -35,81 +35,72 @@ class SelectorSuggestions extends StatelessWidget {
         : vm.results.isEmpty
         ? 'Ningún jugador con ese nombre.'
         : null;
-    return Semantics(
-      liveRegion: true,
-      container: true,
-      child: Container(
-        width: width,
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          color: DelphosColors.surface,
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(color: DelphosColors.rule),
-          boxShadow: const [
-            BoxShadow(
-              color: DelphosColors.floatShadow,
-              offset: Offset(0, 2),
-              blurRadius: 6,
-            ),
-          ],
-        ),
-        child: message != null
-            ? Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                child: Text(message, style: muted),
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = 0; i < vm.results.length; i++)
-                    Semantics(
-                      button: true,
-                      selected: i == vm.highlighted,
-                      child: GestureDetector(
-                        onTap: () => onPick(vm.results[i].id),
-                        child: MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: Container(
-                            color: i == vm.highlighted
-                                ? DelphosColors.selectedBg
-                                : null,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  vm.results[i].name,
-                                  style: DelphosText.ui(
-                                    weight: FontWeight.w600,
-                                  ),
+    return Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: DelphosColors.surface,
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: DelphosColors.rule),
+        boxShadow: const [
+          BoxShadow(
+            color: DelphosColors.floatShadow,
+            offset: Offset(0, 2),
+            blurRadius: 6,
+          ),
+        ],
+      ),
+      child: message != null
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Text(message, style: muted),
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < vm.results.length; i++)
+                  Semantics(
+                    button: true,
+                    selected: i == vm.highlighted,
+                    child: GestureDetector(
+                      onTap: () => onPick(vm.results[i].id),
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: Container(
+                          color: i == vm.highlighted
+                              ? DelphosColors.selectedBg
+                              : null,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                vm.results[i].name,
+                                style: DelphosText.ui(weight: FontWeight.w600),
+                              ),
+                              Text(
+                                [
+                                  ?vm.results[i].clubName,
+                                  formatEur(vm.results[i].marketValueEur),
+                                ].join(' · '),
+                                style: DelphosText.ui(
+                                  size: TypeScale.secondary,
+                                  color: DelphosColors.ink2,
+                                  tabular: true,
                                 ),
-                                Text(
-                                  [
-                                    ?vm.results[i].clubName,
-                                    formatEur(vm.results[i].marketValueEur),
-                                  ].join(' · '),
-                                  style: DelphosText.ui(
-                                    size: TypeScale.secondary,
-                                    color: DelphosColors.ink2,
-                                    tabular: true,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                ],
-              ),
-      ),
+                  ),
+              ],
+            ),
     );
   }
 }

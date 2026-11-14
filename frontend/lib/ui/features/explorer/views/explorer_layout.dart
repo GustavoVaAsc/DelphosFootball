@@ -73,22 +73,31 @@ class ExplorerLayout extends StatelessWidget {
         tableFocus: tableFocus,
         datasetTotal: datasetTotal,
       );
+      // Rebuilds the panel alone on a dossier notification; the table and
+      // filter bar depend only on [vm].
       final panel = Focus(
         focusNode: dossierFocus,
-        child: DossierPanel(vm: dossier, onClose: vm.closeDossier),
-      );
-      content = switch ((vm.query.isDossierOpen, presentation)) {
-        (false, _) => table,
-        (true, DossierPresentation.fullPage) => panel,
-        (true, DossierPresentation.sidePanel) => Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: 20,
-          children: [
-            Expanded(child: table),
-            SizedBox(width: 440, child: panel),
-          ],
+        child: ListenableBuilder(
+          listenable: dossier,
+          builder: (context, _) =>
+              DossierPanel(vm: dossier, onClose: vm.closeDossier),
         ),
-      };
+      );
+      final sidePanel =
+          vm.query.isDossierOpen &&
+          presentation == DossierPresentation.sidePanel;
+      content = vm.query.isDossierOpen && !sidePanel
+          ? panel
+          : Row(
+              // The table is always the Row's first child, so opening and
+              // closing the side panel keeps its State and scroll offset.
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 20,
+              children: [
+                Expanded(child: table),
+                if (sidePanel) SizedBox(width: 440, child: panel),
+              ],
+            );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
