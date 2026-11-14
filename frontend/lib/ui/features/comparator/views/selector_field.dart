@@ -1,7 +1,7 @@
 /// The comparator selector's search field (DESIGN.md §4): a 36 px control
 /// with the search glyph and the "Buscar jugador" hint, and a focus ring
-/// while it has focus. The keys and the suggestion list belong to
-/// `PlayerSelector`; this file only draws the field.
+/// while it has focus from the keyboard. The keys and the suggestion list
+/// belong to `PlayerSelector`; this file only draws the field.
 library;
 
 import 'package:material_ui/material_ui.dart';
@@ -9,6 +9,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/theme/delphos_colors.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/widgets/focus_ring.dart';
+import '../../../core/widgets/focus_visibility.dart';
 import '../../../core/widgets/line_glyph.dart';
 
 /// The selector's text field.
@@ -29,9 +30,13 @@ class SelectorField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = DelphosText.ui();
-    return FocusRing(
-      visible: focusNode.hasFocus,
-      borderRadius: 7,
+    return ListenableBuilder(
+      listenable: Listenable.merge([focusNode, FocusVisibility.keyboard]),
+      builder: (context, child) => FocusRing(
+        visible: focusNode.hasFocus && FocusVisibility.keyboard.value,
+        borderRadius: 7,
+        child: child!,
+      ),
       child: Container(
         width: width,
         height: 36,
@@ -54,7 +59,7 @@ class SelectorField extends StatelessWidget {
                 style: style,
                 cursorColor: DelphosColors.ink,
                 decoration: InputDecoration.collapsed(
-                  hintText: 'Buscar jugador',
+                  hintText: 'Buscar jugador, club o país',
                   hintStyle: style.copyWith(color: DelphosColors.ink3),
                 ),
               ),

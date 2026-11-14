@@ -48,13 +48,85 @@ class ApiClient {
     Future<void>? cancel,
   }) => _send('POST', path, timeout, cancel, body: body);
 
+  /// `POST path` expecting a `text/event-stream` response, yielding UTF-8 chunks.
+  Stream<String> postEventStream(
+    String path,
+    Map<String, Object?> body, {
+    Duration timeout = const Duration(seconds: 120),
+    Future<void>? cancel,
+  }) async* {
+    final abort = Completer<void>();
+    final request = _buildRequest(
+      'POST',
+      path,
+      abort,
+      accept: 'text/event-stream',
+      body: body,
+    );
+    final streamed = await _guard(
+      path,
+      timeout,
+      cancel,
+      abort,
+      () => _http.send(request),
+    );
+    if (streamed.statusCode < 200 || streamed.statusCode > 299) {
+      _throwForDecoded(await http.Response.fromStream(streamed), path);
+    }
+    try {
+      await for (final chunk in streamed.stream.transform(utf8.decoder)) {
+        yield chunk;
+      }
+    } on http.ClientException catch (error) {
+      throw ApiNetworkException(error.message, path: path, cause: error);
+    }
+  }
+
   /// Releases the underlying connection pool.
   void close() => _http.close();
 
-  /// Sends one request. At [timeout], or when [cancel] completes, the abort
-  /// trigger fires, so the browser cancels the `fetch` instead of leaving it
-  /// running behind an abandoned future; racing the trigger also covers a
-  /// client that ignores it.
+  http.AbortableRequest _buildRequest(
+    String method,
+    String path,
+    Completer<void> abort, {
+    required String accept,
+    Map<String, String> query = const {},
+    Map<String, Object?>? body,
+  }) {
+    final request = http.AbortableRequest(
+      method,
+      _uriFor(path, query),
+      abortTrigger: abort.future,
+    )..headers['Accept'] = accept;
+    if (body != null) {
+      request
+        ..headers['Content-Type'] = 'application/json; charset=utf-8'
+        ..body = jsonEncode(body);
+    }
+    return request;
+  }
+
+  Future<T> _guard<T>(
+    String path,
+    Duration timeout,
+    Future<void>? cancel,
+    Completer<void> abort,
+    Future<T> Function() start,
+  ) async {
+    try {
+      final sent = start();
+      return await (cancel == null
+              ? sent
+              : Future.any([sent, _cancelled(cancel, abort, path)]))
+          .timeout(timeout, onTimeout: () => throw _timedOut(abort, timeout));
+    } on TimeoutException catch (error) {
+      throw ApiNetworkException(error.message ?? '', path: path, cause: error);
+    } on http.ClientException catch (error) {
+      throw ApiNetworkException(error.message, path: path, cause: error);
+    }
+  }
+
+  /// Sends one JSON request and returns the decoded JSON object.
   Future<Map<String, Object?>> _send(
     String method,
     String path,
@@ -64,46 +136,38 @@ class ApiClient {
     Map<String, Object?>? body,
   }) async {
     final abort = Completer<void>();
-    final request = http.AbortableRequest(
+    final request = _buildRequest(
       method,
-      _uriFor(path, query),
-      abortTrigger: abort.future,
-    )..headers['Accept'] = 'application/json';
-    if (body != null) {
-      request
-        ..headers['Content-Type'] = 'application/json; charset=utf-8'
-        ..body = jsonEncode(body);
-    }
-    final http.Response response;
-    try {
-      final sent = _http.send(request).then(http.Response.fromStream);
-      response =
-          await (cancel == null
-                  ? sent
-                  : Future.any([sent, _cancelled(cancel, abort, path)]))
-              .timeout(
-                timeout,
-                onTimeout: () => throw _timedOut(abort, timeout),
-              );
-    } on TimeoutException catch (error) {
-      throw ApiNetworkException(error.message ?? '', path: path, cause: error);
-    } on http.ClientException catch (error) {
-      throw ApiNetworkException(error.message, path: path, cause: error);
-    }
-    final decoded = _decode(response);
+      path,
+      abort,
+      accept: 'application/json',
+      query: query,
+      body: body,
+    );
+    final response = await _guard(
+      path,
+      timeout,
+      cancel,
+      abort,
+      () => _http.send(request).then(http.Response.fromStream),
+    );
     if (response.statusCode < 200 || response.statusCode > 299) {
-      final problem = ProblemDetailsDto.tryParse(decoded);
-      throw ApiException(
-        statusCode: response.statusCode,
-        title: problem?.title ?? response.reasonPhrase ?? 'HTTP error',
-        detail: problem?.detail,
-        path: path,
-      );
+      _throwForDecoded(response, path);
     }
-    return switch (decoded) {
+    return switch (_decode(response)) {
       final Map<String, Object?> object => object,
       _ => throw FormatException('Expected a JSON object from $path'),
     };
+  }
+
+  static Never _throwForDecoded(http.Response response, String path) {
+    final problem = ProblemDetailsDto.tryParse(_decode(response));
+    throw ApiException(
+      statusCode: response.statusCode,
+      title: problem?.title ?? response.reasonPhrase ?? 'HTTP error',
+      detail: problem?.detail,
+      path: path,
+    );
   }
 
   /// Fires the abort trigger and returns the timeout to throw.
@@ -113,7 +177,7 @@ class ApiClient {
   }
 
   /// Fires the abort trigger when [cancel] completes, then throws.
-  static Future<http.Response> _cancelled(
+  static Future<Never> _cancelled(
     Future<void> cancel,
     Completer<void> abort,
     String path,

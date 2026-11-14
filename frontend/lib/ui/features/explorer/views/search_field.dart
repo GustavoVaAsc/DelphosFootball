@@ -73,7 +73,7 @@ class _SearchFieldState extends State<SearchField> {
           visible: widget.focusNode.hasFocus,
           borderRadius: 7,
           child: Container(
-            width: 196,
+            width: 224,
             height: 32,
             decoration: BoxDecoration(
               color: DelphosColors.surface,
@@ -100,7 +100,7 @@ class _SearchFieldState extends State<SearchField> {
                       ),
                     ],
                     decoration: InputDecoration.collapsed(
-                      hintText: 'Buscar jugador',
+                      hintText: 'Buscar jugador, club o país',
                       hintStyle: style.copyWith(color: DelphosColors.ink3),
                     ),
                   ),

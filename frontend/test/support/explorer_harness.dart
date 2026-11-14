@@ -35,6 +35,12 @@ class FakePlayersBackend {
   int replacementsCount = 3;
   String? shortfall;
 
+  /// Answers POST /chat with a 503 RFC 9457 error while true.
+  bool chatUnavailable = false;
+
+  /// Optional custom SSE body returned by POST /chat when `chatUnavailable` is false.
+  String? chatSseBody;
+
   /// The report `GET /reports` lists for any player; none when `null`.
   Map<String, Object?>? storedReport;
   final List<Completer<void>> _held = [];
@@ -68,6 +74,21 @@ class FakePlayersBackend {
         segments.length == 3 &&
         segments.last == 'replacements') {
       return problemResponse(404, 'Not Found', 'none');
+    }
+    if (segments.length == 1 && segments.first == 'chat') {
+      if (chatUnavailable) {
+        return problemResponse(
+          503,
+          'Service Unavailable',
+          'Chat inference service unavailable',
+        );
+      }
+      final body = chatSseBody ?? _defaultChatSse();
+      return http.Response.bytes(
+        utf8.encode(body),
+        200,
+        headers: {'content-type': 'text/event-stream; charset=utf-8'},
+      );
     }
     return jsonResponse(switch (segments) {
       ['clusters'] => clustersJson(),
@@ -115,6 +136,14 @@ class FakePlayersBackend {
       'total_pages': total == 0 ? 0 : (total / size).ceil(),
     };
   }
+
+  String _defaultChatSse() =>
+      'event: tool\n'
+      'data: {"tool":"search_players","ok":true,"summary":"Se consultaron 2 jugadores en el mercado."}\n\n'
+      'event: tool\n'
+      'data: {"tool":"get_player_valuation","ok":true,"summary":"Se revisó la valoración y el diagnóstico de Harry Kane."}\n\n'
+      'event: message\n'
+      'data: {"session_id":"sess-1","message":"Harry Kane presenta infravaloración en la temporada 2025/26.","model_run_id":"run_test","tools_called":["search_players","get_player_valuation"],"created_at":"2026-11-13T12:00:00Z"}\n\n';
 
   /// Answers every held request in arrival order.
   void release() {

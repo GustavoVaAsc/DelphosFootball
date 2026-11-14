@@ -4,32 +4,24 @@
 /// replacements (`/replacements`) load in parallel, and each keeps its own
 /// state, so one failing call never blanks the others. A 404 on valuation
 /// or replacements means the pipeline has nothing for this player: that
-/// section is "absent", not an error. The Resumen has its own
-/// [ReportViewModel], owned here and moved to the same player, so its
-/// once-a-second ticks during a generation rebuild only that section.
+/// section is "absent", not an error.
 library;
 
 import 'package:flutter/foundation.dart';
 
 import '../../../../data/repositories/player_repository.dart';
-import '../../../../data/repositories/report_repository.dart';
 import '../../../../domain/models/player_profile.dart';
 import '../../../../domain/models/player_valuation.dart';
 import '../../../../domain/models/replacement_set.dart';
 import '../../../core/view_models/load_section.dart';
 import '../../../core/view_models/section_load.dart';
 import '../../../core/view_models/section_status.dart';
-import 'report_view_model.dart';
 
 /// Loads what the dossier shows for one player at a time.
 class DossierViewModel extends ChangeNotifier {
-  DossierViewModel({required this._players, required ReportRepository reports})
-    : report = ReportViewModel(reports: reports);
+  DossierViewModel({required this._players});
 
   final PlayerRepository _players;
-
-  /// The Resumen of the player on show.
-  final ReportViewModel report;
 
   int? _playerId;
   SectionLoad<PlayerProfile> _identity = const SectionLoad.loading();
@@ -54,7 +46,6 @@ class DossierViewModel extends ChangeNotifier {
     _identity = const SectionLoad.loading();
     _valuation = const SectionLoad.loading();
     _replacements = const SectionLoad.loading();
-    report.show(playerId);
     notifyListeners();
     if (playerId != null) _loadAll(playerId, _generation);
   }
@@ -116,7 +107,6 @@ class DossierViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    report.dispose();
     super.dispose();
   }
 }

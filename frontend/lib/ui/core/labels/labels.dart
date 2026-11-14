@@ -3,6 +3,7 @@
 library;
 
 export 'archetypes.dart';
+export 'chat_tool_labels.dart';
 export 'countries.dart';
 export 'feet.dart';
 export 'leagues.dart';

@@ -1,7 +1,6 @@
 /// The scrolling body of the dossier (DESIGN.md §4): Valoración, Temporada,
-/// Reemplazos and Resumen (the scouting report). Each section follows its
-/// own request, so one failure shows one retry line and the rest of the
-/// dossier stays readable.
+/// and Reemplazos. Each section follows its own request, so one failure shows
+/// one retry line and the rest of the dossier stays readable.
 library;
 
 import 'package:flutter/widgets.dart';
@@ -21,7 +20,6 @@ import 'dossier_load_error.dart';
 import 'dossier_section.dart';
 import 'section_skeleton.dart';
 import 'replacements_list.dart';
-import 'report_section.dart';
 import 'season_section.dart';
 import 'valuation_section.dart';
 
@@ -84,10 +82,6 @@ class DossierBody extends StatelessWidget {
             absent: 'Este jugador no tiene reemplazos calculados.',
             error: 'No se pudieron cargar los reemplazos.',
           ),
-        ),
-        DossierSection(
-          title: 'Resumen',
-          child: ReportSection(vm: vm.report),
         ),
       ],
     );

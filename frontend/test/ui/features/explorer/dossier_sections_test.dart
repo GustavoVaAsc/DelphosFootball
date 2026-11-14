@@ -100,8 +100,8 @@ void main() {
     expect(find.text('Temporada 2025/26'), findsOneWidget);
     expect(find.text('Reemplazos'), findsOneWidget);
     expect(find.text('Comparar reemplazos'), findsOneWidget);
-    expect(find.text('Resumen'), findsOneWidget);
-    expect(find.text('Generar informe'), findsOneWidget);
+    expect(find.text('Resumen'), findsNothing);
+    expect(find.text('Generar informe'), findsNothing);
   });
 
   testWidgets('a replacements 404 is a sentence, not an error', (tester) async {
