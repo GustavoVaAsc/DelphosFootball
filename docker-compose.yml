@@ -97,12 +97,16 @@ services:
     ports:
       - "127.0.0.1:80:8080"
     # Read-only root; nginx writes only its pid and temp files (/tmp), its
-    # cache, and the rendered templates (/etc/nginx/conf.d).
+    # cache, and the rendered templates (/etc/nginx/conf.d). The mounts are
+    # capped, non-executable and owned by uid/gid 101 (the nginx user):
+    # /var/cache/nginx and /etc/nginx/conf.d would otherwise be root-owned and
+    # the entrypoint could not render the templates. /tmp is 1777 by default
+    # in Docker and would work without the uid; it is set for consistency.
     read_only: true
     tmpfs:
-      - /tmp
-      - /var/cache/nginx
-      - /etc/nginx/conf.d
+      - /tmp:uid=101,gid=101,size=16m,noexec,nosuid,nodev
+      - /var/cache/nginx:uid=101,gid=101,size=16m,noexec,nosuid,nodev
+      - /etc/nginx/conf.d:uid=101,gid=101,size=1m,mode=0755,noexec,nosuid,nodev
     cap_drop:
       - ALL
     security_opt:
