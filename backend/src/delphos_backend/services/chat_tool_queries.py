@@ -29,6 +29,7 @@ from delphos_backend.services.chat_tool_args import (
     MAX_LIMIT,
     enum_arg,
     int_arg,
+    str_arg,
 )
 from delphos_backend.services.chat_tool_players import (
     get_player_profile_tool,
@@ -42,6 +43,9 @@ ToolExecutor = Callable[[AsyncConnection, str, dict[str, Any]], Awaitable[dict[s
 async def search_players_tool(
     conn: AsyncConnection, run_id: str, args: dict[str, Any]
 ) -> dict[str, Any]:
+    name, error = str_arg("search_players", "name", args)
+    if error:
+        return error
     for argument, allowed in (
         ("position", POSITION_LABELS),
         ("valuation_status", VALUATION_STATUS_LABELS),
@@ -58,6 +62,7 @@ async def search_players_tool(
     players, total = await list_players(
         conn,
         run_id,
+        name=name,
         position=args.get("position"),
         valuation_status=args.get("valuation_status"),
         cluster_id=cluster_id,

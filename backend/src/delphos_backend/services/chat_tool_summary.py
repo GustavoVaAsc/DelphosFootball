@@ -23,25 +23,34 @@ def safe_tool_name(name: str) -> str:
 
 
 def summarize_tool_result(name: str, payload: dict[str, Any]) -> str:
-    """Describe the tool outcome in one sentence, without a serialized row."""
-    tool = safe_tool_name(name)
+    """Describe the tool outcome in natural Spanish, without literal tool names."""
+    safe_tool_name(name)
     error = payload.get("error")
     if isinstance(error, dict):
         message = str(error.get("message", "error desconocido"))
-        return f"La herramienta «{tool}» devolvió un error: {message}."
+        return f"No se pudo completar un paso de la consulta: {message}."
     if payload.get("found") is False:
-        return f"La herramienta «{tool}» no encontró el jugador solicitado."
+        return "No se encontró el jugador solicitado en el mercado."
     if isinstance(payload.get("players"), list):
-        return f"La herramienta «{tool}» devolvió {len(payload['players'])} jugadores."
+        count = len(payload["players"])
+        total = payload.get("total")
+        if isinstance(total, int) and total > count:
+            return f"Se consultaron {count} jugadores en el mercado (de {total} coincidencias)."
+        return f"Se consultaron {count} jugadores en el mercado."
     if isinstance(payload.get("profile"), dict):
         profile = payload["profile"]
-        return f"La herramienta «{tool}» devolvió el perfil de {profile.get('name', 'un jugador')}."
+        player_name = profile.get("name", "el jugador solicitado")
+        return f"Se consultó el perfil y las estadísticas de {player_name}."
     if isinstance(payload.get("valuation"), dict):
         valuation = payload["valuation"]
-        name_found = valuation.get("name") or valuation.get("player_id")
-        return f"La herramienta «{tool}» devolvió la valoración de {name_found}."
+        name_found = valuation.get("name") or "el jugador solicitado"
+        return f"Se revisó la valoración y el diagnóstico de {name_found}."
     if isinstance(payload.get("replacements"), list):
-        return f"La herramienta «{tool}» devolvió {len(payload['replacements'])} sustitutos."
+        target = payload.get("target_name") or "el jugador solicitado"
+        return (
+            f"Se evaluaron {len(payload['replacements'])} candidatos de reemplazo "
+            f"táctico para {target}."
+        )
     if isinstance(payload.get("clusters"), list):
-        return f"La herramienta «{tool}» devolvió {len(payload['clusters'])} grupos."
-    return f"La herramienta «{tool}» devolvió un resultado."
+        return f"Se consultó el resumen de {len(payload['clusters'])} arquetipos tácticos."
+    return "Paso de consulta completado."

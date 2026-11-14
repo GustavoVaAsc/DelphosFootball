@@ -12,6 +12,7 @@ from typing import Any
 from psycopg import AsyncConnection
 
 from delphos_backend.repositories.clusters import CLUSTER_NAMES
+from delphos_backend.repositories.player_search import build_search_clause
 from delphos_backend.repositories.valuations import (
     get_player_valuation as get_player_valuation,
 )
@@ -57,8 +58,11 @@ async def list_players(
     """Return paginated player summaries matching filters for the active model run."""
     conditions = ["p.model_run_id = %s", "s.season = %s"]
     params: list[Any] = [model_run_id, ACTIVE_SEASON]
+    if search_clause := build_search_clause(name):
+        search_sql, search_params = search_clause
+        conditions.append(search_sql)
+        params.extend(search_params)
     for cond, val in (
-        ("p.name ILIKE %s", f"%{name}%" if name else None),
         ("p.position = %s", position),
         ("s.club_id = %s", club_id),
         ("pred.valuation_status = %s", valuation_status),
