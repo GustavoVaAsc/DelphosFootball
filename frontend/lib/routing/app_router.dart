@@ -14,6 +14,7 @@ import 'package:go_router/go_router.dart';
 import '../ui/core/shell/app_shell.dart';
 import '../ui/core/shell/not_found_screen.dart';
 import '../ui/features/archetypes/views/archetypes_screen.dart';
+import '../ui/features/chat/views/chat_screen.dart';
 import '../ui/features/comparator/views/comparator_screen.dart';
 import '../ui/features/explorer/views/explorer_screen.dart';
 import 'explorer_query.dart';
@@ -52,6 +53,10 @@ GoRouter buildAppRouter({String initialLocation = Routes.explorer}) => GoRouter(
     GoRoute(
       path: Routes.archetypes,
       pageBuilder: (_, state) => _modulePage(state, const ArchetypesScreen()),
+    ),
+    GoRoute(
+      path: Routes.chat,
+      pageBuilder: (_, state) => _modulePage(state, const ChatScreen()),
     ),
   ],
 );

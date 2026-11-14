@@ -9,7 +9,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../data/repositories/player_repository.dart';
-import '../../../../data/repositories/report_repository.dart';
 import '../../../../routing/explorer_query.dart';
 import '../../../core/layout/dossier_presentation.dart';
 import '../../../core/view_models/dataset_view_model.dart';
@@ -36,7 +35,6 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
   );
   late final DossierViewModel _dossier = DossierViewModel(
     players: context.read<PlayerRepository>(),
-    reports: context.read<ReportRepository>(),
   );
   final RowFocusRegistry _rowFocus = RowFocusRegistry();
   final FocusNode _tableFocus = FocusNode(debugLabel: 'player table');
@@ -123,7 +121,7 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
   Widget build(BuildContext context) {
     final dataset = context.watch<DatasetViewModel?>();
     return ListenableBuilder(
-      listenable: Listenable.merge([_vm, _dossier]),
+      listenable: _vm,
       builder: (context, _) => ExplorerLayout(
         vm: _vm,
         dossier: _dossier,

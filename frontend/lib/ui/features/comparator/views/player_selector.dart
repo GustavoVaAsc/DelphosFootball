@@ -32,22 +32,21 @@ class _PlayerSelectorState extends State<PlayerSelector> {
 
   static const double width = 320;
 
+  /// The portal stays shown for the selector's whole life and only its
+  /// content changes: the first semantics node an overlay gains wraps the
+  /// page in a new parent, which on the web re-creates the DOM and drops
+  /// the browser focus from the field. Doing it up front means it never
+  /// happens while someone is typing.
   @override
   void initState() {
     super.initState();
-    widget.vm.addListener(_syncOverlay);
-  }
-
-  /// Shows the list while the search is open (from a listener, never from
-  /// build, where showing an overlay is not allowed).
-  void _syncOverlay() {
-    if (widget.vm.isOpen && !_overlay.isShowing) _overlay.show();
-    if (!widget.vm.isOpen && _overlay.isShowing) _overlay.hide();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _overlay.show();
+    });
   }
 
   @override
   void dispose() {
-    widget.vm.removeListener(_syncOverlay);
     _text.dispose();
     _focus.dispose();
     super.dispose();
@@ -83,33 +82,49 @@ class _PlayerSelectorState extends State<PlayerSelector> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([widget.vm, _focus]),
+      listenable: widget.vm,
       builder: (context, _) {
         final vm = widget.vm;
-        return CompositedTransformTarget(
-          link: _link,
-          child: OverlayPortal(
-            controller: _overlay,
-            overlayChildBuilder: (context) => CompositedTransformFollower(
+        // The portal sits beside the field, not above it, so the overlay's
+        // semantics never become a child of the field's node.
+        return Stack(
+          children: [
+            CompositedTransformTarget(
               link: _link,
-              targetAnchor: Alignment.bottomLeft,
-              offset: const Offset(0, 4),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: SelectorSuggestions(vm: vm, width: width, onPick: _pick),
+              child: Focus(
+                onKeyEvent: _onKey,
+                skipTraversal: true,
+                child: SelectorField(
+                  controller: _text,
+                  focusNode: _focus,
+                  onChanged: vm.setText,
+                  width: width,
+                ),
               ),
             ),
-            child: Focus(
-              onKeyEvent: _onKey,
-              skipTraversal: true,
-              child: SelectorField(
-                controller: _text,
-                focusNode: _focus,
-                onChanged: vm.setText,
-                width: width,
+            OverlayPortal(
+              controller: _overlay,
+              overlayChildBuilder: (context) => Semantics(
+                liveRegion: true,
+                container: true,
+                child: vm.isOpen
+                    ? CompositedTransformFollower(
+                        link: _link,
+                        targetAnchor: Alignment.bottomLeft,
+                        offset: const Offset(0, 4),
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: SelectorSuggestions(
+                            vm: vm,
+                            width: width,
+                            onPick: _pick,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
               ),
             ),
-          ),
+          ],
         );
       },
     );

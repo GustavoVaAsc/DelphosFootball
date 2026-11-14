@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'data/repositories/archetype_repository.dart';
+import 'data/repositories/chat_repository.dart';
 import 'data/repositories/player_repository.dart';
 import 'data/repositories/report_repository.dart';
 import 'data/services/api_client.dart';
@@ -61,6 +62,7 @@ class _DelphosAppState extends State<DelphosApp> {
         Provider(create: (_) => PlayerRepository(apiClient: api)),
         Provider(create: (_) => ArchetypeRepository(apiClient: api)),
         Provider(create: (_) => ReportRepository(apiClient: api)),
+        Provider(create: (_) => ChatRepository(apiClient: api)),
         // Dataset facts for the shell (total, season, data date), loaded
         // once at start-up.
         ChangeNotifierProvider(

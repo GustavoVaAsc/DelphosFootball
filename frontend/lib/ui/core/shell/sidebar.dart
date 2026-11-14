@@ -1,4 +1,4 @@
-/// The navy sidebar: brand header and the three module links
+/// The navy sidebar: brand header and the four module links
 /// (DESIGN.md §4, Sidebar). The data footer arrives with the explorer data.
 library;
 
@@ -23,6 +23,7 @@ class Sidebar extends StatelessWidget {
     ('Explorador de Mercado', Routes.explorer),
     ('Comparador Moneyball', Routes.comparator),
     ('Arquetipos Tácticos', Routes.archetypes),
+    ('Asistente de Scouting', Routes.chat),
   ];
 
   /// The current path, which decides the active item.

@@ -32,7 +32,7 @@ Run every command from `frontend/`.
 | Release build into `build/web/` | `flutter build web --release --no-web-resources-cdn --csp --dart-define=DELPHOS_API_URL=http://localhost:8000` |
 | Check the build makes no CDN request | `grep -rIl -e gstatic.com -e googleapis.com build/web` lists only `flutter.js`, `flutter_bootstrap.js` and `main.dart.js`, where the URLs are defaults that the build configuration overrides (ADR-026) |
 | Serve a release build locally with the production nginx config | `docker run --rm -p 3000:8080 -e DELPHOS_API_URL=http://localhost:8000 -v "$PWD/build/web:/usr/share/nginx/html:ro" -v "$PWD/nginx:/etc/nginx/templates:ro" -v "$PWD/nginx/15-delphos-api-origin.envsh:/docker-entrypoint.d/15-delphos-api-origin.envsh:ro" nginxinc/nginx-unprivileged:1.30.6-alpine` |
-| Container image | `docker compose build frontend` from the repo root |
+| Container image | `docker compose build frontend` from the repo root; the root `.gitattributes` keeps the nginx files and `web/` LF, and the compose tmpfs mounts are owned by uid 101 so nginx can render its templates (ADR-029). The Dockerfile's CR strip covers only `docker compose build`: for the bind-mount recipe above, a clone checked out before `.gitattributes` existed must refresh `nginx/` first (delete the files and run `git checkout -- nginx/`) |
 
 Port 3000 is already in the backend's default `DELPHOS_CORS_ORIGINS`. Use `-d chrome` instead of `-d web-server` to open a browser with hot reload. Always pass `--no-web-resources-cdn`: without it the engine loads CanvasKit from `www.gstatic.com`. `--csp` keeps dart2js from emitting `eval`, which the production CSP blocks; add it to `flutter run` too when you test against that CSP.
 

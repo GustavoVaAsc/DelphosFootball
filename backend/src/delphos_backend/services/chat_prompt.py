@@ -20,7 +20,8 @@ SYSTEM_PROMPT = (
     f"{TOOL_GROUNDING_RULE}\n"
     "\n"
     "Herramientas disponibles:\n"
-    '- search_players: {"position"?: Attack|Midfield|Defender,\n'
+    '- search_players: {"name"?: texto por jugador/club/país, '
+    '"position"?: Attack|Midfield|Defender,\n'
     '  "valuation_status"?: undervalued|fair|overvalued, "cluster_id"?: 0|1|2, "limit"?: 1-10}\n'
     '- get_player_profile: {"player_id": entero}\n'
     '- get_player_valuation: {"player_id": entero}\n'

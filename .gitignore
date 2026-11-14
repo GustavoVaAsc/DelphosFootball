@@ -2,7 +2,9 @@
 /docs/complementos/
 /docs/design/
 /.claude/
+/.impeccable/
 /.playwright-mcp/
+/reporte/
 
 # Secrets and local configuration
 .env

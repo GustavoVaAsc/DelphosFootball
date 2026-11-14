@@ -1,0 +1,75 @@
+"""Spanish-to-dataset country lookup used by player market search.
+
+Input: accent-folded lowercase Spanish country strings.
+Output: matching Transfermarkt `country_of_citizenship` values.
+Responsibility: single vocabulary table mapping Spanish country names whose
+spelling differs from Transfermarkt English keys; identical spellings (such as
+Argentina, Colombia, Portugal) match directly in SQL without an alias entry.
+"""
+
+from __future__ import annotations
+
+COUNTRY_ES_TO_EN: dict[str, tuple[str, ...]] = {
+    "afganistan": ("Afghanistan",), "alemania": ("Germany",),
+    "arabia saudi": ("Saudi Arabia",), "argelia": ("Algeria",),
+    "azerbaiyan": ("Azerbaijan",), "banglades": ("Bangladesh",),
+    "barein": ("Bahrain",), "belgica": ("Belgium",), "benin": ("Benin",),
+    "bielorrusia": ("Belarus",), "bosnia y herzegovina": ("Bosnia-Herzegovina",),
+    "botsuana": ("Botswana",), "brasil": ("Brazil",),
+    "brunei": ("Brunei Darussalam",), "butan": ("Bhutan",),
+    "cabo verde": ("Cape Verde",), "camboya": ("Cambodia",),
+    "camerun": ("Cameroon",), "canada": ("Canada",), "catar": ("Qatar",),
+    "chequia": ("Czech Republic",), "china taipei": ("Chinese Taipei",),
+    "chipre": ("Cyprus",), "comoras": ("Comoros",),
+    "corea del norte": ("Korea, North",), "corea del sur": ("Korea, South",),
+    "costa de marfil": ("Cote d'Ivoire", "Ivory Coast"), "croacia": ("Croatia",),
+    "curazao": ("Curacao",), "dinamarca": ("Denmark",), "egipto": ("Egypt",),
+    "emiratos arabes unidos": ("United Arab Emirates",), "escocia": ("Scotland",),
+    "eslovaquia": ("Slovakia",), "eslovenia": ("Slovenia",), "espana": ("Spain",),
+    "estados unidos": ("United States",), "etiopia": ("Ethiopia",),
+    "filipinas": ("Philippines",), "finlandia": ("Finland",), "fiyi": ("Fiji",),
+    "francia": ("France",), "gabon": ("Gabon",), "gales": ("Wales",),
+    "granada": ("Grenada",), "grecia": ("Greece",),
+    "guayana francesa": ("French Guiana",),
+    "guinea ecuatorial": ("Equatorial Guinea",),
+    "guinea-bisau": ("Guinea-Bissau",), "haiti": ("Haiti",),
+    "holanda": ("Netherlands",), "hungria": ("Hungary",),
+    "inglaterra": ("England",), "irak": ("Iraq",), "iran": ("Iran",),
+    "irlanda": ("Ireland",), "irlanda del norte": ("Northern Ireland",),
+    "islandia": ("Iceland",), "islas feroe": ("Faroe Islands",),
+    "italia": ("Italy",), "japon": ("Japan",), "jordania": ("Jordan",),
+    "kazajistan": ("Kazakhstan",), "kenia": ("Kenya",),
+    "kirguistan": ("Kyrgyzstan",), "letonia": ("Latvia",),
+    "libano": ("Lebanon",), "libia": ("Libya",), "lituania": ("Lithuania",),
+    "luxemburgo": ("Luxembourg",), "macedonia del norte": ("North Macedonia",),
+    "malasia": ("Malaysia",), "malaui": ("Malawi",), "maldivas": ("Maldives",),
+    "mali": ("Mali",), "marruecos": ("Morocco",), "mauricio": ("Mauritius",),
+    "mexico": ("Mexico",), "moldavia": ("Moldova",), "monaco": ("Monaco",),
+    "niger": ("Niger",), "noruega": ("Norway",),
+    "nueva caledonia": ("New Caledonia", "Neukaledonien"),
+    "nueva zelanda": ("New Zealand",), "oman": ("Oman",),
+    "paises bajos": ("Netherlands",), "pakistan": ("Pakistan",),
+    "panama": ("Panama",), "papua nueva guinea": ("Papua New Guinea",),
+    "peru": ("Peru",), "polonia": ("Poland",),
+    "republica centroafricana": ("Central African Republic",),
+    "republica checa": ("Czech Republic",),
+    "republica democratica del congo": ("DR Congo",),
+    "republica dominicana": ("Dominican Republic",), "reunion": ("Réunion",),
+    "ruanda": ("Rwanda",), "rumania": ("Romania",), "rusia": ("Russia",),
+    "san cristobal y nieves": ("St. Kitts & Nevis",),
+    "san martin": ("Saint-Martin",), "san vicente y las granadinas": (
+        "St. Vincent & Grenadinen",
+    ),
+    "santa lucia": ("St. Lucia",),
+    "santo tome y principe": ("Sao Tome and Principe",),
+    "sierra leona": ("Sierra Leone",), "singapur": ("Singapore",),
+    "siria": ("Syria",), "sudafrica": ("South Africa",), "sudan": ("Sudan",),
+    "sudan del sur": ("Southern Sudan",), "suecia": ("Sweden",),
+    "suiza": ("Switzerland",), "surinam": ("Suriname",), "tahiti": ("Tahiti",),
+    "tailandia": ("Thailand",), "tayikistan": ("Tajikistan",),
+    "timor oriental": ("Timor-Leste",),
+    "trinidad y tobago": ("Trinidad and Tobago",), "tunez": ("Tunisia",),
+    "turquia": ("Turkey", "Türkiye"), "turkmenistan": ("Turkmenistan",),
+    "ucrania": ("Ukraine",), "uzbekistan": ("Uzbekistan",),
+    "zimbabue": ("Zimbabwe",),
+}

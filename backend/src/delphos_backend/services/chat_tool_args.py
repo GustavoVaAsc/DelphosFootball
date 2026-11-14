@@ -71,3 +71,23 @@ def int_arg(
     if (isinstance(value, float) and not value.is_integer()) or out_of_range:
         return None, arg_error(tool, argument, value, expected)
     return parsed, None
+
+
+def str_arg(
+    tool: str,
+    argument: str,
+    args: Mapping[str, Any],
+    *,
+    max_len: int = 100,
+) -> tuple[str | None, dict[str, Any] | None]:
+    """Validate an optional free-text search argument; returns (cleaned, error)."""
+    value = args.get(argument)
+    if value is None:
+        return None, None
+    expected = f"cadena de texto no vacía (máximo {max_len} caracteres)"
+    if not isinstance(value, str):
+        return None, arg_error(tool, argument, value, expected)
+    cleaned = value.strip()
+    if not cleaned or len(cleaned) > max_len:
+        return None, arg_error(tool, argument, value, expected)
+    return cleaned, None

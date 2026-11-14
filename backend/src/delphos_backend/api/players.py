@@ -40,7 +40,10 @@ async def _resolve_active_run_id(conn: AsyncConnection) -> str:
 @router.get("", response_model=PlayerListResponse, summary="Search and list outfield players")
 async def get_players(
     conn: Annotated[AsyncConnection, Depends(get_db)],
-    name: Annotated[str | None, Query(description="Filter by name substring")] = None,
+    name: Annotated[
+        str | None,
+        Query(description="Word-prefix filter across player name, club name, or country"),
+    ] = None,
     position: Annotated[str | None, Query(description="Filter by position (e.g. Attack)")] = None,
     club_id: Annotated[int | None, Query(description="Filter by club ID")] = None,
     valuation_status: Annotated[

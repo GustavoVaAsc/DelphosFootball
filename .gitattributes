@@ -1,0 +1,11 @@
+# Files that are executed or parsed inside a container image must keep LF
+# endings on every checkout, including Windows with core.autocrlf=true.
+# A CR in a sourced shell script fails the container start (ARCHITECTURE.md,
+# ADR-029).
+*.sh                              text eol=lf
+*.envsh                           text eol=lf
+frontend/nginx/*                  text eol=lf
+frontend/web/**                   text=auto eol=lf
+frontend/pubspec.yaml             text eol=lf
+frontend/pubspec.lock             text eol=lf
+**/Dockerfile                     text eol=lf

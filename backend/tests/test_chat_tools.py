@@ -22,6 +22,8 @@ RUN_ID = "run_test_001"
         ({"cluster_id": "media"}, "cluster_id", "0"),
         ({"limit": 99}, "limit", "1"),
         ({"limit": "many"}, "limit", "1"),
+        ({"name": 123}, "name", "cadena"),
+        ({"name": "   "}, "name", "cadena"),
     ],
 )
 async def test_search_players_rejects_bad_arguments(
@@ -118,7 +120,7 @@ async def test_search_players_caps_limit_and_labels_spanish(mock_db: MagicMock) 
         new=AsyncMock(return_value=([row], 1)),
     ) as repo:
         payload = await execute_tool(
-            simple_factory(mock_db), RUN_ID, "search_players", {"limit": 7}
+            simple_factory(mock_db), RUN_ID, "search_players", {"name": "Yamal", "limit": 7}
         )
 
     assert payload["total"] == 1
@@ -126,7 +128,27 @@ async def test_search_players_caps_limit_and_labels_spanish(mock_db: MagicMock) 
     assert payload["players"][0]["position_label"] == "Extremo Derecho"
     assert payload["players"][0]["valuation_label"] == "Infravalorado"
     assert "image_url" not in payload["players"][0]  # bounded row shape
+    assert repo.await_args.kwargs["name"] == "Yamal"
     assert repo.await_args.kwargs["page_size"] == 7
+
+
+def test_tool_summaries_use_natural_spanish_without_raw_function_names() -> None:
+    from delphos_backend.services.chat_tool_summary import summarize_tool_result
+
+    cases = [
+        ("search_players", {"players": [{"name": "A"}], "total": 4}),
+        ("get_player_profile", {"found": True, "profile": {"name": "Lamine Yamal"}}),
+        ("get_player_valuation", {"found": True, "valuation": {"name": "Harry Kane"}}),
+        ("get_player_replacements", {"found": True, "target_name": "Kane", "replacements": [{}]}),
+        ("get_cluster_summary", {"clusters": [{}, {}, {}]}),
+        ("get_player_profile", {"found": False, "profile": None}),
+        ("search_players", {"error": {"message": "argumento inválido: name"}}),
+    ]
+    for tool_name, payload in cases:
+        summary = summarize_tool_result(tool_name, payload)
+        for literal in TOOL_NAMES:
+            assert literal not in summary
+        assert "La herramienta" not in summary
 
 
 @pytest.mark.asyncio

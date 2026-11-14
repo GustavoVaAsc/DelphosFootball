@@ -42,7 +42,7 @@ void main() {
   }
 
   testWidgets('an unknown path shows the not-found page', (tester) async {
-    await pumpAppAt(tester, '/chat');
+    await pumpAppAt(tester, '/no-existe');
     expect(find.text('Esta dirección no existe.'), findsOneWidget);
     expect(find.text('Explorador de Mercado'), findsNothing);
     await tester.tap(find.text('Ir al Explorador de Mercado'));

@@ -1,20 +1,17 @@
 // Tests for DossierViewModel: the three sections load in parallel, each
 // keeps its own state, a replacements 404 is "absent" rather than an error,
-// a retry reloads only what failed, a late answer for an earlier player is
-// dropped, and the Resumen follows the player on show.
+// a retry reloads only what failed, and a late answer for an earlier player is
+// dropped.
 import 'dart:async';
 
 import 'package:delphos_frontend/data/repositories/player_repository.dart';
-import 'package:delphos_frontend/data/repositories/report_repository.dart';
 import 'package:delphos_frontend/ui/features/explorer/view_models/dossier_view_model.dart';
 import 'package:delphos_frontend/ui/core/view_models/section_status.dart';
-import 'package:delphos_frontend/ui/features/explorer/view_models/report_status.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../support/dossier_fixtures.dart';
 import '../../../support/http_fakes.dart';
-import '../../../support/report_fixtures.dart';
 
 void main() {
   late List<String> requested;
@@ -40,13 +37,7 @@ void main() {
       }
       return jsonResponse(dossierJsonFor(path));
     });
-    vm = DossierViewModel(
-      players: PlayerRepository(apiClient: api),
-      // The Resumen has its own fake: the paths above are the dossier's.
-      reports: ReportRepository(
-        apiClient: fakeApi((_) async => jsonResponse(reportListJson([]))),
-      ),
-    );
+    vm = DossierViewModel(players: PlayerRepository(apiClient: api));
   });
   tearDown(() => vm.dispose());
 
@@ -127,13 +118,4 @@ void main() {
       expect(vm.valuation.value, isNull);
     },
   );
-
-  test('the Resumen follows the player on show', () async {
-    vm.show(7);
-    expect(vm.report.status, ReportStatus.checking);
-    await settle();
-    expect(vm.report.status, ReportStatus.none);
-    vm.show(null);
-    expect(vm.report.status, ReportStatus.idle);
-  });
 }

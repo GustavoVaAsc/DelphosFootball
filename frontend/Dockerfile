@@ -29,6 +29,12 @@ COPY pubspec.yaml pubspec.lock ./
 RUN flutter pub get --enforce-lockfile
 
 COPY . .
+# .gitattributes keeps the nginx files LF, but a working tree checked out
+# before it existed (Windows, core.autocrlf=true) still has CRLF, and the
+# sourced shell script fails on a CR. Stripping it here makes the build
+# independent of the checkout. The templates become 0644 (a Windows context
+# makes them 0755); the serve stage copies the cleaned files.
+RUN sed -i 's/\r$//' nginx/* && chmod 0644 nginx/*.template
 # Declared here so a URL change rebuilds only the compile step.
 ARG DELPHOS_API_URL=http://localhost:8000
 # --no-web-resources-cdn serves CanvasKit from this origin (ADR-026);
@@ -43,8 +49,8 @@ FROM nginxinc/nginx-unprivileged:1.30.6-alpine@sha256:f5116ed4606f3eb015dd4a8e28
 ARG DELPHOS_API_URL=http://localhost:8000
 ENV DELPHOS_API_URL=${DELPHOS_API_URL}
 
-COPY nginx/default.conf.template nginx/security-headers.inc.template /etc/nginx/templates/
-COPY --chmod=0755 nginx/15-delphos-api-origin.envsh /docker-entrypoint.d/
+COPY --from=build /app/nginx/default.conf.template /app/nginx/security-headers.inc.template /etc/nginx/templates/
+COPY --from=build --chmod=0755 /app/nginx/15-delphos-api-origin.envsh /docker-entrypoint.d/
 COPY --from=build /app/build/web /usr/share/nginx/html
 
 EXPOSE 8080

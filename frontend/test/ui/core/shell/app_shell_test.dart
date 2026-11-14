@@ -66,6 +66,7 @@ void main() {
     '/explorador': 'Explorador de Mercado · DelphosFootball',
     '/comparador/9': 'Comparador Moneyball · DelphosFootball',
     '/arquetipos': 'Arquetipos Tácticos · DelphosFootball',
+    '/chat': 'Asistente de Scouting · DelphosFootball',
     '/no-existe': 'DelphosFootball · Dirección Deportiva',
   };
   titles.forEach((path, title) {
