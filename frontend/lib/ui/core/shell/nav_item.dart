@@ -4,6 +4,7 @@ library;
 import 'package:flutter/widgets.dart';
 
 import '../theme/delphos_colors.dart';
+import '../theme/delphos_radius.dart';
 import '../theme/delphos_text.dart';
 import '../theme/motion.dart';
 import '../widgets/pressable.dart';
@@ -19,7 +20,7 @@ class NavItem extends StatelessWidget {
     required this.onSelected,
   });
 
-  static const double _radius = 8;
+  static const double _radius = DelphosRadius.inset;
   static const Color _clear = Color(0x00000000);
 
   final String label;

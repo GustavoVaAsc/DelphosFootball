@@ -9,9 +9,9 @@ import 'package:flutter/widgets.dart';
 
 import '../../../../domain/models/replacement.dart';
 import '../../../core/format/format.dart';
-import '../../../core/labels/leagues.dart';
 import '../../../core/labels/shortfall.dart';
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
 import '../../../core/view_models/section_status.dart';
@@ -53,13 +53,11 @@ class CompareTable extends StatelessWidget {
       reference: ComparePlayerHead(
         kicker: 'Referencia',
         isReference: true,
-        eliteAsset: set?.isEliteAsset ?? false,
         name: reference.name,
         imageUrl: reference.imageUrl,
         crestUrl: reference.clubLogoUrl,
         country: reference.country,
         club: reference.clubName,
-        league: leagueLabel(reference.season?.leagueId),
       ),
       candidates: [
         for (final c in candidates)
@@ -70,9 +68,6 @@ class CompareTable extends StatelessWidget {
             crestUrl: c.clubLogoUrl,
             country: c.country,
             club: c.clubName,
-            league: leagueLabel(
-              vm.candidate(c.playerId).value?.season?.leagueId,
-            ),
           ),
       ],
       slot: Column(
@@ -101,7 +96,7 @@ class CompareTable extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: DelphosColors.surface,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(DelphosRadius.card),
           border: Border.all(color: DelphosColors.rule),
         ),
         child: Column(

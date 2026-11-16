@@ -27,9 +27,7 @@
       --selected-bg: #EDEFF2;
 
       --up: #0B6E4F;
-      --up-bg: #E6F1EC;
       --down: #B3261E;
-      --down-bg: #F8E8E6;
 
       --sidebar-bg: #13233A;
       --sidebar-active: #22395A;
@@ -38,7 +36,6 @@
       --sidebar-rule: rgba(255, 255, 255, 0.10);
 
       --font-sans: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
       --stretch-condensed: 80%;
 
       --fs-11: 11px;
@@ -120,9 +117,13 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
+      /* One switch for every duration, delay and stagger (DESIGN.md §5): the
+         end state shows at once. The JS-driven motion checks the same query. */
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
+        animation-delay: 0s !important;
         transition-duration: 0.01ms !important;
+        transition-delay: 0s !important;
       }
     }
 
@@ -130,18 +131,36 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* Shell: 240px sidebar + main area */
+    /* Shell: 240px sidebar (64px rail when folded) + main area. The first
+       column follows the sidebar's own width while it animates. */
     .app-shell {
       display: grid;
-      grid-template-columns: 240px 1fr;
+      /* An explicit track, not `auto`: the width is owned by the shell, so it
+         no longer depends on the sidebar's intrinsic size, and the transition
+         below animates the track itself while the main column takes the rest. */
+      grid-template-columns: 240px minmax(0, 1fr);
       width: 100%;
       min-width: 1440px;
       height: 100vh;
       overflow: hidden;
+      transition: grid-template-columns 144ms cubic-bezier(0.7, 0, 0.84, 0);
+    }
+    .app-shell.is-folded {
+      grid-template-columns: 64px minmax(0, 1fr);
+      transition: grid-template-columns 144ms var(--ease-out) 96ms;
     }
 
     /* Sidebar */
+    /* Folding (DESIGN.md §5, 240ms, one timeline). Folding: the open content
+       (.open-only) fades out over 96ms at the full 240px, then the width eases
+       to 64px over 144ms while the rail icons (.rail-only) fade in. Unfolding
+       is the same timeline backwards: the width eases back over the first
+       144ms (the mirrored curve), then the labels fade in. Each state carries
+       the transitions that lead into it. */
+    /* The sidebar fills its grid track (.app-shell owns the width and its
+       transition); min-width: 0 keeps its content from propping the track. */
     .sidebar {
+      min-width: 0;
       background-color: var(--sidebar-bg);
       color: #FFFFFF;
       display: flex;
@@ -150,25 +169,39 @@
       user-select: none;
       z-index: 20;
     }
-
-    .brand-header {
-      height: 60px;
-      padding: 0 18px;
-      display: flex;
-      align-items: center;
-      gap: 11px;
-      border-bottom: 1px solid var(--sidebar-rule);
+    .open-only {
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 96ms linear 144ms, visibility 0s linear 144ms;
+    }
+    .sidebar.is-folded .open-only {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 96ms linear, visibility 0s linear 96ms;
+    }
+    .rail-only {
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 72ms linear 72ms, visibility 0s linear 144ms;
+    }
+    .sidebar.is-folded .rail-only {
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 72ms linear 96ms, visibility 0s linear 96ms;
     }
 
-    .brand-mark {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.28);
+    /* The menu button sits where the brand mark was: 14px of padding around the
+       36px button centres it on the 64px rail, and it never moves during the
+       fold (same left edge, same row). */
+    .brand-header {
+      height: 60px;
+      padding: 0 14px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
+      gap: 12px;
+      border-bottom: 1px solid var(--sidebar-rule);
+      white-space: nowrap;
     }
 
     .brand-title {
@@ -195,13 +228,17 @@
       gap: 4px;
     }
 
-    /* Weight is constant across states so labels never reflow. */
+    /* Weight is constant across states so labels never reflow. Open, the item
+       is the text; folded, it is a 40px square with its 20px line icon. The
+       button's width follows the sidebar's, so the same rule serves both. */
     .nav-btn {
+      position: relative;
       width: 100%;
+      height: 35px;
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 9px 12px;
+      padding: 0 12px;
       border-radius: 8px;
       background: transparent;
       border: none;
@@ -211,6 +248,13 @@
       text-align: left;
       line-height: 1.3;
       white-space: nowrap;
+      /* The global button transitions, plus the height step to the rail's
+         40px square at the same moment as the open content disappears. */
+      transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out), transform 160ms var(--ease-out), height 0s linear 144ms;
+    }
+    .sidebar.is-folded .nav-btn {
+      height: 40px;
+      transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out), transform 160ms var(--ease-out), height 0s linear 96ms;
     }
     .nav-btn:hover {
       background-color: rgba(255, 255, 255, 0.06);
@@ -220,9 +264,114 @@
       background-color: var(--sidebar-active);
       color: #FFFFFF;
     }
+    .nav-icon {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 20px;
+      height: 20px;
+    }
+    .nav-icon,
+    .sidebar-toggle svg {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
 
+    /* Fold control: a hamburger at the top left of the sidebar, in the brand
+       header, first in tab order. It never leaves the DOM, so it keeps focus
+       when it flips the sidebar. 36px button, 20px glyph, sidebar-text colour
+       (white on hover), --sidebar-active ground on hover; the sidebar's white
+       focus ring applies. Its tooltip opens on hover and on keyboard focus, to
+       its right, open or folded. */
+    .sidebar-toggle {
+      position: relative;
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--sidebar-text);
+    }
+    .sidebar-toggle:hover {
+      background-color: var(--sidebar-active);
+      color: #FFFFFF;
+    }
+    .sidebar-toggle svg {
+      width: 20px;
+      height: 20px;
+    }
+    .sidebar-toggle::after {
+      content: attr(data-tip);
+      position: absolute;
+      left: calc(100% + 8px);
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 5px 10px;
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      background-color: var(--surface);
+      box-shadow: var(--shadow-float);
+      color: var(--ink);
+      font-size: var(--fs-12);
+      font-weight: 500;
+      line-height: 1.3;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 160ms var(--ease-out), visibility 0s linear 160ms;
+    }
+    .sidebar-toggle:hover::after,
+    .sidebar-toggle:focus-visible::after {
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 160ms var(--ease-out);
+    }
+
+    /* Folded names: a tooltip on hover and on keyboard focus (a tooltip alone
+       does not open for a keyboard user). The control's accessible name is its
+       aria-label, so this text is only the visible copy. */
+    .sidebar.is-folded [data-tip]::after {
+      content: attr(data-tip);
+      position: absolute;
+      left: calc(100% + 8px);
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 5px 10px;
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      background-color: var(--surface);
+      box-shadow: var(--shadow-float);
+      color: var(--ink);
+      font-size: var(--fs-12);
+      font-weight: 500;
+      line-height: 1.3;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 160ms var(--ease-out), visibility 0s linear 160ms;
+    }
+    .sidebar.is-folded [data-tip]:hover::after,
+    .sidebar.is-folded [data-tip]:focus-visible::after {
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 160ms var(--ease-out);
+    }
+
+    /* On the rail the footer fades out with the open content (.open-only) and
+       leaves the accessibility tree (visibility); its text is clipped so it
+       cannot overflow at 64px. */
     .sidebar-footer {
       margin-top: auto;
+      overflow: hidden;
       padding: 16px 18px;
       border-top: 1px solid var(--sidebar-rule);
       font-size: var(--fs-12);
@@ -275,14 +424,39 @@
       position: relative;
     }
 
+    /* Motion (DESIGN.md §5): one curve (--ease-out); each keyframe set has one
+       purpose. The JS-driven motion (valuation count-up, dossier exit) reads
+       the same durations. */
+    /* A module page replacing another: marks the change of view (200ms). */
     @keyframes viewFadeIn {
-      from { opacity: 0; transform: translateY(3px); }
+      from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    /* One loaded player replacing another inside an open dossier (180ms). */
     @keyframes dossierEnter {
       from { opacity: 0.65; transform: translateY(3px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    /* The dossier panel arriving from the right and leaving the same way (220ms). */
+    @keyframes dossierSlideIn {
+      from { opacity: 0; transform: translateX(16px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes dossierSlideOut {
+      from { opacity: 1; transform: translateX(0); }
+      to { opacity: 0; transform: translateX(16px); }
+    }
+    /* The staggered first load: data arriving, once (200ms each, 30ms apart). */
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(var(--rise)); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .first-load {
+      animation: riseIn 200ms var(--ease-out) backwards;
+      animation-delay: calc(var(--i) * 30ms);
+    }
+    .player-row.first-load { --rise: 6px; }
+    .cluster-card.first-load { --rise: 8px; }
     .view-pane {
       display: none;
       width: 100%;
@@ -292,7 +466,7 @@
     .view-pane.active {
       display: flex;
       flex-direction: column;
-      animation: viewFadeIn 180ms var(--ease-out) forwards;
+      animation: viewFadeIn 200ms var(--ease-out) backwards;
     }
 
     /* ===================================================================== */
@@ -482,13 +656,13 @@
 
     /* Fixed columns sized for their widest value; Jugador takes the rest. */
     .players-table col.col-age { width: 48px; }
-    .players-table col.col-pos { width: 130px; }
+    .players-table col.col-pos { width: 142px; }
     /* Dossier closed: the table has 1152px, so the sub-position gets one line
        ("Extremo izquierdo", the longest label, plus the glyph). */
     .master-detail-split:not(.dossier-open) .players-table col.col-pos { width: 180px; }
     .players-table col.col-market { width: 76px; }
     .players-table col.col-estimate { width: 100px; }
-    .players-table col.col-gap { width: 120px; }
+    .players-table col.col-gap { width: 112px; }
 
     .player-row {
       border-bottom: 1px solid var(--rule);
@@ -629,9 +803,9 @@
 
     /* Pitch drawing shared by the row glyph and the archetype banners:
        neutral lines, zone in ink at low opacity, no zone hues. */
-    .pitch-ground { fill: var(--surface); }
     .pitch-line { fill: none; stroke: var(--pitch-line); }
     .pitch-ground.pitch-line { fill: var(--surface); }
+    .pitch-spot { fill: var(--pitch-line); stroke: none; }
     .pitch-zone { fill: var(--pitch-zone-fill); stroke: var(--ink); }
     .pitch-player { fill: var(--ink); }
 
@@ -671,7 +845,6 @@
     }
     .sk-avatar { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; }
     .sk-glyph { width: 36px; height: 24px; border-radius: 3px; flex-shrink: 0; }
-    .sk-pill { width: 84px; height: 20px; border-radius: 999px; }
     .sk-end { margin-left: auto; }
     .sk-w20 { width: 20px; }
     .sk-w50 { width: 50px; }
@@ -725,36 +898,18 @@
       display: none;
     }
 
-    /* Status pill: the only pill, reserved for the valuation verdict */
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: 999px;
+    /* Valuation status: plain coloured text, no ground, no pill, no border
+       (DESIGN.md §2). The word names the verdict, so colour is never the only
+       signal. */
+    .status-text {
       font-size: var(--fs-12);
       font-weight: 600;
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
-    .status-undervalued {
-      color: var(--up);
-      background-color: var(--up-bg);
-    }
-    .status-fair {
-      color: var(--ink);
-      background-color: var(--surface-muted);
-    }
-    .status-overvalued {
-      color: var(--down);
-      background-color: var(--down-bg);
-    }
-    .elite-note {
-      font-size: var(--fs-12);
-      font-weight: 500;
-      color: var(--ink-2);
-      white-space: nowrap;
-    }
+    .status-undervalued { color: var(--up); }
+    .status-fair { color: var(--ink); }
+    .status-overvalued { color: var(--down); }
 
     .table-footer-bar {
       height: 40px;
@@ -775,6 +930,15 @@
     .dossier-animate {
       animation: dossierEnter 180ms var(--ease-out) forwards;
     }
+    .dossier-card-container.slide-in {
+      animation: dossierSlideIn 220ms var(--ease-out) backwards;
+    }
+    /* The panel keeps its content on screen through the exit; the table gets
+       its width back when script ends it (finishDossierExit). */
+    .dossier-card-container.slide-out {
+      animation: dossierSlideOut 220ms var(--ease-out) forwards;
+      pointer-events: none;
+    }
     .dossier-card-container {
       background-color: var(--surface);
       border: 1px solid var(--rule);
@@ -790,15 +954,18 @@
     .dossier-header {
       position: relative;
       flex-shrink: 0;
-      padding: 16px 20px 14px;
+      padding: 26px 20px 14px;
       border-bottom: 1px solid var(--rule);
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
+    /* The portrait stands alone in the left column, at the top; the three
+       lines are the right column. The extra top padding keeps line 2 clear of
+       the close button. */
     .dossier-player-main {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 14px;
       min-width: 0;
     }
@@ -846,19 +1013,18 @@
       border: 1px solid var(--rule);
       display: block;
     }
-    .dossier-club-crest-24 {
-      position: absolute;
-      bottom: -2px;
-      right: -2px;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background-color: var(--surface);
-      border: 1px solid var(--rule);
-      box-shadow: var(--shadow-float);
+    /* Crest and league logo in the dossier: 28px tall at their own aspect
+       ratio, no disc, frame or shadow. Decorative (alt=""): the names carry the
+       meaning. One that fails to load removes itself (onerror), leaving no
+       gap, because the 6px comes from the item's flex gap. */
+    .dossier-logo,
+    .cmp-logo {
+      display: block;
+      width: auto;
       object-fit: contain;
-      padding: 2px;
+      flex-shrink: 0;
     }
+    .dossier-logo { height: 28px; }
     .dossier-name-title {
       font-size: var(--fs-20);
       font-weight: 700;
@@ -870,15 +1036,17 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    /* Country, club and league may wrap to a second line between items,
-       never inside one. Each separator ends the item before it, so a line
-       never starts with "·". */
+    /* Line 2: flag and country, " · ", crest and club, " · ", league logo and
+       league, the logos inline before their names. It never wraps; the club
+       name is cut with an ellipsis first, then the country name if it still
+       does not fit; the flag, the league and the logos never shrink. It starts 54px from the header's top (26px padding,
+       the 24px name line, a 4px gap): 10px below the close button, which ends
+       at 44px. */
     .dossier-club-line {
       display: flex;
       align-items: center;
-      flex-wrap: wrap;
-      column-gap: 6px;
-      row-gap: 2px;
+      flex-wrap: nowrap;
+      gap: 6px;
       margin-top: 4px;
       font-size: var(--fs-13);
       color: var(--ink-2);
@@ -887,14 +1055,38 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      flex-shrink: 0;
       white-space: nowrap;
     }
-    .dossier-club-line strong {
+    /* The club shrinks first (a higher shrink factor), the country after it;
+       the flag, the logos, the league and the dots never shrink. */
+    .club-item.club-main {
+      flex-shrink: 10;
+      min-width: 0;
+    }
+    .club-item.club-country {
+      flex-shrink: 1;
+      min-width: 0;
+    }
+    .club-country-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .club-sep {
+      flex-shrink: 0;
+    }
+    .club-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       color: var(--ink);
       font-weight: 600;
     }
 
-    /* Bio: one definition row with hairline separators. It may wrap between
+    /* Line 3: one definition row with hairline separators. It may wrap between
        items, never inside one. Every item carries its leading hairline and
        10px; the row is pulled 11px left and that strip is clipped, so the item
        that starts a line shows neither. */
@@ -903,6 +1095,7 @@
       align-items: baseline;
       flex-wrap: wrap;
       row-gap: 4px;
+      margin-top: 4px;
       margin-left: -11px;
       clip-path: inset(0 0 0 11px);
       font-size: var(--fs-12);
@@ -950,8 +1143,11 @@
       justify-content: space-between;
       gap: 12px;
     }
-    .section-header-line.with-action {
-      align-items: center;
+    /* A section's secondary action on its own line: 12px below the subtitle
+       (the section gap) and 16px above what follows (gap plus 4px). */
+    .section-action {
+      align-self: flex-start;
+      margin-bottom: 4px;
     }
     .section-title {
       font-size: var(--fs-15);
@@ -994,6 +1190,13 @@
       font-variant-numeric: tabular-nums;
       line-height: 1.1;
     }
+    /* The visible digits count up; a fixed width (set in script from the widest
+       text of the count) keeps the neighbours still. Assistive technology reads
+       the final value from the .sr-only copy. */
+    .count-visible {
+      display: inline-block;
+      white-space: nowrap;
+    }
     .valuation-verdict {
       display: flex;
       align-items: center;
@@ -1005,85 +1208,6 @@
       color: var(--ink-2);
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
-    }
-
-    /* Dumbbell: axis from €0, market dot, estimate dot, gap segment by sign */
-    .dumbbell {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      column-gap: 10px;
-      align-items: center;
-    }
-    .dumbbell-zero {
-      grid-column: 1;
-      grid-row: 2;
-      font-size: var(--fs-11);
-      color: var(--ink-3);
-      font-variant-numeric: tabular-nums;
-    }
-    .dumbbell-labels {
-      grid-column: 2;
-      position: relative;
-      height: 16px;
-    }
-    .dumbbell-labels.labels-top { grid-row: 1; }
-    .dumbbell-labels.labels-bottom { grid-row: 3; }
-    .dumbbell-track {
-      grid-column: 2;
-      grid-row: 2;
-      position: relative;
-      height: 14px;
-    }
-    .dumbbell-axis {
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: 50%;
-      height: 1px;
-      background-color: var(--pitch-line);
-    }
-    .dumbbell-gap {
-      position: absolute;
-      top: 50%;
-      height: 4px;
-      margin-top: -2px;
-      border-radius: 2px;
-    }
-    .dumbbell-gap.tone-up { background-color: var(--up); }
-    .dumbbell-gap.tone-down { background-color: var(--down); }
-    .dumbbell-gap.tone-neutral { background-color: var(--ink-3); }
-    .dumbbell-dot {
-      position: absolute;
-      top: 50%;
-      width: 12px;
-      height: 12px;
-      margin: -6px 0 0 -6px;
-      border-radius: 50%;
-    }
-    .dumbbell-dot.dot-market {
-      background-color: var(--ink-2);
-      border: 2px solid var(--surface);
-      box-shadow: 0 0 0 1px var(--ink-2);
-    }
-    .dumbbell-dot.dot-estimate {
-      background-color: var(--surface);
-      border: 3px solid var(--ink);
-    }
-    .dumbbell-label {
-      position: absolute;
-      top: 0;
-      font-size: var(--fs-11);
-      color: var(--ink-2);
-      white-space: nowrap;
-      font-variant-numeric: tabular-nums;
-      transform: translateX(-50%);
-    }
-    .dumbbell-label.align-start { transform: translateX(-6px); }
-    .dumbbell-label.align-end { transform: translateX(calc(-100% + 6px)); }
-    .dumbbell-label strong {
-      color: var(--ink);
-      font-weight: 700;
-      font-stretch: var(--stretch-condensed);
     }
 
     .model-row {
@@ -1218,22 +1342,6 @@
       color: var(--ink-2);
     }
     .coverage-note strong {
-      color: var(--ink);
-      font-weight: 600;
-    }
-
-    /* Report prose */
-    .scouting-report-box {
-      font-family: var(--font-serif);
-      font-size: var(--fs-15);
-      line-height: 1.55;
-      color: var(--ink-2);
-      max-width: 68ch;
-    }
-    .scouting-report-box p + p {
-      margin-top: 10px;
-    }
-    .scouting-report-box strong {
       color: var(--ink);
       font-weight: 600;
     }
@@ -1391,12 +1499,14 @@
       color: var(--ink-2);
       margin-top: 2px;
     }
-    /* Club and league are two lines with no separator; the league never
-       breaks inside itself. */
-    .cmp-league {
-      margin-top: 0;
+    /* The "Liga" cell: 16px logo, 5px gap, and the name never breaks. */
+    .cmp-league-cell {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
       white-space: nowrap;
     }
+    .cmp-logo { height: 16px; }
     .cmp-metric {
       font-weight: 500;
       color: var(--ink-2);
@@ -1578,15 +1688,25 @@
       line-height: 1.5;
     }
 
+    /* The shared pitch at its real aspect ratio (240:155 is 105:68 plus the
+       goals and a stroke margin), centred on its ground and capped at 264px,
+       never stretched to the card. The cards share a width, so their pitches
+       share a height and the subgrid rows stay aligned. */
     .cluster-pitch-banner {
       width: 100%;
-      height: 112px;
       background-color: var(--surface-subtle);
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 8px;
+    }
+    .cluster-pitch-banner svg {
+      display: block;
+      width: 100%;
+      max-width: 264px;
+      height: auto;
+      aspect-ratio: 240 / 155;
     }
     .cluster-metrics {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1687,17 +1807,22 @@
 </head>
 <body>
   <div class="app-shell">
-    <!-- SIDEBAR: brand + 3 modules + one-line footer -->
-    <aside class="sidebar" aria-label="Navegación principal">
+    <!-- SIDEBAR: brand + 3 modules + fold toggle + one-line footer. 240px open,
+         64px rail when folded (class is-folded, kept in memory by script).
+         Open, the items are text; folded, the line icons (the Flutter NavGlyph
+         shapes, 24-unit box) show and each item's aria-label and tooltip name it. -->
+    <aside class="sidebar" id="sidebar" aria-label="Navegación principal">
       <div class="brand-header">
-        <div class="brand-mark" aria-hidden="true">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2">
-            <rect x="2" y="4" width="20" height="16" rx="2"/>
-            <line x1="12" y1="4" x2="12" y2="20"/>
-            <circle cx="12" cy="12" r="3"/>
+        <!-- Fold control: the same button in both states, so it keeps focus
+             when it flips the sidebar; script swaps its label and tooltip. -->
+        <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-expanded="true" aria-controls="sidebar" aria-label="Plegar menú" data-tip="Plegar menú" onclick="toggleSidebar()">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="4" y1="6" x2="20" y2="6"/>
+            <line x1="4" y1="12" x2="20" y2="12"/>
+            <line x1="4" y1="18" x2="20" y2="18"/>
           </svg>
-        </div>
-        <div>
+        </button>
+        <div class="open-only">
           <div class="brand-title">DelphosFootball</div>
           <div class="brand-subtitle">Dirección Deportiva</div>
         </div>
@@ -1706,24 +1831,40 @@
       <nav class="nav-section" aria-label="Módulos principales">
         <ul class="nav-list">
           <li>
-            <button type="button" class="nav-btn active" id="nav-view-1" aria-current="page" onclick="switchView('view-1')">
-              <span>Explorador de Mercado</span>
+            <button type="button" class="nav-btn active" id="nav-view-1" aria-current="page" aria-label="Explorador de Mercado" data-tip="Explorador de Mercado" onclick="switchView('view-1')">
+              <svg class="nav-icon rail-only" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="16" rx="2"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+                <line x1="10" y1="10" x2="10" y2="20"/>
+              </svg>
+              <span class="open-only">Explorador de Mercado</span>
             </button>
           </li>
           <li>
-            <button type="button" class="nav-btn" id="nav-view-2" onclick="switchView('view-2')">
-              <span>Comparador Moneyball</span>
+            <button type="button" class="nav-btn" id="nav-view-2" aria-label="Comparador Moneyball" data-tip="Comparador Moneyball" onclick="switchView('view-2')">
+              <svg class="nav-icon rail-only" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="4" y1="8" x2="20" y2="8"/>
+                <polyline points="16,4 20,8 16,12"/>
+                <line x1="20" y1="16" x2="4" y2="16"/>
+                <polyline points="8,12 4,16 8,20"/>
+              </svg>
+              <span class="open-only">Comparador Moneyball</span>
             </button>
           </li>
           <li>
-            <button type="button" class="nav-btn" id="nav-view-3" onclick="switchView('view-3')">
-              <span>Arquetipos Tácticos</span>
+            <button type="button" class="nav-btn" id="nav-view-3" aria-label="Arquetipos Tácticos" data-tip="Arquetipos Tácticos" onclick="switchView('view-3')">
+              <svg class="nav-icon rail-only" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="7" cy="8" r="3.5"/>
+                <circle cx="17" cy="8" r="3.5"/>
+                <circle cx="12" cy="17" r="3.5"/>
+              </svg>
+              <span class="open-only">Arquetipos Tácticos</span>
             </button>
           </li>
         </ul>
       </nav>
 
-      <footer class="sidebar-footer" id="sidebar-footer-text"></footer>
+      <footer class="sidebar-footer open-only" id="sidebar-footer-text"></footer>
     </aside>
 
     <!-- MAIN AREA -->
@@ -1749,13 +1890,13 @@
                 type="search"
                 id="player-search-input"
                 class="search-input"
-                placeholder="Buscar jugador o club"
-                aria-label="Buscar jugador por nombre, club o posición"
+                placeholder="Buscar jugador, club o país"
+                aria-label="Buscar por nombre, club o país"
                 oninput="handleSearchInput(this.value)"
               >
             </div>
 
-            <!-- Estado: primary segmented control; labels match the table pills -->
+            <!-- Estado: primary segmented control; labels match the status words -->
             <div class="filter-field">
               <span class="filter-label" id="filter-val-label">Estado</span>
               <div class="segment-group" role="group" aria-labelledby="filter-val-label">
@@ -2076,6 +2217,47 @@
     let renderedDossierKey = null;
 
     // ---------------------------------------------------------------------
+    // Motion (DESIGN.md §5). The CSS owns the keyframes; this is the part
+    // that needs script. One curve and the same durations as the stylesheet.
+    // ---------------------------------------------------------------------
+    const PANEL_MS = 220;
+    const FIGURES_MS = 400;
+    const FIRST_LOAD_ROWS = 12;
+
+    // Every duration goes through this switch: under reduced motion the end
+    // state shows at once.
+    function prefersReducedMotion() {
+      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+
+    // The first load of a view in this page load, claimed once and only while
+    // the view is the one on screen: never on filtering, searching, paging or
+    // when the user returns to the view.
+    const firstLoadClaimed = new Set();
+    function claimFirstLoad(viewId) {
+      if (state.activeView !== viewId || firstLoadClaimed.has(viewId)) return false;
+      firstLoadClaimed.add(viewId);
+      return true;
+    }
+
+    // cubic-bezier(0.16, 1, 0.3, 1) as a function of time, for the motion the
+    // stylesheet cannot express (the count-up).
+    function easeOut(t) {
+      const x1 = 0.16, y1 = 1, x2 = 0.3, y2 = 1;
+      const bez = (a, b, s) => 3 * a * (1 - s) * (1 - s) * s + 3 * b * (1 - s) * s * s + s * s * s;
+      let lo = 0, hi = 1;
+      for (let i = 0; i < 24; i++) {
+        const mid = (lo + hi) / 2;
+        if (bez(x1, x2, mid) < t) lo = mid; else hi = mid;
+      }
+      return bez(y1, y2, (lo + hi) / 2);
+    }
+
+    // The sidebar fold lives in memory for the page's lifetime: it survives
+    // moving between modules, not a reload.
+    let sidebarFolded = false;
+
+    // ---------------------------------------------------------------------
     // es-ES number formatting: one place for every number on screen.
     // Grouping is applied by hand because es-ES leaves four-digit numbers
     // ungrouped ("5522"), and the design wants "5.522".
@@ -2173,12 +2355,11 @@
       return Number(ratio) > 0 && text !== "0%" ? "+" + text : text;
     }
 
-    // A positive ratio that would round to "0,0x" prints "<0,1x" instead.
-    function formatMultiple(ratio) {
-      if (!isNumeric(ratio)) return "N/D";
-      const n = Number(ratio);
-      if (n > 0 && n < 0.05) return "<" + formatNumber(0.1, 1) + "x";
-      return formatNumber(n, 1) + "x";
+    // The signed gap of the estimate against the price, (fair / market - 1),
+    // through the one helper (formatSignedPct) that the dossier's "Diferencia"
+    // and the Brecha column share, so both always agree.
+    function formatValuationGap(v) {
+      return formatSignedPct((v.fair_value_eur - v.market_value_eur) / v.market_value_eur);
     }
 
     function formatHeight(cm) {
@@ -2257,26 +2438,121 @@
       return `<img class="flag-img" src="https://flagcdn.com/w40/${iso}.png" width="16" height="12" alt="Bandera de ${esCountry}" title="${esCountry}">`;
     }
 
-    function getMiniPitchSvg(position, subPosition) {
-      let zone = [13, 4, 10, 16];
-      if (position === "Attack") {
-        if (subPosition && subPosition.includes("Left")) zone = [23, 2, 11, 7];
-        else if (subPosition && subPosition.includes("Right")) zone = [23, 15, 11, 7];
-        else zone = [23, 6, 11, 12];
-      } else if (position === "Defender") {
-        if (subPosition && subPosition.includes("Right")) zone = [2, 15, 11, 7];
-        else if (subPosition && subPosition.includes("Left")) zone = [2, 2, 11, 7];
-        else zone = [2, 5, 10, 14];
+    // ---------------------------------------------------------------------
+    // The pitch (DESIGN.md §1): one drawing for the table glyph and the
+    // Arquetipos banner, ported from the Flutter PitchPainter so both share
+    // its geometry. A horizontal 105 x 68 pitch seen from above, attacking to
+    // the right, with the goals outside the goal lines. The glyph (36 x 24)
+    // drops what would render as sub-pixel noise: the centre and penalty
+    // spots, the penalty arcs and the corner arcs.
+    // ---------------------------------------------------------------------
+    const PITCH_LENGTH = 105;
+    const PITCH_WIDTH = 68;
+    const PITCH_VARIANTS = {
+      glyph: { design: [36, 24], detailed: false, goalDepth: 2, stroke: 0.9, zoneRadius: 1.2, zoneStroke: 1.1 },
+      banner: { design: [240, 155], detailed: true, goalDepth: 5.3, stroke: 1, zoneRadius: 4, zoneStroke: 1.3 }
+    };
+
+    // The pitch markings, the zone [x, y, w, h] and the player dots
+    // [x, y, r], as SVG elements in the variant's design box.
+    function pitchMarkupHtml(kind, zone, players) {
+      const cfg = PITCH_VARIANTS[kind];
+      const [designW, designH] = cfg.design;
+      const { goalDepth, stroke } = cfg;
+      const n = value => Number(value.toFixed(2));
+      // The largest 105:68 pitch that leaves room for the goals and strokes,
+      // centred in the design box.
+      const m = Math.min((designW - 2 * (goalDepth + stroke)) / PITCH_LENGTH, (designH - 2 * stroke) / PITCH_WIDTH);
+      const w = PITCH_LENGTH * m;
+      const h = PITCH_WIDTH * m;
+      const cx = designW / 2;
+      const cy = designH / 2;
+      const left = cx - w / 2;
+      const right = cx + w / 2;
+      const top = cy - h / 2;
+      const bottom = cy + h / 2;
+
+      const parts = [];
+      const rect = (x, y, rw, rh, cls) =>
+        parts.push(`<rect class="${cls}" x="${n(x)}" y="${n(y)}" width="${n(rw)}" height="${n(rh)}"/>`);
+      const dot = (x, y, r, cls) =>
+        parts.push(`<circle class="${cls}" cx="${n(x)}" cy="${n(y)}" r="${n(r)}"/>`);
+      // A circular arc of radius r from (x1, y1) to (x2, y2), clockwise on screen.
+      const arc = (x1, y1, x2, y2, r) =>
+        parts.push(`<path class="pitch-line" d="M${n(x1)} ${n(y1)}A${n(r)} ${n(r)} 0 0 1 ${n(x2)} ${n(y2)}"/>`);
+
+      rect(left, top, w, h, cfg.detailed ? "pitch-line pitch-ground" : "pitch-line");
+      parts.push(`<line class="pitch-line" x1="${n(cx)}" y1="${n(top)}" x2="${n(cx)}" y2="${n(bottom)}"/>`);
+      dot(cx, cy, 9.15 * m, "pitch-line");
+      for (const atLeft of [true, false]) {
+        const boxLeft = depth => (atLeft ? left : right - depth * m);
+        rect(boxLeft(16.5), cy - 40.32 * m / 2, 16.5 * m, 40.32 * m, "pitch-line");
+        rect(boxLeft(5.5), cy - 18.32 * m / 2, 5.5 * m, 18.32 * m, "pitch-line");
+        rect(atLeft ? left - goalDepth : right, cy - 7.32 * m / 2, goalDepth, 7.32 * m, "pitch-line");
       }
-      const [x, y, w, h] = zone;
-      return `
-        <svg class="mini-pitch-svg" width="36" height="24" viewBox="0 0 36 24" aria-hidden="true">
-          <rect class="pitch-line" x="1" y="1" width="34" height="22" rx="1.5" stroke-width="0.9"/>
-          <line class="pitch-line" x1="18" y1="1" x2="18" y2="23" stroke-width="0.9"/>
-          <circle class="pitch-line" cx="18" cy="12" r="3.2" stroke-width="0.9"/>
-          <rect class="pitch-zone" x="${x}" y="${y}" width="${w}" height="${h}" rx="1.2" stroke-width="1.1"/>
-        </svg>
-      `;
+
+      if (cfg.detailed) {
+        dot(cx, cy, stroke * 1.6, "pitch-spot");
+        // The penalty arc is the part of the 9.15 m circle around the spot
+        // that lies outside the box, whose edge is 5.5 m from the spot.
+        const theta = Math.acos(5.5 / 9.15);
+        const dx = Math.cos(theta) * 9.15 * m;
+        const dy = Math.sin(theta) * 9.15 * m;
+        for (const atLeft of [true, false]) {
+          const spotX = atLeft ? left + 11 * m : right - 11 * m;
+          dot(spotX, cy, stroke * 1.2, "pitch-spot");
+          if (atLeft) arc(spotX + dx, cy - dy, spotX + dx, cy + dy, 9.15 * m);
+          else arc(spotX - dx, cy + dy, spotX - dx, cy - dy, 9.15 * m);
+        }
+        const corner = 1.6 * m;
+        arc(left + corner, top, left, top + corner, corner);
+        arc(right, top + corner, right - corner, top, corner);
+        arc(right - corner, bottom, right, bottom - corner, corner);
+        arc(left, bottom - corner, left + corner, bottom, corner);
+      }
+
+      const [zx, zy, zw, zh] = zone;
+      parts.push(`<rect class="pitch-zone" x="${zx}" y="${zy}" width="${zw}" height="${zh}" rx="${cfg.zoneRadius}" stroke-width="${cfg.zoneStroke}"/>`);
+      (players || []).forEach(([px, py, pr]) => dot(px, py, pr, "pitch-player"));
+      return parts.join("");
+    }
+
+    // The zone rectangle in the 36 x 24 glyph (the same mapping as the Flutter
+    // PitchGlyph): wingers and full-backs on their flank, centre-forwards and
+    // centre-backs in the middle, midfielders across the halfway line.
+    function glyphZoneFor(position, subPosition) {
+      const sub = subPosition || "";
+      if (position === "Attack") {
+        if (sub.includes("Left")) return [22.5, 3.5, 10, 6];
+        if (sub.includes("Right")) return [22.5, 14.5, 10, 6];
+        return [22.5, 6, 10, 12];
+      }
+      if (position === "Defender") {
+        if (sub.includes("Right")) return [3.5, 14.5, 10, 6];
+        if (sub.includes("Left")) return [3.5, 3.5, 10, 6];
+        return [3.5, 5, 9, 14];
+      }
+      return [13, 4, 10, 16];
+    }
+
+    // The 36 x 24 position glyph of a table row. Decorative: the sub-position
+    // beside it says the same.
+    function getMiniPitchSvg(position, subPosition) {
+      return `<svg class="mini-pitch-svg" width="36" height="24" viewBox="0 0 36 24" stroke-width="0.9" aria-hidden="true">${pitchMarkupHtml("glyph", glyphZoneFor(position, subPosition), [])}</svg>`;
+    }
+
+    // League logos (DESIGN.md §4): Transfermarkt's header logo, built from the
+    // league_id, only for the leagues of LEAGUE_NAMES (a raw id never reaches
+    // a URL). Same rule as league_logos.dart.
+    function leagueLogoUrl(leagueId) {
+      if (!leagueId || !Object.prototype.hasOwnProperty.call(LEAGUE_NAMES, leagueId)) return null;
+      return `https://tmssl.akamaized.net/images/logo/header/${leagueId.toLowerCase()}.png`;
+    }
+
+    // A decorative logo that removes itself when it fails to load, so nothing
+    // broken shows and (the gap being the parent's flex gap) no space is left.
+    function logoImgHtml(url, cls) {
+      return url ? `<img class="${cls}" src="${url}" alt="" onerror="this.remove()">` : "";
     }
 
     // ---------------------------------------------------------------------
@@ -2328,78 +2604,6 @@
       return `No confirman el estado: los dos clasificadores lo marcan como ${rf ? "infravalorado" : "no infravalorado"}.`;
     }
 
-    function buildValuationDumbbellHtml(v) {
-      const market = v.market_value_eur;
-      const estimate = v.fair_value_eur;
-      const scaleMax = Math.max(market, estimate) * 1.08;
-      const toPct = val => Math.max(0, Math.min(100, (val / scaleMax) * 100));
-      const marketPos = toPct(market);
-      const estimatePos = toPct(estimate);
-      const gapLeft = Math.min(marketPos, estimatePos);
-      const gapWidth = Math.abs(estimatePos - marketPos);
-      const gapTone = statusToneClass(v.valuation_status) || "tone-neutral";
-      const alignFor = pos => (pos < 12 ? "align-start" : pos > 88 ? "align-end" : "");
-
-      return `
-        <div class="dumbbell" role="img" aria-label="Escala desde €0: precio de mercado ${formatEur(market)}, valor estimado ${formatEur(estimate)}">
-          <div class="dumbbell-labels labels-top">
-            <span class="dumbbell-label ${alignFor(estimatePos)}" style="left:${estimatePos.toFixed(1)}%">Valor estimado <strong>${formatEur(estimate)}</strong></span>
-          </div>
-          <span class="dumbbell-zero">€0</span>
-          <div class="dumbbell-track">
-            <div class="dumbbell-axis"></div>
-            <div class="dumbbell-gap ${gapTone}" style="left:${gapLeft.toFixed(1)}%; width:${gapWidth.toFixed(1)}%"></div>
-            <span class="dumbbell-dot dot-market" style="left:${marketPos.toFixed(1)}%"></span>
-            <span class="dumbbell-dot dot-estimate" style="left:${estimatePos.toFixed(1)}%"></span>
-          </div>
-          <div class="dumbbell-labels labels-bottom">
-            <span class="dumbbell-label ${alignFor(marketPos)}" style="left:${marketPos.toFixed(1)}%">Mercado <strong>${formatEur(market)}</strong></span>
-          </div>
-        </div>
-      `;
-    }
-
-    function buildExecutiveNarrativeHtml(player) {
-      const s = seasonOf(player);
-      const v = player.valuation;
-      const rep = player.replacements_payload;
-      const diffEur = v.fair_value_eur - v.market_value_eur;
-      const diffRatio = diffEur / v.market_value_eur;
-      const subPosEs = SUBPOS_LABELS[player.sub_position] || POS_LABELS[player.position] || player.position;
-      const direction = diffEur >= 0 ? "por encima" : "por debajo";
-
-      const p1 = `<p><strong>Valoración.</strong> ${player.name} tiene un precio de mercado de <strong>${formatEur(v.market_value_eur)}</strong> y un valor estimado de <strong>${formatEur(v.fair_value_eur)}</strong>, un ${formatPct(Math.abs(diffRatio))} ${direction} del precio. Estado: <strong>${VALUATION_LABELS[v.valuation_status]}</strong>.</p>`;
-
-      let p2;
-      if (s) {
-        const leagueName = LEAGUE_NAMES[s.league_id] || s.league_id;
-        // Out-of-range starts or win share are left out rather than printed.
-        const starts = validStarts(s);
-        const appsText = formatCount(s.apps, "partido", "partidos")
-          + (starts === null ? "" : ` (${formatNumber(starts)} como titular)`);
-        const goalsText = `<strong>${formatCount(s.goals, "gol", "goles")}</strong>`;
-        const assistsText = `<strong>${formatCount(s.assists, "asistencia", "asistencias")}</strong>`;
-        const outputText = validShare(s.win_rate) === null
-          ? `${goalsText} y ${assistsText}`
-          : `${goalsText}, ${assistsText} y un <strong>${formatShare(s.win_rate)} de victorias</strong>`;
-        p2 = `<p><strong>Temporada ${formatSeason(s.season)} (${leagueName}).</strong> Como ${subPosEs.toLowerCase()} en ${player.club_name}, suma <strong>${formatNumber(s.minutes)} minutos</strong> en <strong>${appsText}</strong>, con ${outputText}.</p>`;
-      } else {
-        p2 = `<p><strong>Temporada ${currentSeasonLabel()}.</strong> Sin estadísticas de temporada para este jugador.</p>`;
-      }
-
-      let p3;
-      if (rep.replacements.length > 0) {
-        const repNames = rep.replacements.map(c =>
-          `<strong>${c.candidate_name}</strong> (${c.candidate_club_name}, ahorro de ${formatEur(c.cost_savings_eur)}, ${formatPct(c.cost_ratio - 1)})`
-        ).join(", ");
-        p3 = `<p><strong>Reemplazos.</strong> En el arquetipo ${CLUSTER_SHORT_LABELS[player.cluster_id]}, los candidatos más similares con al menos un 20% de ahorro son: ${repNames}.</p>`;
-      } else {
-        p3 = `<p><strong>Reemplazos.</strong> ${describeShortfall(rep) || "Ningún jugador cumple los criterios de reemplazo."}</p>`;
-      }
-
-      return p1 + p2 + p3;
-    }
-
     // ---------------------------------------------------------------------
     // Filters
     // ---------------------------------------------------------------------
@@ -2412,8 +2616,8 @@
           const q = state.searchQuery.toLowerCase();
           const matchName = p.name.toLowerCase().includes(q);
           const matchClub = (p.club_name || "").toLowerCase().includes(q);
-          const subEs = (SUBPOS_LABELS[p.sub_position] || "").toLowerCase();
-          if (!matchName && !matchClub && !subEs.includes(q)) return false;
+          const countryEs = (COUNTRY_ES_MAP[p.country_of_citizenship] || p.country_of_citizenship || "").toLowerCase();
+          if (!matchName && !matchClub && !countryEs.includes(q)) return false;
         }
         return true;
       });
@@ -2537,7 +2741,7 @@
           <td><div class="pos-zone-cell"><span class="sk sk-glyph"></span><span class="sk sk-w60"></span></div></td>
           <td class="num"><span class="sk sk-w50 sk-end"></span></td>
           <td class="num"><span class="sk sk-w50 sk-end"></span></td>
-          <td class="num"><span class="sk sk-pill sk-end"></span></td>
+          <td class="num"><span class="sk sk-w70 sk-end"></span></td>
         </tr>
       `;
       return row.repeat(count);
@@ -2577,6 +2781,11 @@
 
       const filtered = getFilteredPlayers();
       countLabel.textContent = `${formatNumber(filtered.length)} de ${formatNumber(TOTAL_PLAYERS)} jugadores`;
+      // The first rows rise in once, on the view's first load only (§5); a
+      // later filter, search or return to the view never animates.
+      const staggerRows = claimFirstLoad("view-1");
+      // Only a close that will animate holds the highlight.
+      const holdsExitHighlight = !prefersReducedMotion();
 
       // A dossier never shows a player the table no longer lists (including
       // the empty result); the selection itself is kept for the comparator.
@@ -2602,15 +2811,18 @@
       const focusedId = focused && focused.classList && focused.classList.contains("row-open-btn")
         ? Number(focused.dataset.playerId) : null;
 
-      ensureTableShell(container).innerHTML = filtered.map(p => {
+      ensureTableShell(container).innerHTML = filtered.map((p, index) => {
         const isOpen = state.dossierOpen && p.player_id === state.selectedPlayerId;
+        // The highlight stays through the panel's exit (as in the Flutter
+        // app); aria-expanded follows the real state.
+        const isHighlighted = isOpen || (!state.dossierOpen && holdsExitHighlight && p.player_id === shownDossierPlayerId());
         const v = p.valuation;
         const posEs = POS_LABELS[p.position] || p.position;
         const subPosEs = SUBPOS_LABELS[p.sub_position] || posEs;
         const age = playerAgeYears(p);
 
         return `
-          <tr class="player-row ${isOpen ? 'selected' : ''}" onclick="handlePlayerRowClick(event, ${p.player_id})">
+          <tr class="player-row ${isHighlighted ? 'selected' : ''}${staggerRows && index < FIRST_LOAD_ROWS ? ' first-load' : ''}"${staggerRows && index < FIRST_LOAD_ROWS ? ` style="--i:${index}"` : ""} onclick="handlePlayerRowClick(event, ${p.player_id})">
             <td>
               <div class="player-identity-cell">
                 <div class="avatar-wrap-44">
@@ -2638,8 +2850,8 @@
             <td class="num"><span class="money ${statusToneClass(v.valuation_status)}">${formatEur(v.fair_value_eur)}</span></td>
             <td class="num">
               <div class="gap-cell">
-                <span class="status-pill status-${v.valuation_status}">${VALUATION_LABELS[v.valuation_status]}</span>
-                <span class="gap-ratio" title="Valor estimado entre precio de mercado">${formatMultiple(v.fair_value_eur / v.market_value_eur)}</span>
+                <span class="status-text status-${v.valuation_status}">${VALUATION_LABELS[v.valuation_status]}</span>
+                <span class="gap-ratio" title="Diferencia del valor estimado frente al precio de mercado">${formatValuationGap(v)}</span>
               </div>
             </td>
           </tr>
@@ -2711,23 +2923,38 @@
       const panel = document.getElementById("dossier-panel");
       const split = document.getElementById("master-detail-split");
       const visible = isDossierVisible();
-      split.classList.toggle("dossier-open", visible);
-      panel.hidden = !visible;
 
       const player = PLAYERS_DATA.find(p => p.player_id === state.selectedPlayerId) || PLAYERS_DATA[0];
       const key = visible ? `ready:${player.player_id}` : "closed";
-      if (key === renderedDossierKey) return;
-      // Only a player change inside an open dossier animates; opening does not.
-      const shouldAnimate = visible && renderedDossierKey !== null && renderedDossierKey.startsWith("ready:");
-      renderedDossierKey = key;
 
       if (!visible) {
-        // Dropping the class keeps the entry animation from replaying when the
-        // panel is displayed again.
-        panel.classList.remove("dossier-animate");
-        panel.innerHTML = "";
+        // A close slides the panel out with its content still on screen, and
+        // the table keeps its narrow width until the exit ends (§5). Anything
+        // else (loading, error, reduced motion, never shown) closes at once.
+        if (renderedDossierKey === "closing" || renderedDossierKey === "closed") return;
+        const showing = renderedDossierKey !== null && renderedDossierKey.startsWith("ready:");
+        if (showing && dataStatus === "ready" && !prefersReducedMotion()) startDossierExit(panel);
+        else finishDossierExit();
         return;
       }
+
+      const wasExiting = renderedDossierKey === "closing";
+      if (wasExiting) {
+        const sameContent = key === `ready:${exitingPlayerId}`;
+        cancelDossierExit(panel);
+        // The same player again: the panel still holds their dossier, so only
+        // the exit stops. A different player is rebuilt below.
+        if (sameContent) {
+          renderedDossierKey = key;
+          return;
+        }
+      } else if (key === renderedDossierKey) return;
+      // A player change inside an open dossier swaps with the short enter; a
+      // dossier that was closed slides in.
+      const shouldAnimate = !wasExiting && renderedDossierKey !== null && renderedDossierKey.startsWith("ready:");
+      renderedDossierKey = key;
+      split.classList.add("dossier-open");
+      panel.hidden = false;
 
       const s = seasonOf(player);
       const v = player.valuation;
@@ -2736,12 +2963,33 @@
       const posEs = POS_LABELS[player.position] || player.position;
       const subPosEs = SUBPOS_LABELS[player.sub_position] || posEs;
       const countryEs = COUNTRY_ES_MAP[player.country_of_citizenship] || player.country_of_citizenship;
-      const footEs = FOOT_LABELS[player.foot] || "N/D";
+      const footEs = FOOT_LABELS[player.foot] || null;
       const leagueName = s ? (LEAGUE_NAMES[s.league_id] || s.league_id) : null;
       const age = playerAgeYears(player);
 
       const diffEur = v.fair_value_eur - v.market_value_eur;
-      const diffRatio = diffEur / v.market_value_eur;
+
+      // Header line 2: flag and country, crest and club, league logo and
+      // league, joined by " · ". Only the club name truncates; the rest never
+      // shrinks. A missing logo takes no space (logoImgHtml returns ""), and
+      // with no season the league item and its separator are omitted.
+      const identityItems = [
+        countryEs ? `<span class="club-item club-country">${getFlagImgHtml(player.country_of_citizenship)}<span class="club-country-name" title="${countryEs}">${countryEs}</span></span>` : null,
+        player.club_name ? `<span class="club-item club-main">${logoImgHtml(player.club_logo_url, "dossier-logo")}<strong class="club-name" title="${player.club_name}">${player.club_name}</strong></span>` : null,
+        leagueName ? `<span class="club-item">${logoImgHtml(leagueLogoUrl(s.league_id), "dossier-logo")}<span>${leagueName}</span></span>` : null
+      ].filter(Boolean);
+
+      // Header line 3: Edad | Altura | Pie | Posición. Age comes from the
+      // season, or from the birth date when there is no season (§7). An item
+      // the data lacks is left out, never printed as "N/D".
+      const hasHeight = isNumeric(player.height_in_cm) && Number(player.height_in_cm) > 0;
+      const bioItem = (label, value) => `<div class="bio-item"><dt>${label}</dt><dd>${value}</dd></div>`;
+      const bioItems = [
+        age === null ? null : bioItem("Edad", formatNumber(age)),
+        hasHeight ? bioItem("Altura", formatHeight(player.height_in_cm)) : null,
+        footEs ? bioItem("Pie", footEs) : null,
+        subPosEs ? bioItem("Posición", subPosEs) : null
+      ].filter(Boolean);
 
       const replacementsRowsHtml = rep.replacements.map(c => `
           <div class="replacement-white-card">
@@ -2777,18 +3025,15 @@
           <div class="dossier-player-main">
             <div class="portrait-wrap-64">
               <img class="dossier-portrait-64" src="${player.image_url}" width="64" height="64" alt="Foto de ${player.name}">
-              <img class="dossier-club-crest-24" src="${player.club_logo_url}" width="24" height="24" alt="Escudo de ${player.club_name}">
             </div>
             <div class="dossier-identity-text">
               <div class="dossier-name-line">
                 <h2 class="dossier-name-title">${player.name}</h2>
-                ${rep.is_elite_asset ? '<span class="elite-note">Activo élite</span>' : ''}
               </div>
               <div class="dossier-club-line">
-                <span class="club-item">${getFlagImgHtml(player.country_of_citizenship)}<span>${countryEs}</span><span aria-hidden="true">&middot;</span></span>
-                <span class="club-item"><strong>${player.club_name}</strong>${leagueName ? '<span aria-hidden="true">&middot;</span>' : ""}</span>
-                ${leagueName ? `<span class="club-item">${leagueName}</span>` : ""}
+                ${identityItems.join('<span class="club-sep" aria-hidden="true">&middot;</span>')}
               </div>
+              ${bioItems.length > 0 ? `<dl class="dossier-bio-row">${bioItems.join("")}</dl>` : ""}
             </div>
             <button type="button" class="btn-executive-secondary dossier-close-btn" aria-label="Cerrar ficha" onclick="closeDossier()">
               <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
@@ -2797,13 +3042,6 @@
               </svg>
             </button>
           </div>
-
-          <dl class="dossier-bio-row">
-            <div class="bio-item"><dt>Edad</dt><dd>${age === null ? "N/D" : formatNumber(age)}</dd></div>
-            <div class="bio-item"><dt>Altura</dt><dd>${formatHeight(player.height_in_cm)}</dd></div>
-            <div class="bio-item"><dt>Pie</dt><dd>${footEs}</dd></div>
-            <div class="bio-item"><dt>Posición</dt><dd>${subPosEs}</dd></div>
-          </dl>
         </div>
 
         <div class="dossier-scroll-body" id="dossier-scroll-body">
@@ -2812,20 +3050,19 @@
               <div class="valuation-figures-pair">
                 <div class="val-figure-block">
                   <span class="val-figure-label">Precio de mercado</span>
-                  <span class="val-figure-number">${formatEur(v.market_value_eur)}</span>
+                  <span class="val-figure-number" data-count="${v.market_value_eur}"><span class="count-visible" aria-hidden="true">${formatEur(v.market_value_eur)}</span><span class="sr-only">${formatEur(v.market_value_eur)}</span></span>
                 </div>
                 <div class="val-figure-block">
                   <span class="val-figure-label">Valor estimado</span>
-                  <span class="val-figure-number ${statusToneClass(v.valuation_status)}">${formatEur(v.fair_value_eur)}</span>
+                  <span class="val-figure-number ${statusToneClass(v.valuation_status)}" data-count="${v.fair_value_eur}"><span class="count-visible" aria-hidden="true">${formatEur(v.fair_value_eur)}</span><span class="sr-only">${formatEur(v.fair_value_eur)}</span></span>
                 </div>
               </div>
               <div class="valuation-verdict">
-                <span class="status-pill status-${v.valuation_status}">${VALUATION_LABELS[v.valuation_status]}</span>
-                <span class="verdict-gap">Diferencia ${formatSignedEur(diffEur)} (${formatSignedPct(diffRatio)})</span>
+                <span class="status-text status-${v.valuation_status}">${VALUATION_LABELS[v.valuation_status]}</span>
+                <span class="verdict-gap" aria-hidden="true">&middot;</span>
+                <span class="verdict-gap">Diferencia ${formatSignedEur(diffEur)} (${formatValuationGap(v)})</span>
               </div>
             </div>
-
-            ${buildValuationDumbbellHtml(v)}
 
             <div class="model-row" role="group" aria-labelledby="classifier-check-label">
               <span class="model-row-label" id="classifier-check-label">Comprobación de los clasificadores</span>
@@ -2837,34 +3074,133 @@
           ${seasonSectionHtml(player, s)}
 
           <section class="dossier-section">
-            <div class="section-header-line with-action">
+            <div class="section-header-line">
               <div>
                 <h3 class="section-title">Reemplazos</h3>
                 <div class="section-subtitle">Mismo arquetipo y posición &middot; ahorro &ge; 20%</div>
               </div>
-              <button type="button" class="btn-executive-secondary" onclick="switchView('view-2')">Comparar reemplazos</button>
             </div>
+            <button type="button" class="btn-executive-secondary section-action" onclick="switchView('view-2')">Comparar reemplazos</button>
             ${shortfallNote}
             ${rep.replacements.length > 0 ? `<div class="replacements-list">${replacementsRowsHtml}</div>` : ""}
-          </section>
-
-          <section class="dossier-section">
-            <div class="section-header-line">
-              <h3 class="section-title">Resumen</h3>
-              <span class="section-subtitle">Texto generado a partir de los datos</span>
-            </div>
-            <div class="scouting-report-box">
-              ${buildExecutiveNarrativeHtml(player)}
-            </div>
           </section>
         </div>
       `;
 
-      if (shouldAnimate) {
-        panel.classList.remove("dossier-animate");
-        void panel.offsetWidth;
-        panel.classList.add("dossier-animate");
+      // Opening slides the panel in (220ms); a player change inside an open
+      // dossier uses the short enter instead. Removing first, with a reflow,
+      // restarts the animation.
+      panel.classList.remove("dossier-animate", "slide-in", "slide-out");
+      void panel.offsetWidth;
+      panel.classList.add(shouldAnimate ? "dossier-animate" : "slide-in");
+
+      playValuationFigures(panel);
+    }
+
+    // ---------------------------------------------------------------------
+    // Dossier exit and valuation figures (DESIGN.md §5)
+    // ---------------------------------------------------------------------
+    let dossierExitTimer = null;
+    let exitingPlayerId = null;
+
+    // The player whose dossier is on screen, the leaving one included.
+    function shownDossierPlayerId() {
+      if (renderedDossierKey === "closing") return exitingPlayerId;
+      if (renderedDossierKey !== null && renderedDossierKey.startsWith("ready:")) {
+        return Number(renderedDossierKey.slice("ready:".length));
       }
+      return null;
+    }
+
+    // Closing: the panel slides out (CSS) with its content on screen; the
+    // split keeps the dossier column until finishDossierExit. Focus never
+    // waits for this, so the leaving panel is inert. A running count-up is
+    // left to finish on the leaving panel.
+    function startDossierExit(panel) {
+      exitingPlayerId = shownDossierPlayerId();
+      renderedDossierKey = "closing";
+      panel.classList.remove("dossier-animate", "slide-in");
+      panel.classList.add("slide-out");
+      panel.inert = true;
+      dossierExitTimer = window.setTimeout(finishDossierExit, PANEL_MS + 20);
+    }
+
+    function cancelDossierExit(panel) {
+      window.clearTimeout(dossierExitTimer);
+      dossierExitTimer = null;
+      exitingPlayerId = null;
+      panel.classList.remove("slide-out");
+      panel.inert = false;
+    }
+
+    // The exit is over (or there was none): the table takes its width back.
+    function finishDossierExit() {
+      const panel = document.getElementById("dossier-panel");
+      window.clearTimeout(dossierExitTimer);
+      dossierExitTimer = null;
+      exitingPlayerId = null;
+      panel.classList.remove("dossier-animate", "slide-in", "slide-out");
+      panel.inert = false;
+      panel.hidden = true;
+      panel.innerHTML = "";
+      document.getElementById("master-detail-split").classList.remove("dossier-open");
+      renderedDossierKey = "closed";
+      // The highlight held through the exit goes with the panel.
+      if (!state.dossierOpen) {
+        document.querySelectorAll("#players-tbody .player-row.selected").forEach(row => row.classList.remove("selected"));
+      }
+    }
+
+    // "Precio de mercado" and "Valor estimado" count up from €0 through the
+    // same es-ES formatter on every frame (400ms, one curve). It plays
+    // each time the dossier loads a player (a new player, or the same one after
+    // the dossier was closed), never when the same open dossier re-renders:
+    // renderDossierPanel only builds the panel in the first two cases.
+    let figuresFrame = null;
+
+    function cancelFiguresAnimation() {
+      if (figuresFrame !== null) window.cancelAnimationFrame(figuresFrame);
+      figuresFrame = null;
+    }
+
+    function playValuationFigures(panel) {
+      cancelFiguresAnimation();
+      if (prefersReducedMotion()) return;
+      // A panel that is not rendered (its view is hidden) has no width to
+      // measure; it would fix the figures at 0px.
+      if (panel.offsetParent === null) return;
+
+      const figures = Array.from(panel.querySelectorAll(".val-figure-number[data-count]")).map(el => {
+        const visible = el.querySelector(".count-visible");
+        const value = Number(el.dataset.count);
+        const finalText = visible.textContent;
+        // Fix the width to the widest text of the count (the final one, or a
+        // wider one on the way: a count to "€1,0 M" passes through "€999 mil")
+        // so nothing beside the figure jitters.
+        const samples = [finalText];
+        for (let i = 0; i < 16; i++) samples.push(formatEur(value * i / 16));
+        [999, 999499].forEach(edge => { if (edge < value) samples.push(formatEur(edge)); });
+        visible.style.width = "max-content";
+        let widest = 0;
+        samples.forEach(text => {
+          visible.textContent = text;
+          widest = Math.max(widest, visible.getBoundingClientRect().width);
+        });
+        visible.style.width = `${Math.ceil(widest)}px`;
+        return { visible, value, finalText };
+      });
+
+      const start = performance.now();
+      const frame = now => {
+        const t = Math.min(1, (now - start) / FIGURES_MS);
+        const eased = easeOut(t);
+        // Exactly the final text at the end, whatever the float maths.
+        figures.forEach(f => { f.visible.textContent = t >= 1 ? f.finalText : formatEur(f.value * eased); });
+        figuresFrame = t < 1 ? window.requestAnimationFrame(frame) : null;
+      };
+      // The first frame runs now, so the figures start at €0 and never flash
+      // their final value.
+      frame(start);
     }
 
     // ---------------------------------------------------------------------
@@ -2880,6 +3216,13 @@
       return `<span class="delta ${tone}">${text}</span>`;
     }
 
+    // The "Liga" cell: the 16px league logo to the left of the name (nothing
+    // when it is missing or fails), and the name never breaks inside itself.
+    function leagueCellHtml(leagueId) {
+      const name = LEAGUE_NAMES[leagueId] || leagueId;
+      return `<span class="cmp-value cmp-league-cell">${logoImgHtml(leagueLogoUrl(leagueId), "cmp-logo")}<span>${name}</span></span>`;
+    }
+
     function comparePlayerHeadHtml(kicker, p) {
       return `
         <div class="cmp-kicker">${kicker}</div>
@@ -2891,7 +3234,6 @@
           <div class="cmp-player-text">
             <div class="cmp-name">${p.name} ${getFlagImgHtml(p.country)}</div>
             <div class="cmp-sub">${p.club}</div>
-            ${p.league ? `<div class="cmp-sub cmp-league">${p.league}</div>` : ""}
           </div>
         </div>
       `;
@@ -2920,7 +3262,6 @@
 
       const refAge = playerAgeYears(player);
       const refStats = s ? {
-        league: LEAGUE_NAMES[s.league_id] || s.league_id,
         minutes: roundOrNull(s.minutes),
         goals: roundOrNull(s.goals),
         assists: roundOrNull(s.assists),
@@ -2946,8 +3287,8 @@
         },
         {
           label: "Estado",
-          ref: `<span class="status-pill status-${v.valuation_status}">${VALUATION_LABELS[v.valuation_status]}</span>`,
-          cell: c => `<span class="status-pill status-${c.candidate_valuation_status}">${VALUATION_LABELS[c.candidate_valuation_status]}</span>`
+          ref: `<span class="status-text status-${v.valuation_status}">${VALUATION_LABELS[v.valuation_status]}</span>`,
+          cell: c => `<span class="status-text status-${c.candidate_valuation_status}">${VALUATION_LABELS[c.candidate_valuation_status]}</span>`
         },
         {
           label: "Ahorro frente a la referencia",
@@ -2963,8 +3304,8 @@
         { group: `Temporada ${currentSeasonLabel()}` },
         {
           label: "Liga",
-          ref: refStats ? `<span class="cmp-value">${refStats.league}</span>` : noData,
-          cell: c => `<span class="cmp-value">${LEAGUE_NAMES[c.season_snapshot.league_id] || c.season_snapshot.league_id}</span>`
+          ref: refStats ? leagueCellHtml(s.league_id) : noData,
+          cell: c => leagueCellHtml(c.season_snapshot.league_id)
         },
         {
           label: "Edad",
@@ -3012,18 +3353,17 @@
       }).join("");
 
       const refHead = comparePlayerHeadHtml(
-        `Referencia${rep.is_elite_asset ? ' <span class="elite-note">&middot; Activo élite</span>' : ''}`,
+        "Referencia",
         {
           name: player.name, image: player.image_url, crest: player.club_logo_url, club: player.club_name,
-          country: player.country_of_citizenship, league: s ? (LEAGUE_NAMES[s.league_id] || s.league_id) : ""
+          country: player.country_of_citizenship
         }
       );
       const candidateHeads = candidates.map(c => `
         <th scope="col" class="cmp-cand-head">
           ${comparePlayerHeadHtml(`Reemplazo ${formatNumber(c.rank)}`, {
             name: c.candidate_name, image: c.candidate_image_url, crest: c.candidate_club_logo_url,
-            club: c.candidate_club_name, country: c.candidate_country_of_citizenship,
-            league: LEAGUE_NAMES[c.season_snapshot.league_id] || c.season_snapshot.league_id
+            club: c.candidate_club_name, country: c.candidate_country_of_citizenship
           })}
         </th>
       `).join("");
@@ -3073,28 +3413,20 @@
     // View 3: archetypes
     // ---------------------------------------------------------------------
 
-    // Archetype pitch banners: zone geometry only; every zone is drawn in ink.
+    // Archetype pitch banners: zone geometry only, in the 240 x 155 design box
+    // of the shared pitch (where the pitch spans about x 6.5 to 233.5 and
+    // y 4 to 151); every zone is drawn in ink.
     const CLUSTER_PITCH_LAYOUTS = {
-      0: { zone: [148, 12, 82, 68], players: [[195, 46, 5], [172, 24, 4], [172, 68, 4]] },
-      1: { zone: [68, 10, 104, 72], players: [[120, 46, 5], [105, 20, 4], [135, 72, 4]] },
-      2: { zone: [10, 14, 88, 64], players: [[42, 34, 4.5], [42, 58, 4.5], [76, 46, 4.5]] }
+      0: { zone: [147.5, 18, 80, 119], players: [[193, 77.5, 5], [171, 39, 4], [171, 116, 4]] },
+      1: { zone: [69, 14.5, 102, 126], players: [[120, 77.5, 5], [105, 32, 4], [135, 123, 4]] },
+      2: { zone: [12.5, 21.5, 86, 112], players: [[43.5, 56.5, 4.5], [43.5, 98.5, 4.5], [76.5, 77.5, 4.5]] }
     };
 
+    // The shared pitch at full detail and its real aspect ratio; the width
+    // and the 264px cap come from the stylesheet.
     function getClusterPitchSvgLight(clusterId) {
       const layout = CLUSTER_PITCH_LAYOUTS[clusterId] || CLUSTER_PITCH_LAYOUTS[2];
-      const [x, y, w, h] = layout.zone;
-      const dots = layout.players
-        .map(([cx, cy, r]) => `<circle class="pitch-player" cx="${cx}" cy="${cy}" r="${r}"/>`)
-        .join("");
-      return `
-        <svg width="240" height="92" viewBox="0 0 240 92" aria-hidden="true">
-          <rect class="pitch-ground pitch-line" x="4" y="4" width="232" height="84" rx="4" stroke-width="1.2"/>
-          <line class="pitch-line" x1="120" y1="4" x2="120" y2="88" stroke-width="1.2"/>
-          <circle class="pitch-line" cx="120" cy="46" r="18" stroke-width="1.2"/>
-          <rect class="pitch-zone" x="${x}" y="${y}" width="${w}" height="${h}" rx="4" stroke-width="1.3"/>
-          ${dots}
-        </svg>
-      `;
+      return `<svg viewBox="0 0 240 155" stroke-width="1" aria-hidden="true">${pitchMarkupHtml("banner", layout.zone, layout.players)}</svg>`;
     }
 
     function archetypeShareHtml() {
@@ -3126,7 +3458,10 @@
         return;
       }
 
-      const cardsHtml = CLUSTERS_DATA.clusters.map(c => {
+      // The three cards rise in once, on the view's first load only (§5).
+      const staggerCards = claimFirstLoad("view-3");
+
+      const cardsHtml = CLUSTERS_DATA.clusters.map((c, index) => {
         const samplePlayers = PLAYERS_DATA.filter(p => p.cluster_id === c.cluster_id).slice(0, 4);
         const samplesHtml = samplePlayers.map(sp => `
           <li>
@@ -3138,7 +3473,7 @@
         `).join("");
 
         return `
-          <article class="cluster-card">
+          <article class="cluster-card${staggerCards ? " first-load" : ""}"${staggerCards ? ` style="--i:${index}"` : ""}>
             <div class="cluster-card-top">
               <span class="cluster-short-name">${c.short_name}</span>
               <span class="cluster-count">${formatCount(c.player_count, "jugador", "jugadores")}</span>
@@ -3234,6 +3569,21 @@
       document.getElementById("sidebar-footer-text").textContent = ready
         ? `${formatNumber(TOTAL_PLAYERS)} jugadores · ${season}`
         : "";
+    }
+
+    // Folds the sidebar to the 64px rail or opens it again (DESIGN.md §4, §5).
+    // The CSS runs the timeline from the is-folded class. The toggle is the
+    // same element in both states, so it keeps focus; only its name changes.
+    function toggleSidebar() {
+      sidebarFolded = !sidebarFolded;
+      // The sidebar carries the content states; the shell carries the width.
+      document.getElementById("sidebar").classList.toggle("is-folded", sidebarFolded);
+      document.querySelector(".app-shell").classList.toggle("is-folded", sidebarFolded);
+      const toggle = document.getElementById("sidebar-toggle");
+      toggle.setAttribute("aria-expanded", String(!sidebarFolded));
+      const label = sidebarFolded ? "Desplegar menú" : "Plegar menú";
+      toggle.setAttribute("aria-label", label);
+      toggle.setAttribute("data-tip", label);
     }
 
     function switchView(viewId) {

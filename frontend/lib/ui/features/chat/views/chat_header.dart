@@ -7,8 +7,9 @@ import '../../../core/theme/delphos_colors.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
 import '../../../core/widgets/action_button.dart';
+import 'chat_opener_focus.dart';
 
-/// Displays module title, subtitle, and actions to inspect capabilities or reset.
+/// Displays the module subtitle and actions to inspect capabilities or reset.
 class ChatHeader extends StatelessWidget {
   const ChatHeader({
     super.key,
@@ -38,11 +39,7 @@ class ChatHeader extends StatelessWidget {
               spacing: 2,
               children: [
                 Text(
-                  'Asistente de Scouting',
-                  style: DelphosText.condensed(size: TypeScale.title),
-                ),
-                Text(
-                  'Consultas en lenguaje natural y comparaciones con datos calculados por el modelo',
+                  'Consultas y comparaciones con datos calculados por el modelo',
                   style: DelphosText.ui(
                     size: TypeScale.secondary,
                     color: DelphosColors.ink2,
@@ -51,9 +48,14 @@ class ChatHeader extends StatelessWidget {
               ],
             ),
           ),
-          ActionButton(
-            label: '¿Qué puede hacer el agente?',
-            onPressed: onOpenCapabilities,
+          ChatOpenerFocus(
+            builder: (context, focusOpener) => ActionButton(
+              label: '¿Qué puede hacer el asistente?',
+              onPressed: () {
+                focusOpener();
+                onOpenCapabilities();
+              },
+            ),
           ),
           if (hasTurns)
             ActionButton(label: 'Nueva conversación', onPressed: onClear),

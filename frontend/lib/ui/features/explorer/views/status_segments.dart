@@ -1,5 +1,5 @@
 /// The Estado filter: the explorer's primary segmented control
-/// (DESIGN.md §4). Its labels match the table pills exactly.
+/// (DESIGN.md §4). Its labels match the table's status words exactly.
 library;
 
 import 'package:flutter/widgets.dart';
@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import '../../../../domain/models/valuation_status.dart';
 import '../../../core/labels/valuation_labels.dart';
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/motion.dart';
 import '../../../core/theme/type_scale.dart';
@@ -41,7 +42,7 @@ class StatusSegments extends StatelessWidget {
           padding: const EdgeInsets.all(2),
           decoration: BoxDecoration(
             color: DelphosColors.surface,
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(DelphosRadius.control),
             border: Border.all(color: DelphosColors.controlBorder),
           ),
           child: Row(
@@ -81,7 +82,7 @@ class _Segment extends StatelessWidget {
       onPressed: onPressed,
       semanticLabel: label,
       selected: active,
-      borderRadius: 5,
+      borderRadius: DelphosRadius.segment,
       builder: (context, hovered) => AnimatedContainer(
         // Hover and selection feedback (DESIGN.md §5).
         duration: DelphosMotion.duration(context, DelphosMotion.hover),
@@ -93,7 +94,7 @@ class _Segment extends StatelessWidget {
           color: active
               ? DelphosColors.ink
               : (hovered ? DelphosColors.surfaceSubtle : null),
-          borderRadius: BorderRadius.circular(5),
+          borderRadius: BorderRadius.circular(DelphosRadius.segment),
         ),
         child: Text(
           label,

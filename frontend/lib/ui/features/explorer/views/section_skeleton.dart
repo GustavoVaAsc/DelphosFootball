@@ -4,6 +4,7 @@ library;
 import 'package:flutter/widgets.dart';
 
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 
 /// Two static bars while a section loads (no shimmer, DESIGN.md §5).
 class SectionSkeleton extends StatelessWidget {
@@ -16,7 +17,7 @@ class SectionSkeleton extends StatelessWidget {
       height: 10,
       decoration: BoxDecoration(
         color: DelphosColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(DelphosRadius.bar),
       ),
     );
     return ExcludeSemantics(

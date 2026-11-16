@@ -7,8 +7,10 @@ library;
 import 'package:flutter/widgets.dart';
 
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
+import '../../../core/widgets/remote_logo.dart';
 import 'compare_rules.dart';
 import 'delta_tone.dart';
 
@@ -48,6 +50,24 @@ abstract final class CompareCells {
   static Widget plain(String text) =>
       value((text: text, delta: null, tone: DeltaTone.neutral));
 
+  /// A league name with its 16 px logo to the left (nothing when the logo is
+  /// missing or fails). The name never breaks inside itself.
+  static Widget league(String name, String? logoUrl) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      RemoteLogo(url: logoUrl, height: 16, gapAfter: 5),
+      Flexible(
+        child: Text(
+          name,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.ellipsis,
+          style: DelphosText.ui(weight: FontWeight.w500, tabular: true),
+        ),
+      ),
+    ],
+  );
+
   /// A muted note ("No aplica", "Sin datos de temporada").
   static Widget note(String text) => Text(
     text,
@@ -61,7 +81,7 @@ abstract final class CompareCells {
       height: 10,
       decoration: BoxDecoration(
         color: DelphosColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(DelphosRadius.bar),
       ),
     ),
   );

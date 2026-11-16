@@ -85,13 +85,3 @@ String formatShare(num? value) {
   final share = validShare(value);
   return share == null ? notAvailable : formatPct(share);
 }
-
-/// A ratio such as estimate over price ("1,3x"). A positive ratio under
-/// 0,05 prints "<0,1x" instead of the impossible "0,0x".
-String formatMultiple(num? ratio) {
-  if (!_isFinite(ratio)) return notAvailable;
-  if (ratio! > 0 && ratio < 0.05) {
-    return '<${formatNumber(0.1, decimals: 1)}x';
-  }
-  return '${formatNumber(ratio, decimals: 1)}x';
-}

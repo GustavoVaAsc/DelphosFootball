@@ -1,4 +1,5 @@
-/// Natural-language progress trail showing what the scouting agent consulted.
+/// Progress trail showing what the scouting assistant consulted. It has no
+/// border or ground: the turn card around it is the only card.
 library;
 
 import 'package:flutter/widgets.dart';
@@ -22,39 +23,31 @@ class ChatStepTrail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (steps.isEmpty && !isStreaming) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: DelphosColors.surfaceSubtle,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: DelphosColors.rule),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: 6,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 6,
+      children: [
+        Text(
+          isStreaming && steps.isEmpty
+              ? 'Analizando tu petición con los datos del modelo…'
+              : 'Pasos realizados sobre la base del modelo',
+          style: DelphosText.ui(
+            size: TypeScale.secondary,
+            weight: FontWeight.w600,
+            color: DelphosColors.ink2,
+          ),
+        ),
+        for (var i = 0; i < steps.length; i++)
+          _StepRow(index: i + 1, step: steps[i]),
+        if (isStreaming && steps.isNotEmpty)
           Text(
-            isStreaming && steps.isEmpty
-                ? 'Analizando tu petición con los datos del modelo…'
-                : 'Pasos realizados sobre la base del modelo',
+            'Redactando respuesta con los resultados obtenidos…',
             style: DelphosText.ui(
               size: TypeScale.secondary,
-              weight: FontWeight.w600,
-              color: DelphosColors.ink2,
+              color: DelphosColors.ink3,
             ),
           ),
-          for (var i = 0; i < steps.length; i++)
-            _StepRow(index: i + 1, step: steps[i]),
-          if (isStreaming && steps.isNotEmpty)
-            Text(
-              'Redactando respuesta con los resultados obtenidos…',
-              style: DelphosText.ui(
-                size: TypeScale.secondary,
-                color: DelphosColors.ink3,
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -67,7 +60,6 @@ class _StepRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = step.isError ? DelphosColors.down : DelphosColors.up;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 8,
@@ -76,7 +68,10 @@ class _StepRow extends StatelessWidget {
           margin: const EdgeInsets.only(top: 5),
           width: 6,
           height: 6,
-          decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+          decoration: const BoxDecoration(
+            color: DelphosColors.ink3,
+            shape: BoxShape.circle,
+          ),
         ),
         Expanded(
           child: Text.rich(
@@ -91,7 +86,7 @@ class _StepRow extends StatelessWidget {
                   ),
                 ),
                 TextSpan(
-                  text: step.summary,
+                  text: step.isError ? 'No se pudo completar' : step.summary,
                   style: DelphosText.ui(
                     size: TypeScale.secondary,
                     color: DelphosColors.ink2,

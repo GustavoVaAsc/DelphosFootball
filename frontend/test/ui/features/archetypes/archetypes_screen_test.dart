@@ -2,6 +2,7 @@
 // the data, share bar proportions and legend, the cards' copy and aligned
 // rows on one card surface, the representative player links and "Ver en el
 // explorador".
+import 'package:delphos_frontend/ui/core/widgets/enter_motion.dart';
 import 'package:delphos_frontend/ui/features/archetypes/views/archetype_grid.dart';
 import 'package:delphos_frontend/ui/features/archetypes/views/archetype_pitch.dart';
 import 'package:delphos_frontend/ui/features/archetypes/views/share_bar.dart';
@@ -92,6 +93,37 @@ void main() {
     expect(find.text('Valor promedio'), findsNWidgets(3));
   });
 
+  testWidgets('each pitch keeps a real aspect ratio, not the card width', (
+    tester,
+  ) async {
+    await pumpAppAt(tester, '/arquetipos');
+    for (final pitch in find.byType(ArchetypePitch).evaluate()) {
+      final drawing = find.descendant(
+        of: find.byWidget(pitch.widget),
+        matching: find.byType(CustomPaint),
+      );
+      final size = tester.getSize(drawing.first);
+      expect(size.width / size.height, closeTo(105 / 68, 0.05));
+      expect(size.width, lessThanOrEqualTo(264));
+    }
+  });
+
+  testWidgets('the cards stagger on the first load only', (tester) async {
+    final cards = find.byWidgetPredicate(
+      (widget) =>
+          widget is EnterMotion &&
+          widget.animate &&
+          widget.offset == const Offset(0, 8),
+    );
+    final router = await pumpAppAt(tester, '/arquetipos');
+    expect(cards, findsWidgets);
+    router.go('/explorador');
+    await tester.pumpAndSettle();
+    router.go('/arquetipos');
+    await tester.pumpAndSettle();
+    expect(cards, findsNothing);
+  });
+
   testWidgets('a representative player opens their dossier', (tester) async {
     final router = await pumpAppAt(tester, '/arquetipos');
     await tester.tap(find.text('Jugador 1000').first);
@@ -103,7 +135,12 @@ void main() {
     tester,
   ) async {
     final router = await pumpAppAt(tester, '/arquetipos');
-    await tester.tap(find.text('Ver en el explorador').last);
+    // The link sits below the 900 px fold now that the pitch has its real
+    // aspect ratio; the page scrolls, so a user scrolls to it first.
+    final link = find.text('Ver en el explorador').last;
+    await tester.ensureVisible(link);
+    await tester.pumpAndSettle();
+    await tester.tap(link);
     await tester.pumpAndSettle();
     expect(location(router), '/explorador?arquetipo=2');
   });

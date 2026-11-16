@@ -16,6 +16,7 @@ import '../../../core/theme/motion.dart';
 
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/view_models/dataset_view_model.dart';
 import '../../../core/view_models/section_status.dart';
 import '../view_models/dossier_view_model.dart';
@@ -77,7 +78,6 @@ class _DossierPanelState extends State<DossierPanel>
     final identity = switch (vm.identity.status) {
       SectionStatus.ready when profile != null => DossierHeader(
         profile: profile,
-        eliteAsset: vm.replacements.value?.isEliteAsset ?? false,
         dataDate: overview?.asOfDate,
       ),
       SectionStatus.loading => const DossierHeaderSkeleton(),
@@ -87,7 +87,9 @@ class _DossierPanelState extends State<DossierPanel>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+          // 26 px at the top puts line 2 at least 8 px below the 32 px close
+          // button (12 px from the top), which it must never come near.
+          padding: const EdgeInsets.fromLTRB(20, 26, 20, 14),
           decoration: const BoxDecoration(
             border: Border(bottom: BorderSide(color: DelphosColors.rule)),
           ),
@@ -107,11 +109,11 @@ class _DossierPanelState extends State<DossierPanel>
       child: Container(
         decoration: BoxDecoration(
           color: DelphosColors.surface,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(DelphosRadius.card),
           border: Border.all(color: DelphosColors.rule),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(9),
+          borderRadius: BorderRadius.circular(DelphosRadius.cardInner),
           // The close button sits inside the card's corner with room for
           // its 2 px ring offset, outside the clipped, animated content.
           child: Stack(

@@ -15,7 +15,7 @@ abstract final class DelphosColors {
   /// Table header, row hover, pitch glyph ground.
   static const Color surfaceSubtle = Color(0xFFFAF9F6);
 
-  /// "En precio" pill ground, neutral fills.
+  /// Neutral fills: skeletons, the comparator's reference header.
   static const Color surfaceMuted = Color(0xFFEEEBE3);
 
   /// Primary text, figures, sidebar, focus ring, selected row bar.
@@ -46,14 +46,8 @@ abstract final class DelphosColors {
   /// Only "undervalued", and better-than-reference comparator deltas.
   static const Color up = Color(0xFF0B6E4F);
 
-  /// Ground of the "Infravalorado" pill.
-  static const Color upBg = Color(0xFFE6F1EC);
-
   /// Only "overvalued", and worse-than-reference comparator deltas.
   static const Color down = Color(0xFFB3261E);
-
-  /// Ground of the "Sobrevalorado" pill.
-  static const Color downBg = Color(0xFFF8E8E6);
 
   /// Navy sidebar (same hue as ink).
   static const Color sidebarBg = Color(0xFF13233A);
@@ -73,11 +67,15 @@ abstract final class DelphosColors {
   /// Nav item hover ground (white at 6%, as in the design preview).
   static const Color sidebarHover = Color(0x0FFFFFFF);
 
-  /// Shadow of the one floating element, the crest disc (ink at 12%).
+  /// Colour of the float shadow of every floating layer: tooltips, suggestions,
+  /// the chat dialog, select menus and the crest disc (ink at 12%).
   static const Color floatShadow = Color(0x1F13233A);
 
-  /// Border of the brand tile (white at 28%, as in the design preview).
-  static const Color sidebarMarkBorder = Color(0x47FFFFFF);
+  /// The 1 px frame of a flag (ink at 12%, as in the design preview).
+  static const Color flagBorder = Color(0x1F13233A);
+
+  /// The scrim behind a modal dialog (ink at 35%).
+  static const Color scrim = Color(0x5913233A);
 
   /// White text and the focus ring on the navy sidebar.
   static const Color onSidebar = Color(0xFFFFFFFF);

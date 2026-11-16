@@ -6,7 +6,7 @@ abstract final class TypeScale {
   /// 11: stat labels and axis labels only.
   static const double label = 11;
 
-  /// 12: secondary lines, pills, labels, buttons, footers.
+  /// 12: secondary lines, status words, labels, buttons, footers.
   static const double secondary = 12;
 
   /// 13: body and table text, controls, navigation.

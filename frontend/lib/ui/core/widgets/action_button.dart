@@ -6,6 +6,7 @@ library;
 import 'package:flutter/widgets.dart';
 
 import '../theme/delphos_colors.dart';
+import '../theme/delphos_radius.dart';
 import '../theme/delphos_text.dart';
 import '../theme/motion.dart';
 import '../theme/type_scale.dart';
@@ -26,7 +27,7 @@ class ActionButton extends StatelessWidget {
   /// Ink ground and white text, for the one main action of a panel.
   final bool primary;
 
-  static const double _radius = 7;
+  static const double _radius = DelphosRadius.control;
 
   @override
   Widget build(BuildContext context) {

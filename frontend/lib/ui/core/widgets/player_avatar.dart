@@ -12,6 +12,7 @@ library;
 import 'package:material_ui/material_ui.dart';
 
 import '../theme/delphos_colors.dart';
+import '../theme/delphos_shadows.dart';
 
 /// The round portrait and, when [crestUrl] is set, the crest disc.
 class PlayerAvatar extends StatelessWidget {
@@ -101,13 +102,7 @@ class _Crest extends StatelessWidget {
         shape: BoxShape.circle,
         color: DelphosColors.surface,
         border: Border.all(color: DelphosColors.rule),
-        boxShadow: const [
-          BoxShadow(
-            color: DelphosColors.floatShadow,
-            offset: Offset(0, 1),
-            blurRadius: 2,
-          ),
-        ],
+        boxShadow: DelphosShadows.float,
       ),
       child: Image.network(
         url,

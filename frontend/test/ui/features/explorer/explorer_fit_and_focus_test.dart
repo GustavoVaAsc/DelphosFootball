@@ -1,6 +1,6 @@
-// Tests for the review fixes: every pill fits the Brecha column and every
-// word of a position label fits the Posición column (Archivo metrics); a
-// mouse click shows no focus ring and Escape returns focus to the row name;
+// Tests for the review fixes: every status word fits the Brecha column and
+// every word of a position label fits the Posición column (Archivo metrics);
+// a mouse click shows no focus ring and Escape returns focus to the row name;
 // a state panel's button hugs its label.
 import 'package:delphos_frontend/domain/models/valuation_status.dart';
 import 'package:delphos_frontend/ui/core/labels/positions.dart';
@@ -22,10 +22,13 @@ double widthOf(String text, TextStyle style) => (TextPainter(
 )..layout()).width;
 
 void main() {
-  testWidgets('every pill fits the 128 px Brecha column', (tester) async {
+  testWidgets('every status word fits the 112 px Brecha column', (
+    tester,
+  ) async {
     await loadArchivo();
-    // 128 px minus 8 px cell side and 14 px row edge; 16 px pill padding.
-    const room = 128 - 8 - 14 - 16;
+    // 112 px minus 8 px cell side and 14 px row edge; the word has no ground
+    // and so no padding.
+    const room = 112 - 8 - 14;
     final style = DelphosText.ui(
       size: TypeScale.secondary,
       weight: FontWeight.w600,

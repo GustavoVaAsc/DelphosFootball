@@ -10,7 +10,9 @@ import 'package:provider/provider.dart';
 import '../../../../data/repositories/archetype_repository.dart';
 import '../../../../data/repositories/player_repository.dart';
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/delphos_text.dart';
+import '../../../core/util/first_load_tracker.dart';
 import '../../../core/view_models/section_status.dart';
 import '../../../core/widgets/action_button.dart';
 import '../../../core/widgets/state_panel.dart';
@@ -31,6 +33,11 @@ class _ArchetypesScreenState extends State<ArchetypesScreen> {
     archetypes: context.read<ArchetypeRepository>(),
     players: context.read<PlayerRepository>(),
   )..load();
+
+  // True only the first time the app shows this view: the cards then enter
+  // staggered (DESIGN.md §5).
+  late final bool _firstLoad =
+      context.read<FirstLoadTracker?>()?.claim('archetypes') ?? false;
 
   @override
   void dispose() {
@@ -53,6 +60,7 @@ class _ArchetypesScreenState extends State<ArchetypesScreen> {
               ArchetypeGrid(
                 archetypes: overview.value!.archetypes,
                 representatives: _vm.representatives,
+                animateIn: _firstLoad,
               ),
             ],
           ),
@@ -63,7 +71,7 @@ class _ArchetypesScreenState extends State<ArchetypesScreen> {
           _ => DecoratedBox(
             decoration: BoxDecoration(
               color: DelphosColors.surface,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(DelphosRadius.card),
               border: Border.all(color: DelphosColors.rule),
             ),
             child: StatePanel(

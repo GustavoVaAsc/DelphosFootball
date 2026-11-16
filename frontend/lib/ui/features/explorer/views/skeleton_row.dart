@@ -5,6 +5,7 @@ library;
 import 'package:flutter/widgets.dart';
 
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import 'ledger_layout.dart';
 import 'player_row.dart';
 
@@ -14,15 +15,18 @@ class SkeletonRow extends StatelessWidget {
 
   final bool dossierOpen;
 
-  static Widget _block(double width, double height, {double radius = 4}) =>
-      Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: DelphosColors.surfaceMuted,
-          borderRadius: BorderRadius.circular(radius),
-        ),
-      );
+  static Widget _block(
+    double width,
+    double height, {
+    double radius = DelphosRadius.bar,
+  }) => Container(
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: DelphosColors.surfaceMuted,
+      borderRadius: BorderRadius.circular(radius),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -52,11 +56,14 @@ class SkeletonRow extends StatelessWidget {
           age: _block(20, 10),
           position: Row(
             spacing: 9,
-            children: [_block(36, 24, radius: 3), _block(60, 10)],
+            children: [
+              _block(36, 24, radius: DelphosRadius.small),
+              _block(60, 10),
+            ],
           ),
           market: _block(50, 10),
           estimate: _block(50, 10),
-          gap: _block(84, 20, radius: 999),
+          gap: _block(70, 10),
         ),
       ),
     );

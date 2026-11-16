@@ -2,12 +2,13 @@
 /// Jugador | Edad | Posición | Mercado | Valor estimado | Brecha.
 ///
 /// Fixed widths include the cell padding, as in the preview's fixed table
-/// layout: 48 / 142 / 76 / 100 / 128 px with the dossier open, Posición
-/// 180 px with it closed, and Jugador takes the rest. Two columns are wider
-/// than DESIGN.md's 130 and 120 px, measured with Archivo: Posición fits
-/// its longest single word ("Mediocentro", 74 px, beside the 36 px glyph),
-/// so a label wraps only between words; Brecha fits the widest pill
-/// ("Sobrevalorado", 98 px with its padding). See ADR-027. Cells have 8 px a
+/// layout: 48 / 142 / 76 / 100 / 112 px with the dossier open, Posición
+/// 180 px with it closed, and Jugador takes the rest. Posición is wider than
+/// DESIGN.md's 130 px, measured with Archivo: it fits its longest single
+/// word ("Mediocentro", 74 px, beside the 36 px glyph), so a label wraps only
+/// between words. Brecha is narrower than DESIGN.md's old 120 px: the
+/// verdict is plain text with no pill padding, and it fits the widest word
+/// ("Sobrevalorado", 82 px). See ADR-027. Cells have 8 px a
 /// side (16 px between columns) and 14 px at the row edges. The header,
 /// the rows and the skeleton rows all lay out through this one widget, so
 /// their columns cannot drift apart.
@@ -75,7 +76,7 @@ class LedgerLayout extends StatelessWidget {
         cell(position, width: dossierOpen ? 142 : 180),
         cell(market, width: 76, end: true),
         cell(estimate, width: 100, end: true),
-        cell(gap, width: 128, end: true, last: true),
+        cell(gap, width: 112, end: true, last: true),
       ],
     );
   }

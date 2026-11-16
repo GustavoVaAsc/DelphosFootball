@@ -8,6 +8,8 @@ library;
 import 'package:material_ui/material_ui.dart';
 
 import 'delphos_colors.dart';
+import 'delphos_radius.dart';
+import 'delphos_shadows.dart';
 import 'delphos_text.dart';
 import 'type_scale.dart';
 
@@ -64,6 +66,22 @@ ThemeData buildDelphosTheme() {
         size: TypeScale.label,
         color: DelphosColors.ink3,
       ),
+    ),
+    // Tooltips as in the preview: a white card with a hairline, ink 12/500
+    // text, a 6 px radius and the float shadow.
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: DelphosColors.surface,
+        borderRadius: BorderRadius.circular(DelphosRadius.tooltip),
+        border: Border.all(color: DelphosColors.rule),
+        boxShadow: DelphosShadows.float,
+      ),
+      textStyle: DelphosText.ui(
+        size: TypeScale.secondary,
+        weight: FontWeight.w500,
+        height: 1.3,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     ),
     textSelectionTheme: const TextSelectionThemeData(
       cursorColor: DelphosColors.ink,

@@ -26,7 +26,7 @@ class DossierLoadError extends StatelessWidget {
       Flexible(
         child: Text(message, style: DelphosText.ui(color: DelphosColors.ink2)),
       ),
-      ActionButton(label: 'Reintentar', primary: true, onPressed: onRetry),
+      ActionButton(label: 'Reintentar', onPressed: onRetry),
     ],
   );
 }

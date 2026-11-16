@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 import '../../../../domain/models/player_summary.dart';
 import '../../../core/labels/archetypes.dart';
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
 import '../../../core/widgets/flag_image.dart';
@@ -53,7 +54,7 @@ class PlayerIdentityCell extends StatelessWidget {
                 semanticLabel: player.name,
                 expanded: dossierOpen,
                 focusNode: nameFocusNode,
-                borderRadius: 2,
+                borderRadius: DelphosRadius.hairline,
                 pressedScale: 1,
                 builder: (_, _) => Text(
                   player.name,

@@ -1,13 +1,16 @@
-/// The pitch banner of an archetype card (DESIGN.md §1 and §4): a full
-/// pitch in `--pitch-line` (outline, halfway line, centre circle and spot,
-/// penalty and goal areas at both ends), the archetype's zone in ink at 16%
-/// with an ink outline, and three ink player dots, laid out as in the
-/// preview's `CLUSTER_PITCH_LAYOUTS` on a 240 x 92 box. No zone hues.
+/// The pitch banner of an archetype card (DESIGN.md §1 and §4): the shared
+/// `PitchPainter` in its banner variant (every marking of the reference
+/// pitch, goals outside the goal lines), the archetype's zone in ink at 16%
+/// with an ink outline, and three ink player dots. The pitch keeps a real
+/// 105:68 aspect ratio, centred on its ground at a capped width, instead of
+/// stretching to the card. No zone hues.
 library;
 
 import 'package:flutter/widgets.dart';
 
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
+import '../../../core/widgets/pitch_painter.dart';
 
 /// The banner for one archetype. Decorative: the card's text says the same.
 class ArchetypePitch extends StatelessWidget {
@@ -15,92 +18,46 @@ class ArchetypePitch extends StatelessWidget {
 
   final int clusterId;
 
+  /// The widest the drawing grows, so it stays a diagram and not a poster.
+  static const double _maxWidth = 264;
+
   @override
   Widget build(BuildContext context) {
+    final (zone, players) = _layouts[clusterId] ?? _layouts[2]!;
     return ExcludeSemantics(
       child: Container(
-        height: 112,
         padding: const EdgeInsets.all(8),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: DelphosColors.surfaceSubtle,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(DelphosRadius.inset),
         ),
-        child: FittedBox(
-          child: CustomPaint(
-            size: const Size(240, 92),
-            painter: _BannerPainter(_layouts[clusterId] ?? _layouts[2]!),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _maxWidth),
+          child: AspectRatio(
+            aspectRatio: 240 / 155,
+            child: CustomPaint(painter: PitchPainter.banner(zone, players)),
           ),
         ),
       ),
     );
   }
 
-  /// Zone (x, y, w, h) and player dots (x, y, r), from the preview.
+  /// Zone (x, y, w, h) and player dots (x, y, r) in the painter's 240 x 155
+  /// design box, where the pitch spans x 6.5 to 233.5 and y 4 to 151: the
+  /// preview's `CLUSTER_PITCH_LAYOUTS` re-mapped onto that pitch.
   static const Map<int, (Rect, List<(double, double, double)>)> _layouts = {
     0: (
-      Rect.fromLTWH(148, 12, 82, 68),
-      [(195, 46, 5), (172, 24, 4), (172, 68, 4)],
+      Rect.fromLTWH(147.5, 18, 80, 119),
+      [(193, 77.5, 5), (171, 39, 4), (171, 116, 4)],
     ),
     1: (
-      Rect.fromLTWH(68, 10, 104, 72),
-      [(120, 46, 5), (105, 20, 4), (135, 72, 4)],
+      Rect.fromLTWH(69, 14.5, 102, 126),
+      [(120, 77.5, 5), (105, 32, 4), (135, 123, 4)],
     ),
     2: (
-      Rect.fromLTWH(10, 14, 88, 64),
-      [(42, 34, 4.5), (42, 58, 4.5), (76, 46, 4.5)],
+      Rect.fromLTWH(12.5, 21.5, 86, 112),
+      [(43.5, 56.5, 4.5), (43.5, 98.5, 4.5), (76.5, 77.5, 4.5)],
     ),
   };
-}
-
-class _BannerPainter extends CustomPainter {
-  const _BannerPainter(this.layout);
-
-  final (Rect, List<(double, double, double)>) layout;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final lines = Paint()
-      ..color = DelphosColors.pitchLine
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    final pitch = RRect.fromRectAndRadius(
-      const Rect.fromLTWH(4, 4, 232, 84),
-      const Radius.circular(4),
-    );
-    canvas.drawRRect(pitch, Paint()..color = DelphosColors.surface);
-    canvas.drawRRect(pitch, lines);
-    canvas.drawLine(const Offset(120, 4), const Offset(120, 88), lines);
-    canvas.drawCircle(const Offset(120, 46), 18, lines);
-    canvas.drawCircle(
-      const Offset(120, 46),
-      1.5,
-      Paint()..color = DelphosColors.pitchLine,
-    );
-    for (final box in const [
-      Rect.fromLTWH(4, 22, 30, 48),
-      Rect.fromLTWH(206, 22, 30, 48),
-      Rect.fromLTWH(4, 34, 11, 24),
-      Rect.fromLTWH(225, 34, 11, 24),
-    ]) {
-      canvas.drawRect(box, lines);
-    }
-    final (zone, players) = layout;
-    final zoneShape = RRect.fromRectAndRadius(zone, const Radius.circular(4));
-    canvas.drawRRect(zoneShape, Paint()..color = DelphosColors.pitchZoneFill);
-    canvas.drawRRect(
-      zoneShape,
-      Paint()
-        ..color = DelphosColors.ink
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.3,
-    );
-    final dot = Paint()..color = DelphosColors.ink;
-    for (final (x, y, r) in players) {
-      canvas.drawCircle(Offset(x, y), r, dot);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_BannerPainter oldDelegate) =>
-      oldDelegate.layout != layout;
 }

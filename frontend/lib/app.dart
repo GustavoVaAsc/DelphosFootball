@@ -9,12 +9,13 @@ import 'package:provider/provider.dart';
 import 'data/repositories/archetype_repository.dart';
 import 'data/repositories/chat_repository.dart';
 import 'data/repositories/player_repository.dart';
-import 'data/repositories/report_repository.dart';
 import 'data/services/api_client.dart';
 import 'routing/app_router.dart';
 import 'routing/routes.dart';
 import 'ui/core/theme/delphos_theme.dart';
+import 'ui/core/util/first_load_tracker.dart';
 import 'ui/core/view_models/dataset_view_model.dart';
+import 'ui/core/view_models/sidebar_view_model.dart';
 import 'ui/core/widgets/focus_visibility.dart';
 
 /// Provides the [ApiClient] and the repositories built on it to every
@@ -61,7 +62,6 @@ class _DelphosAppState extends State<DelphosApp> {
         Provider<ApiClient>.value(value: api),
         Provider(create: (_) => PlayerRepository(apiClient: api)),
         Provider(create: (_) => ArchetypeRepository(apiClient: api)),
-        Provider(create: (_) => ReportRepository(apiClient: api)),
         Provider(create: (_) => ChatRepository(apiClient: api)),
         // Dataset facts for the shell (total, season, data date), loaded
         // once at start-up.
@@ -70,6 +70,11 @@ class _DelphosAppState extends State<DelphosApp> {
               DatasetViewModel(archetypes: ArchetypeRepository(apiClient: api))
                 ..load(),
         ),
+        // The sidebar's collapsed flag, in memory only: it survives page
+        // changes but not a reload.
+        ChangeNotifierProvider(create: (_) => SidebarViewModel()),
+        // Which views already had their staggered first load (in memory).
+        Provider(create: (_) => FirstLoadTracker()),
       ],
       child: MaterialApp.router(
         title: Routes.appTitle,

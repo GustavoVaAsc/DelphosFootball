@@ -106,21 +106,4 @@ void main() {
       expect(formatShare(null), 'N/D');
     });
   });
-
-  group('formatMultiple', () {
-    test('prints one decimal with an x', () {
-      expect(formatMultiple(1.27), '1,3x');
-      expect(formatMultiple(0.05), '0,1x');
-    });
-
-    test('prints a positive ratio under 0,05 as <0,1x, never 0,0x', () {
-      expect(formatMultiple(0.04), '<0,1x');
-      expect(formatMultiple(0.0001), '<0,1x');
-    });
-
-    test('prints zero as 0,0x and missing as N/D', () {
-      expect(formatMultiple(0), '0,0x');
-      expect(formatMultiple(null), 'N/D');
-    });
-  });
 }

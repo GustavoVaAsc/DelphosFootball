@@ -6,6 +6,7 @@ library;
 import 'package:flutter/widgets.dart';
 
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
 
@@ -36,7 +37,7 @@ class ShareLegendItem extends StatelessWidget {
               height: 8,
               decoration: BoxDecoration(
                 color: tone,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(DelphosRadius.hairline),
               ),
             ),
             Flexible(

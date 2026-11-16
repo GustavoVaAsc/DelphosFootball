@@ -13,6 +13,7 @@ import 'package:go_router/go_router.dart';
 
 import '../ui/core/shell/app_shell.dart';
 import '../ui/core/shell/not_found_screen.dart';
+import '../ui/core/widgets/enter_motion.dart';
 import '../ui/features/archetypes/views/archetypes_screen.dart';
 import '../ui/features/chat/views/chat_screen.dart';
 import '../ui/features/comparator/views/comparator_screen.dart';
@@ -21,8 +22,8 @@ import 'explorer_query.dart';
 import 'route_params.dart';
 import 'routes.dart';
 
-/// Builds the router. Pages switch without a transition for now; the
-/// 160-180 ms view change of DESIGN.md §5 lands with the real screens.
+/// Builds the router. Pages switch without a route transition; the view
+/// change of DESIGN.md §5 is `EnterMotion` around the screen in `_modulePage`.
 GoRouter buildAppRouter({String initialLocation = Routes.explorer}) => GoRouter(
   initialLocation: initialLocation,
   errorBuilder: (_, _) => const NotFoundScreen(),
@@ -61,10 +62,17 @@ GoRouter buildAppRouter({String initialLocation = Routes.explorer}) => GoRouter(
   ],
 );
 
-/// A module page: [screen] inside the shell, without a transition.
+/// A module page: [screen] inside the shell. The route itself has no
+/// transition, so the sidebar and top bar stay put; only the screen fades in
+/// (200 ms, opacity and 4 px up) to mark the change of view (DESIGN.md §5).
+/// The page key does not include the query, so filtering inside the explorer
+/// keeps the screen and plays nothing.
 Page<void> _modulePage(GoRouterState state, Widget screen) => NoTransitionPage(
   key: state.pageKey,
-  child: AppShell(location: state.uri.path, child: screen),
+  child: AppShell(
+    location: state.uri.path,
+    child: EnterMotion(offset: const Offset(0, 4), child: screen),
+  ),
 );
 
 /// A positive player id from the path (`parseRouteId`), or `null`.

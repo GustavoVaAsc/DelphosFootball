@@ -6,6 +6,7 @@ library;
 import 'package:flutter/widgets.dart';
 
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/widgets/action_button.dart';
 import '../../../core/widgets/state_panel.dart';
 
@@ -20,7 +21,7 @@ class ComparatorErrorPanel extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: DelphosColors.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(DelphosRadius.card),
         border: Border.all(color: DelphosColors.rule),
       ),
       child: StatePanel(

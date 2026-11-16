@@ -10,6 +10,7 @@ import '../../../../domain/models/player_summary.dart';
 import '../../../../routing/explorer_query.dart';
 import '../../../core/format/money.dart';
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
 import '../../../core/view_models/section_load.dart';
@@ -75,7 +76,7 @@ class _Row extends StatelessWidget {
       onPressed: () =>
           context.go(ExplorerQuery(playerId: player.id).toLocation()),
       semanticLabel: '${player.name}, $price',
-      borderRadius: 2,
+      borderRadius: DelphosRadius.hairline,
       pressedScale: 1,
       builder: (context, hovered) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),

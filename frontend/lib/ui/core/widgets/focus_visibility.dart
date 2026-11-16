@@ -31,6 +31,19 @@ class FocusVisibility {
     GestureBinding.instance.pointerRouter.addGlobalRoute(_onPointer);
   }
 
+  /// Forgets the last input and removes the listeners, so the next
+  /// [install] starts clean. Tests call it between cases, so one test's last
+  /// pointer press or key cannot decide another's rings.
+  @visibleForTesting
+  static void reset() {
+    if (_installed) {
+      HardwareKeyboard.instance.removeHandler(_onKey);
+      GestureBinding.instance.pointerRouter.removeGlobalRoute(_onPointer);
+    }
+    _installed = false;
+    _keyboard.value = false;
+  }
+
   static bool _onKey(KeyEvent event) {
     if (event is KeyDownEvent) _keyboard.value = true;
     return false;

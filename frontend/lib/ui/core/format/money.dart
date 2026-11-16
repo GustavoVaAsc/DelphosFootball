@@ -19,6 +19,18 @@ String formatEur(num? value) {
   return '${value < 0 ? minusSign : ''}€$body';
 }
 
+/// The estimate against the price as a signed percentage ("−65%", "+27%"),
+/// or `null` when there is no price to compare with (missing or zero). The
+/// table's Brecha and the dossier's "Diferencia" both print this, so they
+/// always show the same number for a player; the ±100% rules of
+/// `formatPct` apply (DESIGN.md §3).
+String? valuationGapPct({required num? fair, required num? market}) {
+  if (fair == null || market == null || !fair.isFinite || market <= 0) {
+    return null;
+  }
+  return formatSignedPct((fair - market) / market);
+}
+
 /// [formatEur] with a plus on positive amounts.
 String formatSignedEur(num? value) {
   final text = formatEur(value);

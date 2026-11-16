@@ -16,7 +16,10 @@ import '../../../../domain/models/archetype.dart';
 import '../../../../domain/models/player_summary.dart';
 import '../../../../routing/explorer_query.dart';
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
+import '../../../core/theme/motion.dart';
 import '../../../core/view_models/section_load.dart';
+import '../../../core/widgets/enter_motion.dart';
 import '../../../core/widgets/text_link.dart';
 import 'archetype_heading.dart';
 import 'archetype_metrics.dart';
@@ -30,8 +33,11 @@ class ArchetypeGrid extends StatelessWidget {
     super.key,
     required this.archetypes,
     required this.representatives,
+    this.animateIn = false,
   });
 
+  /// Whether the cards enter staggered (the view's first load).
+  final bool animateIn;
   final List<Archetype> archetypes;
   final SectionLoad<List<PlayerSummary>> Function(int clusterId)
   representatives;
@@ -44,6 +50,14 @@ class ArchetypeGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The card and its content enter together, one card after the next, on
+    // the first load of the view only (DESIGN.md §5).
+    Widget enter(int i, Widget child) => EnterMotion(
+      offset: const Offset(0, 8),
+      delay: DelphosMotion.stagger * i,
+      animate: animateIn,
+      child: child,
+    );
     Widget row(Widget Function(Archetype archetype) cell) => IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -53,7 +67,7 @@ class ArchetypeGrid extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: _padding),
-                child: cell(archetypes[i]),
+                child: enter(i, cell(archetypes[i])),
               ),
             ),
           ],
@@ -73,12 +87,17 @@ class ArchetypeGrid extends StatelessWidget {
                 Expanded(
                   child: Semantics(
                     container: true,
-                    child: DecoratedBox(
-                      key: cardKey(archetypes[i].clusterId),
-                      decoration: BoxDecoration(
-                        color: DelphosColors.surface,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: DelphosColors.rule),
+                    child: enter(
+                      i,
+                      DecoratedBox(
+                        key: cardKey(archetypes[i].clusterId),
+                        decoration: BoxDecoration(
+                          color: DelphosColors.surface,
+                          borderRadius: BorderRadius.circular(
+                            DelphosRadius.card,
+                          ),
+                          border: Border.all(color: DelphosColors.rule),
+                        ),
                       ),
                     ),
                   ),

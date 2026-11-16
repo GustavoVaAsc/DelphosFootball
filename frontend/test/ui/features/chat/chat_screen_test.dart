@@ -5,10 +5,32 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:delphos_frontend/ui/features/chat/view_models/chat_intro_gate.dart';
+
 import '../../../support/app_harness.dart';
 import '../../../support/explorer_harness.dart';
 
 void main() {
+  setUp(ChatIntroGate.reset);
+
+  testWidgets('picking a sample prompt leaves focus on the prompt input', (
+    tester,
+  ) async {
+    await pumpAppAt(tester, '/chat');
+    // Reopen from the header so the pop-up has an opener to restore.
+    await tester.tap(find.text('Entendido'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('¿Qué puede hacer el asistente?'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Extremos infravalorados sub-24'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('¿Qué puede hacer el asistente de scouting?'),
+      findsNothing,
+    );
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'chat prompt input');
+  });
+
   testWidgets(
     'capabilities pop-up opens automatically, closes on Entendido, and reopens',
     (tester) async {
@@ -27,7 +49,7 @@ void main() {
         findsNothing,
       );
 
-      await tester.tap(find.text('¿Qué puede hacer el agente?'));
+      await tester.tap(find.text('¿Qué puede hacer el asistente?'));
       await tester.pumpAndSettle();
 
       expect(
@@ -127,10 +149,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.textContaining(
-        'El servidor de lenguaje local aún no está inicializado',
-      ),
+      find.textContaining('El asistente no está disponible en este momento'),
       findsOneWidget,
     );
+    expect(find.textContaining('Chat inference'), findsNothing);
   });
 }
