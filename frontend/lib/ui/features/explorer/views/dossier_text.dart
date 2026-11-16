@@ -34,8 +34,8 @@ String rfProbabilityText(double probability) => formatShare(probability);
 /// "Diferencia +€95,9 M (+160%)": the estimate minus the price.
 String valuationDifference(PlayerValuation v) {
   final difference = v.fairValueEur - v.marketValueEur;
-  final ratio = v.marketValueEur == 0 ? null : difference / v.marketValueEur;
-  return 'Diferencia ${formatSignedEur(difference)} (${formatSignedPct(ratio)})';
+  final pct = valuationGapPct(fair: v.fairValueEur, market: v.marketValueEur);
+  return 'Diferencia ${formatSignedEur(difference)} (${pct ?? notAvailable})';
 }
 
 /// The season grid's eight figures, with the starts and share guards.

@@ -68,19 +68,25 @@ class DossierSection extends StatelessWidget {
               ],
             ),
           if (heading != null && action != null)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 10,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    heading,
-                    if (subtitle != null) Text(subtitle!, style: subtitleStyle),
-                  ],
-                ),
-                action!,
-              ],
+            // 12 px between the subtitle and the action, and 16 px (12 from
+            // the column plus 4 here) between the action and the content.
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 12,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      heading,
+                      if (subtitle != null)
+                        Text(subtitle!, style: subtitleStyle),
+                    ],
+                  ),
+                  action!,
+                ],
+              ),
             ),
           child,
         ],

@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 import '../../../../domain/models/archetype_overview.dart';
 import '../../../core/format/format.dart';
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
 import 'share_bar.dart';
@@ -24,7 +25,7 @@ class ArchetypeIntro extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
         color: DelphosColors.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(DelphosRadius.card),
         border: Border.all(color: DelphosColors.rule),
       ),
       child: Column(

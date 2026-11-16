@@ -6,27 +6,42 @@ library;
 import 'package:flutter/widgets.dart';
 
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/widgets/inset_focus_frame.dart';
 import '../view_models/explorer_status.dart';
 import '../view_models/explorer_view_model.dart';
 import 'empty_result_panel.dart';
-import 'player_row.dart';
+import 'first_load_rows.dart';
+import 'player_list.dart';
 import 'row_focus_registry.dart';
 import 'skeleton_row.dart';
 import 'table_footer.dart';
 import 'table_footer_text.dart';
 import 'table_header.dart';
 
-/// The ledger, its states and its pager.
+/// The ledger, its states and its pager. On the app's first load of this
+/// view the first rows enter staggered (DESIGN.md §5); never afterwards.
 class PlayersTable extends StatefulWidget {
   const PlayersTable({
     super.key,
     required this.vm,
     required this.rowFocus,
     required this.tableFocus,
+    required this.dossierOpen,
+    required this.selectedId,
     this.datasetTotal,
+    this.staggerFirstLoad = false,
   });
 
+  /// Whether the table has the open-dossier layout: true while a dossier is
+  /// open and through the side panel's exit (not `vm.query` alone).
+  final bool dossierOpen;
+
+  /// The row shown as selected, or `null`.
+  final int? selectedId;
+
+  /// Whether the rows of the first load enter staggered.
+  final bool staggerFirstLoad;
   final ExplorerViewModel vm;
   final RowFocusRegistry rowFocus;
 
@@ -40,6 +55,7 @@ class PlayersTable extends StatefulWidget {
 
 class _PlayersTableState extends State<PlayersTable> {
   final ScrollController _scroll = ScrollController();
+  final FirstLoadRows _firstLoad = FirstLoadRows();
   int? _shownPage;
 
   @override
@@ -64,7 +80,7 @@ class _PlayersTableState extends State<PlayersTable> {
   Widget build(BuildContext context) {
     final vm = widget.vm;
     final page = vm.page;
-    final open = vm.query.isDossierOpen;
+    final open = widget.dossierOpen;
     _scrollToTopOnNewPage();
     final Widget body;
     final String footer;
@@ -91,28 +107,25 @@ class _PlayersTableState extends State<PlayersTable> {
               datasetTotal: widget.datasetTotal,
             );
       widget.rowFocus.retainOnly({for (final p in page.players) p.id});
-      body = ListView.builder(
-        controller: _scroll,
-        itemExtent: PlayerRow.extent,
-        itemCount: page.players.length,
-        itemBuilder: (context, index) {
-          final player = page.players[index];
-          return PlayerRow(
-            key: ValueKey(player.id),
-            player: player,
-            selected: open && vm.query.playerId == player.id,
-            dossierOpen: open,
-            onToggle: () => vm.togglePlayer(player.id),
-            nameFocusNode: widget.rowFocus.nodeFor(player.id),
-          );
-        },
+      _firstLoad.observe(
+        enabled: widget.staggerFirstLoad,
+        playerIds: [for (final p in page.players) p.id],
+      );
+      body = PlayerList(
+        players: page.players,
+        vm: vm,
+        rowFocus: widget.rowFocus,
+        scroll: _scroll,
+        firstLoad: _firstLoad,
+        dossierOpen: open,
+        selectedId: widget.selectedId,
       );
     }
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: DelphosColors.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(DelphosRadius.card),
         border: Border.all(color: DelphosColors.rule),
       ),
       child: Column(

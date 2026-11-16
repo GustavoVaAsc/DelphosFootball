@@ -6,6 +6,7 @@ library;
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
 import '../../../core/widgets/focus_ring.dart';
@@ -65,7 +66,7 @@ class _FilterSelectState<T> extends State<FilterSelect<T>> {
           listenable: Listenable.merge([_focus, FocusVisibility.keyboard]),
           builder: (context, child) => FocusRing(
             visible: _focus.hasFocus && FocusVisibility.keyboard.value,
-            borderRadius: 7,
+            borderRadius: DelphosRadius.control,
             child: child!,
           ),
           child: Opacity(
@@ -75,7 +76,7 @@ class _FilterSelectState<T> extends State<FilterSelect<T>> {
               padding: const EdgeInsets.only(left: 10, right: 6),
               decoration: BoxDecoration(
                 color: DelphosColors.surface,
-                borderRadius: BorderRadius.circular(7),
+                borderRadius: BorderRadius.circular(DelphosRadius.control),
                 border: Border.all(color: DelphosColors.controlBorder),
               ),
               child: Semantics(
@@ -94,7 +95,7 @@ class _FilterSelectState<T> extends State<FilterSelect<T>> {
                       child: LineGlyph.chevronDown(),
                     ),
                     dropdownColor: DelphosColors.surface,
-                    borderRadius: BorderRadius.circular(7),
+                    borderRadius: BorderRadius.circular(DelphosRadius.control),
                     onChanged: widget.onChanged,
                     items: [
                       for (final (value, label) in widget.options)

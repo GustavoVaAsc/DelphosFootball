@@ -1,5 +1,5 @@
 // A fake backend for the explorer: generated /players pages, the three
-// dossier endpoints per player, /clusters and /reports; requests it can
+// dossier endpoints per player, /clusters and /chat; requests it can
 // hold and release in any order, and a failure switch.
 import 'dart:async';
 import 'dart:convert';
@@ -12,7 +12,6 @@ import 'package:http/testing.dart';
 import 'cluster_fixtures.dart';
 import 'dossier_fixtures.dart';
 import 'http_fakes.dart';
-import 'report_fixtures.dart';
 
 class FakePlayersBackend {
   FakePlayersBackend() {
@@ -24,6 +23,9 @@ class FakePlayersBackend {
   int total = 5522;
   bool failNext = false;
   bool hold = false;
+
+  /// The estimate of every list row (their price is 1e6); none when `null`.
+  double? rowFairValue;
 
   /// Fails every /clusters request while true.
   bool failClusters = false;
@@ -41,8 +43,6 @@ class FakePlayersBackend {
   /// Optional custom SSE body returned by POST /chat when `chatUnavailable` is false.
   String? chatSseBody;
 
-  /// The report `GET /reports` lists for any player; none when `null`.
-  Map<String, Object?>? storedReport;
   final List<Completer<void>> _held = [];
 
   /// Rows on page 1 with the current total.
@@ -92,11 +92,6 @@ class FakePlayersBackend {
     }
     return jsonResponse(switch (segments) {
       ['clusters'] => clustersJson(),
-      ['reports'] => reportListJson([?storedReport]),
-      ['reports', 'generate'] => reportJson(
-        'deterministic',
-        playerId: (jsonDecode(request.body) as Map)['player_id'] as int,
-      ),
       ['players', final id, 'replacements'] => replacementsJson(
         int.parse(id),
         count: replacementsCount,
@@ -126,6 +121,7 @@ class FakePlayersBackend {
             'country_of_citizenship': 'France',
             'club_name': 'Club',
             'market_value_eur': 1e6,
+            'fair_value_eur': ?rowFairValue,
             'valuation_status': 'fair',
             'cluster_id': 0,
           },

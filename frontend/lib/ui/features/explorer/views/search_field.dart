@@ -9,11 +9,14 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../../routing/explorer_query.dart';
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/widgets/focus_ring.dart';
 import '../../../core/widgets/line_glyph.dart';
 
-/// A 196 x 32 search box with the magnifier and the ink focus ring.
+/// A 196 x 32 search box with the magnifier and the ink focus ring. It has a
+/// placeholder and an accessible label, and no visible label (an explicit
+/// exception, DESIGN.md §4).
 class SearchField extends StatefulWidget {
   const SearchField({
     super.key,
@@ -22,6 +25,8 @@ class SearchField extends StatefulWidget {
     required this.enabled,
     required this.focusNode,
   });
+
+  static const double width = 196;
 
   /// The live text from the ViewModel (it changes on "Restablecer").
   final String text;
@@ -71,13 +76,13 @@ class _SearchFieldState extends State<SearchField> {
         listenable: widget.focusNode,
         builder: (context, _) => FocusRing(
           visible: widget.focusNode.hasFocus,
-          borderRadius: 7,
+          borderRadius: DelphosRadius.control,
           child: Container(
-            width: 224,
+            width: SearchField.width,
             height: 32,
             decoration: BoxDecoration(
               color: DelphosColors.surface,
-              borderRadius: BorderRadius.circular(7),
+              borderRadius: BorderRadius.circular(DelphosRadius.control),
               border: Border.all(color: DelphosColors.controlBorder),
             ),
             child: Row(
@@ -87,21 +92,24 @@ class _SearchFieldState extends State<SearchField> {
                   child: LineGlyph.search(),
                 ),
                 Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: widget.focusNode,
-                    enabled: widget.enabled,
-                    onChanged: widget.onChanged,
-                    style: style,
-                    cursorColor: DelphosColors.ink,
-                    inputFormatters: [
-                      LengthLimitingTextInputFormatter(
-                        ExplorerQuery.maxSearchLength,
+                  child: Semantics(
+                    label: 'Buscar jugador, club o país',
+                    child: TextField(
+                      controller: _controller,
+                      focusNode: widget.focusNode,
+                      enabled: widget.enabled,
+                      onChanged: widget.onChanged,
+                      style: style,
+                      cursorColor: DelphosColors.ink,
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(
+                          ExplorerQuery.maxSearchLength,
+                        ),
+                      ],
+                      decoration: InputDecoration.collapsed(
+                        hintText: 'Buscar jugador, club o país',
+                        hintStyle: style.copyWith(color: DelphosColors.ink3),
                       ),
-                    ],
-                    decoration: InputDecoration.collapsed(
-                      hintText: 'Buscar jugador, club o país',
-                      hintStyle: style.copyWith(color: DelphosColors.ink3),
                     ),
                   ),
                 ),

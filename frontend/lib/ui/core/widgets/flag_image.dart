@@ -4,6 +4,8 @@ library;
 import 'package:material_ui/material_ui.dart';
 
 import '../labels/countries.dart';
+import '../theme/delphos_colors.dart';
+import '../theme/delphos_radius.dart';
 
 /// The flag of a dataset country, 16 x 12 by default, with its Spanish name
 /// as the accessible label and tooltip. An unmapped country, or one whose
@@ -29,13 +31,25 @@ class FlagImage extends StatelessWidget {
     return Tooltip(
       message: name,
       excludeFromSemantics: true,
-      child: Image.asset(
-        'assets/flags/$code.png',
-        width: width,
-        height: height,
-        fit: BoxFit.cover,
-        semanticLabel: 'Bandera de $name',
-        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+      // A 2 px radius and a 1 px ink-at-12% frame, as in the preview, so a
+      // white flag does not dissolve into the page.
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(DelphosRadius.hairline),
+          border: Border.all(color: DelphosColors.flagBorder),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(DelphosRadius.hairline),
+          child: Image.asset(
+            'assets/flags/$code.png',
+            width: width,
+            height: height,
+            fit: BoxFit.cover,
+            semanticLabel: 'Bandera de $name',
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          ),
+        ),
       ),
     );
   }

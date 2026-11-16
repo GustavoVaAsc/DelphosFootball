@@ -43,6 +43,35 @@ void main() {
     });
   });
 
+  group('valuationGapPct', () {
+    String? gap(num fair, num market) =>
+        valuationGapPct(fair: fair, market: market);
+
+    test('is the signed difference of the estimate against the price', () {
+      expect(gap(69.7e6, 200e6), '$minus${65}%');
+      expect(gap(254e6, 200e6), '+27%');
+      expect(gap(200e6, 200e6), '0%');
+    });
+
+    test('only exactly ±1 prints ±100%', () {
+      expect(gap(0, 100), '${minus}100%');
+      expect(gap(200, 100), '+100%');
+    });
+
+    test('a value that rounds to ±100% gets one decimal, then is clamped', () {
+      expect(gap(0.4, 100), '${minus}99,6%');
+      expect(gap(0.04, 100), '${minus}99,9%');
+      expect(gap(200.04, 100), '+100,1%');
+      expect(gap(199.6, 100), '+99,6%');
+    });
+
+    test('is null without a price to compare with', () {
+      expect(valuationGapPct(fair: 5, market: 0), isNull);
+      expect(valuationGapPct(fair: 5, market: null), isNull);
+      expect(valuationGapPct(fair: null, market: 5), isNull);
+    });
+  });
+
   group('formatSignedEur', () {
     test('adds a plus to positives only', () {
       expect(formatSignedEur(30000000), '+€30,0${nbsp}M');

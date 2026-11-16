@@ -11,12 +11,14 @@ import 'package:provider/provider.dart';
 import '../../../../data/repositories/player_repository.dart';
 import '../../../../routing/explorer_query.dart';
 import '../../../core/layout/dossier_presentation.dart';
+import '../../../core/util/first_load_tracker.dart';
 import '../../../core/view_models/dataset_view_model.dart';
 import '../view_models/dossier_view_model.dart';
 import '../view_models/explorer_view_model.dart';
 import 'dossier_announcement.dart';
+import 'dossier_exit.dart';
 import 'explorer_layout.dart';
-import 'row_focus_registry.dart';
+import 'explorer_focus.dart';
 
 /// The explorer page for the filters and open player in [query].
 class ExplorerScreen extends StatefulWidget {
@@ -36,20 +38,24 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
   late final DossierViewModel _dossier = DossierViewModel(
     players: context.read<PlayerRepository>(),
   );
-  final RowFocusRegistry _rowFocus = RowFocusRegistry();
-  final FocusNode _tableFocus = FocusNode(debugLabel: 'player table');
-  final FocusNode _searchFocus = FocusNode(debugLabel: 'player search');
-  final FocusNode _dossierFocus = FocusNode(
-    debugLabel: 'dossier',
-    canRequestFocus: false,
-    skipTraversal: true,
+  late final DossierExit _exit = DossierExit(
+    dossier: _dossier,
+    playerId: () => widget.query.playerId,
+    mounted: () => mounted,
+    rebuild: () => setState(() {}),
   );
+  // True only the first time the app shows this view: the table's first
+  // rows then enter staggered (DESIGN.md §5).
+  late final bool _firstLoad =
+      context.read<FirstLoadTracker?>()?.claim('explorer') ?? false;
+  final ExplorerFocus _focus = ExplorerFocus();
 
   @override
   void initState() {
     super.initState();
     _vm.applyQuery(widget.query);
     _dossier.show(widget.query.playerId);
+    _vm.addListener(_onExplorerChange);
     HardwareKeyboard.instance.addHandler(_onKey);
   }
 
@@ -58,7 +64,9 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
     super.didUpdateWidget(oldWidget);
     final closed = oldWidget.query.playerId;
     final opened = widget.query.playerId;
-    if (closed != null && opened == null) _returnFocusAfterClose(closed);
+    if (closed != null && opened == null) {
+      _focus.returnAfterClose(closed, mounted: () => mounted);
+    }
     if (closed != opened) {
       final row = _vm.page?.players.where((p) => p.id == opened).firstOrNull;
       announceDossier(
@@ -66,23 +74,26 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
         dossierAnnouncement(opened: opened, name: row?.name),
       );
     }
+    // Decided before the query is applied, while the status is still the
+    // one the slot was built for.
+    final exitPlays = DossierExit.plays(context, _vm.status);
     _vm.applyQuery(widget.query);
-    _dossier.show(widget.query.playerId);
+    _exit.queryChanged(closed: closed, opened: opened, exitPlays: exitPlays);
   }
 
   @override
   void dispose() {
+    _vm.removeListener(_onExplorerChange);
     HardwareKeyboard.instance.removeHandler(_onKey);
     _vm.dispose();
     _dossier.dispose();
-    _rowFocus.dispose();
-    _tableFocus.dispose();
-    _searchFocus.dispose();
-    _dossierFocus.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
   void _go(ExplorerQuery query) => context.go(query.toLocation());
+
+  void _onExplorerChange() => _exit.explorerChanged(_vm.status);
 
   /// Escape closes the dossier from anywhere in view 1 (DESIGN.md §4),
   /// except while a select's list is open (its route is on top) or the
@@ -92,29 +103,11 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
         event.logicalKey != LogicalKeyboardKey.escape ||
         !widget.query.isDossierOpen ||
         !(ModalRoute.of(context)?.isCurrent ?? false) ||
-        (_searchFocus.hasFocus && _vm.searchText.isNotEmpty)) {
+        (_focus.search.hasFocus && _vm.searchText.isNotEmpty)) {
       return false;
     }
     _vm.closeDossier();
     return true;
-  }
-
-  /// Focus goes back to the player's name if it was inside the dossier, on
-  /// that name already, or nowhere in particular (no node, a scope, or the
-  /// table area); anywhere else it stays (DESIGN.md §4).
-  void _returnFocusAfterClose(int playerId) {
-    final primary = FocusManager.instance.primaryFocus;
-    final moveFocus =
-        _dossierFocus.hasFocus ||
-        primary == null ||
-        primary is FocusScopeNode ||
-        primary == _tableFocus ||
-        primary == _rowFocus.existing(playerId);
-    if (!moveFocus) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      (_rowFocus.existing(playerId) ?? _tableFocus).requestFocus();
-    });
   }
 
   @override
@@ -129,10 +122,13 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
           MediaQuery.sizeOf(context).width,
         ),
         datasetTotal: dataset?.totalPlayers,
-        rowFocus: _rowFocus,
-        tableFocus: _tableFocus,
-        searchFocus: _searchFocus,
-        dossierFocus: _dossierFocus,
+        staggerFirstLoad: _firstLoad,
+        dossierExiting: _exit.exiting,
+        onDossierExited: _exit.finish,
+        rowFocus: _focus.rows,
+        tableFocus: _focus.table,
+        searchFocus: _focus.search,
+        dossierFocus: _focus.dossier,
         onRetry: () {
           _vm.retry();
           if (dataset?.overview == null) dataset?.load();

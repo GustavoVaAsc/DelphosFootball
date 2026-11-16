@@ -94,7 +94,7 @@ void main() {
 
   testWidgets('the explorer dossier shows every section', (tester) async {
     await pumpAppAt(tester, '/explorador?jugador=1000');
-    expect(find.text('Activo élite'), findsOneWidget);
+    expect(rich('Activo élite'), findsNothing);
     expect(rich('Edad 24'), findsOneWidget);
     expect(find.text('Precio de mercado'), findsOneWidget);
     expect(find.text('Temporada 2025/26'), findsOneWidget);

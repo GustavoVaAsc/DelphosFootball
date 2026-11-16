@@ -13,6 +13,7 @@ import '../../../../data/repositories/player_repository.dart';
 import '../../../../routing/explorer_query.dart';
 import '../../../../routing/routes.dart';
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
 import '../../../core/view_models/dataset_view_model.dart';
@@ -20,9 +21,9 @@ import '../../../core/widgets/action_button.dart';
 import '../view_models/comparator_status.dart';
 import '../view_models/comparator_view_model.dart';
 import '../view_models/player_search_view_model.dart';
+import 'comparator_error_panel.dart';
 import 'compare_skeleton.dart';
 import 'compare_table.dart';
-import 'comparator_error_panel.dart';
 import 'player_selector.dart';
 
 /// The comparator for the reference player [playerId], or the empty page.
@@ -64,7 +65,7 @@ class _ComparatorScreenState extends State<ComparatorScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
         color: DelphosColors.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(DelphosRadius.card),
         border: Border.all(color: DelphosColors.rule),
       ),
       child: Row(

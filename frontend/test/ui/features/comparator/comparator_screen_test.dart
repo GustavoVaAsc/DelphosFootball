@@ -3,6 +3,7 @@
 // candidates and for a 404, delta tones, the keyboard selector, and the
 // way back to the explorer.
 import 'package:delphos_frontend/ui/core/theme/delphos_colors.dart';
+import 'package:delphos_frontend/ui/core/widgets/remote_logo.dart';
 import 'package:delphos_frontend/ui/features/comparator/views/compare_cells.dart';
 import 'package:delphos_frontend/ui/features/comparator/views/delta_tone.dart';
 import 'package:flutter/services.dart';
@@ -36,7 +37,8 @@ void main() {
   ) async {
     await pumpAppAt(tester, '/comparador/7');
     expect(rich('Referencia'), findsOneWidget);
-    expect(rich('· Activo élite'), findsOneWidget);
+    // The fixture marks the player an elite asset; the UI never says so.
+    expect(rich('Activo élite'), findsNothing);
     for (final n in [1, 2, 3]) {
       expect(find.text('Reemplazo $n'), findsOneWidget);
     }
@@ -49,6 +51,27 @@ void main() {
     expect(find.text('No aplica'), findsOneWidget);
     expect(find.text('Resumen'), findsNothing);
     expect(rich('de 3 reemplazos'), findsNothing);
+  });
+
+  testWidgets('the league is in the Liga row with its logo, not the header', (
+    tester,
+  ) async {
+    await pumpAppAt(tester, '/comparador/7');
+    final label = tester.getRect(find.text('Liga'));
+    final leagues = find.text('Bundesliga');
+    expect(leagues, findsWidgets);
+    final logos = find.byType(RemoteLogo);
+    expect(logos, findsNWidgets(leagues.evaluate().length));
+    for (var i = 0; i < leagues.evaluate().length; i++) {
+      final name = tester.getRect(leagues.at(i));
+      expect(name.center.dy, closeTo(label.center.dy, 12), reason: 'Liga row');
+      expect(tester.getRect(logos.at(i)).right, lessThanOrEqualTo(name.left));
+    }
+    // The header is above the first group: nothing league-like in it.
+    final firstGroup = tester.getRect(find.text('Valoración'));
+    for (var i = 0; i < leagues.evaluate().length; i++) {
+      expect(tester.getRect(leagues.at(i)).top, greaterThan(firstGroup.top));
+    }
   });
 
   testWidgets('one candidate gets one placeholder column with the reason', (

@@ -6,21 +6,25 @@ library;
 import 'package:flutter/widgets.dart';
 
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import 'compare_row.dart';
 
 /// A static stand-in for the comparison table.
 class CompareSkeleton extends StatelessWidget {
   const CompareSkeleton({super.key});
 
-  static Widget _block(double width, double height, {double radius = 4}) =>
-      Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: DelphosColors.surfaceMuted,
-          borderRadius: BorderRadius.circular(radius),
-        ),
-      );
+  static Widget _block(
+    double width,
+    double height, {
+    double radius = DelphosRadius.bar,
+  }) => Container(
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: DelphosColors.surfaceMuted,
+      borderRadius: BorderRadius.circular(radius),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +40,7 @@ class CompareSkeleton extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: DelphosColors.surface,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(DelphosRadius.card),
           border: Border.all(color: DelphosColors.rule),
         ),
         child: Column(

@@ -20,6 +20,9 @@ const Map<String, String> _leagues = {
   'RU1': 'Premier Liga',
 };
 
+/// The ids of the known leagues, for the logo URLs and their test.
+Iterable<String> get knownLeagueIds => _leagues.keys;
+
 /// The league's display name, or `null` for an unknown id (the raw code is
 /// never shown).
 String? leagueLabel(String? leagueId) => _leagues[leagueId];

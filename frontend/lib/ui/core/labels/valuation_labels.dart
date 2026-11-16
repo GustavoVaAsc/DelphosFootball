@@ -1,4 +1,4 @@
-/// The Spanish verdict for each valuation status, identical in pills,
+/// The Spanish verdict for each valuation status, identical in the table,
 /// filters, comparator and report text (DESIGN.md §3 "Vocabulary").
 library;
 

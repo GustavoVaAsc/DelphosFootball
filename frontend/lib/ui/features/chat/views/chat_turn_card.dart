@@ -1,19 +1,27 @@
 /// Renders one question-and-answer turn in the scouting assistant feed.
 library;
 
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/widgets.dart';
 
 import '../../../../domain/models/chat_turn.dart';
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
+import 'chat_answer.dart';
+import 'chat_hairline.dart';
 import 'chat_step_trail.dart';
+import 'chat_turn_error.dart';
 
-/// Displays the user prompt, natural-language tool steps, and assistant answer.
+/// Displays the user prompt, tool steps and answer. It is the only card of
+/// the turn: the trail and the error sit inside it, set off by hairlines.
 class ChatTurnCard extends StatelessWidget {
-  const ChatTurnCard({super.key, required this.turn});
+  const ChatTurnCard({super.key, required this.turn, this.onRetry});
 
   final ChatTurn turn;
+
+  /// Resends the turn; offered only while the turn shows an error.
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +29,7 @@ class ChatTurnCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: DelphosColors.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(DelphosRadius.card),
         border: Border.all(color: DelphosColors.rule),
       ),
       child: Column(
@@ -29,7 +37,7 @@ class ChatTurnCard extends StatelessWidget {
         spacing: 12,
         children: [
           Text(
-            'Dirección deportiva',
+            'Dirección Deportiva',
             style: DelphosText.ui(
               size: TypeScale.secondary,
               weight: FontWeight.w600,
@@ -43,29 +51,21 @@ class ChatTurnCard extends StatelessWidget {
               weight: FontWeight.w600,
             ),
           ),
-          if (turn.steps.isNotEmpty || turn.isStreaming)
+          if (turn.steps.isNotEmpty || turn.isStreaming) ...[
+            const ChatHairline(),
             ChatStepTrail(steps: turn.steps, isStreaming: turn.isStreaming),
-          if (turn.assistantMessage case final answer?)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: SelectableText(
-                answer,
-                style: DelphosText.prose(color: DelphosColors.ink),
-              ),
+          ],
+          if (turn.assistantMessage case final answer?) ...[
+            const ChatHairline(),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ChatAnswer(text: answer),
             ),
-          if (turn.errorMessage case final error?)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: DelphosColors.surfaceSubtle,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: DelphosColors.rule),
-              ),
-              child: Text(
-                error,
-                style: DelphosText.ui(color: DelphosColors.ink2, height: 1.45),
-              ),
-            ),
+          ],
+          if (turn.errorMessage case final error?) ...[
+            const ChatHairline(),
+            ChatTurnError(message: error, onRetry: onRetry),
+          ],
         ],
       ),
     );

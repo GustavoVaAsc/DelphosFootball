@@ -4,6 +4,7 @@ library;
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/widgets/action_button.dart';
 import '../../../core/widgets/focus_ring.dart';
@@ -48,7 +49,7 @@ class ChatComposer extends StatelessWidget {
                   builder: (context, child) => FocusRing(
                     visible:
                         focusNode.hasFocus && FocusVisibility.keyboard.value,
-                    borderRadius: 8,
+                    borderRadius: DelphosRadius.control,
                     child: child!,
                   ),
                   child: Container(
@@ -58,7 +59,9 @@ class ChatComposer extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: DelphosColors.surfaceSubtle,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(
+                        DelphosRadius.control,
+                      ),
                       border: Border.all(color: DelphosColors.controlBorder),
                     ),
                     child: TextField(

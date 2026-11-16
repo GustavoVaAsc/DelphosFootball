@@ -10,20 +10,21 @@ import '../../../../data/repositories/chat_repository.dart';
 import '../../../../data/services/api_exception.dart';
 import '../../../../data/services/api_network_exception.dart';
 import '../../../../data/services/request_cancelled_exception.dart';
-import '../../../../domain/models/chat_tool_step.dart';
 import '../../../../domain/models/chat_turn.dart';
-import '../../../core/labels/chat_tool_labels.dart';
+import 'chat_intro_gate.dart';
+import 'chat_turn_events.dart';
 
 /// Drives `/chat`: capabilities pop-up visibility and SSE turn streaming.
 class ChatViewModel extends ChangeNotifier {
-  ChatViewModel({required this._repository});
+  ChatViewModel({required this._repository})
+    : _isCapabilitiesOpen = ChatIntroGate.takeFirstVisit();
 
   final ChatRepository _repository;
 
   final List<ChatTurn> _turns = [];
   String? _sessionId;
   bool _isBusy = false;
-  bool _isCapabilitiesOpen = true;
+  bool _isCapabilitiesOpen;
   bool _disposed = false;
   Completer<void>? _activeCancel;
 
@@ -52,6 +53,17 @@ class ChatViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Whether the last turn failed and can be sent again.
+  bool get canRetry =>
+      !_isBusy && _turns.isNotEmpty && _turns.last.errorMessage != null;
+
+  /// Drops the failed last turn and sends its question again.
+  Future<void> retryLastTurn() {
+    if (!canRetry) return Future.value();
+    final text = _turns.removeLast().userMessage;
+    return sendMessage(text);
+  }
+
   Future<void> sendMessage(String rawText) async {
     final text = rawText.trim();
     if (text.isEmpty || _isBusy) return;
@@ -78,16 +90,17 @@ class ChatViewModel extends ChangeNotifier {
     } on RequestCancelledException {
       return;
     } on ApiException catch (error) {
-      _failTurn(turnIndex, _mapApiError(error));
+      _failTurn(turnIndex, chatApiErrorMessage(error));
     } on ApiNetworkException {
       _failTurn(
         turnIndex,
-        'No se pudo conectar con el servidor de consultas en este momento.',
+        'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo '
+        'de nuevo.',
       );
     } on FormatException {
       _failTurn(
         turnIndex,
-        'La respuesta del asistente no tuvo el formato esperado.',
+        'La respuesta del asistente llegó incompleta. Inténtalo de nuevo.',
       );
     } finally {
       if (identical(_activeCancel, cancel)) _activeCancel = null;
@@ -97,46 +110,11 @@ class ChatViewModel extends ChangeNotifier {
   }
 
   void _applyEvent(int index, ChatSseEvent event) {
-    final current = _turns[index];
-    switch (event.event) {
-      case 'tool':
-        final tool = event.data['tool'] as String?;
-        final ok = event.data['ok'] as bool? ?? true;
-        final step = ChatToolStep(
-          stepTitle: chatToolStepTitle(tool),
-          summary: chatToolStepSummary(tool, event.data['summary'] as String?),
-          isError: !ok,
-        );
-        _turns[index] = current.copyWith(steps: [...current.steps, step]);
-      case 'message':
-        final nextSession = event.data['session_id'] as String?;
-        if (nextSession != null && nextSession.isNotEmpty) {
-          _sessionId = nextSession;
-        }
-        final tools = (event.data['tools_called'] as List<Object?>? ?? const [])
-            .whereType<String>();
-        final steps = current.steps.isNotEmpty
-            ? current.steps
-            : [
-                for (final t in tools)
-                  ChatToolStep(
-                    stepTitle: chatToolStepTitle(t),
-                    summary: chatToolStepSummary(t, null),
-                  ),
-              ];
-        _turns[index] = current.copyWith(
-          steps: steps,
-          assistantMessage: event.data['message'] as String? ?? '',
-          isStreaming: false,
-        );
-      case 'error':
-        final detail = event.data['detail'] as String?;
-        _turns[index] = current.copyWith(
-          errorMessage:
-              detail ?? 'El servicio de inferencia interrumpió la respuesta.',
-          isStreaming: false,
-        );
-    }
+    _turns[index] = applyChatEvent(
+      _turns[index],
+      event,
+      onSession: (id) => _sessionId = id,
+    );
     notifyListeners();
   }
 
@@ -146,15 +124,6 @@ class ChatViewModel extends ChangeNotifier {
       errorMessage: message,
       isStreaming: false,
     );
-  }
-
-  static String _mapApiError(ApiException error) {
-    if (error.statusCode == 503) {
-      return 'El servidor de lenguaje local aún no está inicializado en este '
-          'entorno. Cuando esté activo, el asistente ejecutará las consultas '
-          'sobre el modelo y mostrará aquí cada paso.';
-    }
-    return error.detail ?? 'No se pudo completar la consulta en este momento.';
   }
 
   void _cancelActive() {

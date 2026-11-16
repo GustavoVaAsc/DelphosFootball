@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:delphos_frontend/app.dart';
 import 'package:delphos_frontend/routing/app_router.dart';
+import 'package:delphos_frontend/ui/core/widgets/focus_visibility.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
@@ -14,8 +15,16 @@ Future<GoRouter> pumpAppAt(
   WidgetTester tester,
   String location, {
   FakePlayersBackend? backend,
+
+  /// False leaves the app mid-load, for tests of what animates while it
+  /// settles; the caller pumps.
+  bool settle = true,
 }) async {
   await loadArchivo();
+  // Ring visibility is static state: start each app from "no input yet" and
+  // leave nothing behind for the next test, even if this one throws.
+  FocusVisibility.reset();
+  addTearDown(FocusVisibility.reset);
   tester.view.physicalSize = const Size(1440, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -24,7 +33,7 @@ Future<GoRouter> pumpAppAt(
   final api = (backend ?? FakePlayersBackend()).api;
   addTearDown(api.close);
   await tester.pumpWidget(DelphosApp(apiClient: api, router: router));
-  await tester.pumpAndSettle();
+  if (settle) await tester.pumpAndSettle();
   return router;
 }
 

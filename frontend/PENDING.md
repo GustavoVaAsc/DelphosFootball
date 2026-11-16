@@ -54,7 +54,7 @@ Merged in PR #16, partly checked in the browser (section 3).
 - `/canvaskit/` and `/assets/assets/fonts/` are cached as immutable but their paths carry no hash: after a Flutter SDK bump a returning browser could mix versions. A versioned path would remove the risk (also fixes H4, section 7).
 - A deep link to a player who is not on the current page keeps the dossier open (paging is server side).
 - Escape on a focused but closed select closes the dossier; DESIGN.md says a select keeps Escape. (The browser pass is re-checking it.)
-- Several files run 131 to 149 lines (`api_client`, `report_view_model`, `compare_table_body`, `dossier_panel`, `explorer_screen` at 145, and others); `labels/countries.dart` is 240 (one data table, documented). Split or accept.
+- Several files run past the roughly 130-line limit and are not split yet: `api_client`, `compare_table_body`, `pitch_painter`, `players_table`, `dossier_panel`, `archetype_grid`, `explorer_screen` and `shrink_row`; `labels/countries.dart` is 240 (one data table, documented). Split or accept.
 - The report provenance prints the raw model id ("qwen/qwen3.5-9b"); DESIGN.md's no-debug-text rule may call for a friendlier label.
 - The dossier shows the newest stored report for the player regardless of ADR-021's cache key (model, prompt version, TTL); the provenance line says who wrote it and when. Keep or align with ADR-021.
 - DESIGN.md still says flags come from FlagCDN (§1, §6); ADR-026 supersedes it for the app. Update DESIGN.md.

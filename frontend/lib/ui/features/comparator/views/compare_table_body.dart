@@ -1,5 +1,5 @@
 /// The body lines of the comparison table (DESIGN.md §4): the "Valoración"
-/// group (price, estimate in each player's verdict colour, status pill,
+/// group (price, estimate in each player's verdict colour, status word,
 /// saving against the reference with the reference's price ceiling, and
 /// tactical similarity), then the season group from `seasonRows`. The price
 /// row has no delta: every candidate is cheaper by construction and the
@@ -11,11 +11,12 @@ import 'package:flutter/widgets.dart';
 import '../../../../domain/models/replacement.dart';
 import '../../../../domain/models/valuation_status.dart';
 import '../../../core/format/format.dart';
+import '../../../core/labels/league_logos.dart';
 import '../../../core/theme/delphos_colors.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
 import '../../../core/view_models/section_status.dart';
-import '../../../core/widgets/status_pill.dart';
+import '../../../core/widgets/status_text.dart';
 import '../view_models/comparator_view_model.dart';
 import 'compare_cells.dart';
 import 'compare_row.dart';
@@ -93,10 +94,10 @@ List<Widget> compareTableBody({
     ),
     line(
       'Estado',
-      StatusPill(status: valuation.status),
+      StatusText(status: valuation.status),
       (c) => c.status == null
           ? CompareCells.note(notAvailable)
-          : StatusPill(status: c.status!),
+          : StatusText(status: c.status!),
     ),
     line(
       'Ahorro frente a la referencia',
@@ -127,6 +128,10 @@ List<Widget> compareTableBody({
           ),
         ),
         reference: switch (rows[r].reference) {
+          final text? when rows[r].label == 'Liga' => CompareCells.league(
+            text,
+            leagueLogoUrl(reference.season?.leagueId),
+          ),
           final text? => CompareCells.plain(text),
           null => CompareCells.note('Sin datos de temporada'),
         },
@@ -137,6 +142,17 @@ List<Widget> compareTableBody({
               rows[r].cells[i],
             )) {
               (SectionStatus.loading, _) => CompareCells.pending(),
+              (_, final cell?) when rows[r].label == 'Liga' =>
+                CompareCells.league(
+                  cell.text,
+                  leagueLogoUrl(
+                    vm
+                        .candidate(candidates[i].playerId)
+                        .value
+                        ?.season
+                        ?.leagueId,
+                  ),
+                ),
               (_, final cell?) => CompareCells.value(cell),
               _ => CompareCells.note('Sin datos de temporada'),
             },

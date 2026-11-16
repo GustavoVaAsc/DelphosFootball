@@ -1,6 +1,6 @@
 /// The dossier's valuation (DESIGN.md §4, Valuation): "Precio de mercado"
-/// and "Valor estimado" at 28/700 condensed, the verdict pill with the
-/// difference, the dumbbell, and the classifier check in neutral ink. The
+/// and "Valor estimado" at 28/700 condensed, one line with the verdict word,
+/// " · " and the difference, and the classifier check in neutral ink. The
 /// estimate takes the verdict's colour; the classifier lines never do.
 library;
 
@@ -12,9 +12,9 @@ import '../../../core/format/money.dart';
 import '../../../core/theme/delphos_colors.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
-import '../../../core/widgets/status_pill.dart';
+import '../../../core/widgets/count_up_text.dart';
+import '../../../core/widgets/status_text.dart';
 import 'dossier_text.dart';
-import 'valuation_dumbbell.dart';
 
 /// The valuation block for one player.
 class ValuationSection extends StatelessWidget {
@@ -46,8 +46,11 @@ class ValuationSection extends StatelessWidget {
             color: DelphosColors.ink3,
           ),
         ),
-        Text(
-          formatEur(value),
+        // Counts up each time a player loads, through the es-ES money
+        // formatter on every frame (DESIGN.md §5).
+        CountUpText(
+          value: value,
+          format: formatEur,
           style: DelphosText.condensed(
             size: TypeScale.figure,
             color: colour,
@@ -72,16 +75,24 @@ class ValuationSection extends StatelessWidget {
             }),
           ],
         ),
+        // The status word, " · ", then the difference. If it ever wraps it
+        // does so between the two, and the "·" stays with the word.
         Wrap(
-          spacing: 8,
+          spacing: 6,
           runSpacing: 4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            StatusPill(status: v.status),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 6,
+              children: [
+                StatusText(status: v.status),
+                ExcludeSemantics(child: Text('·', style: line)),
+              ],
+            ),
             Text(valuationDifference(v), style: line),
           ],
         ),
-        ValuationDumbbell(valuation: v),
         Semantics(
           container: true,
           child: Column(

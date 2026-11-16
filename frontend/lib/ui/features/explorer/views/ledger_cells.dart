@@ -14,7 +14,7 @@ import '../../../core/theme/delphos_colors.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
 import '../../../core/widgets/pitch_glyph.dart';
-import '../../../core/widgets/status_pill.dart';
+import '../../../core/widgets/status_text.dart';
 
 /// Builders for one row's value cells.
 abstract final class LedgerCells {
@@ -68,20 +68,20 @@ abstract final class LedgerCells {
           ),
   );
 
-  /// The verdict pill over the estimate-to-price ratio ("1,3x").
+  /// The verdict word over the signed difference of the estimate against the
+  /// price ("−65%"), the same number as the dossier's "Diferencia".
   static Widget gap(PlayerSummary p) {
     final status = p.valuationStatus;
-    final estimate = p.fairValueEur;
-    final market = p.marketValueEur;
+    final pct = valuationGapPct(fair: p.fairValueEur, market: p.marketValueEur);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       spacing: 3,
       children: [
-        if (status != null) StatusPill(status: status),
-        if (estimate != null && market != null && market > 0)
+        if (status != null) StatusText(status: status),
+        if (pct != null)
           Text(
-            formatMultiple(estimate / market),
+            pct,
             style: DelphosText.ui(
               size: TypeScale.secondary,
               color: DelphosColors.ink2,

@@ -1,7 +1,7 @@
 /// A column header of the comparison table (DESIGN.md §4): the kicker
-/// ("Referencia · Activo élite", "Reemplazo 1"), then the 40 px portrait
-/// with its 17 px crest, the name with its flag, the club on one line and
-/// the league on the next, with no separator.
+/// ("Referencia", "Reemplazo 1"), then the 40 px portrait with its 17 px
+/// crest, the name with its flag, and the club. The league is not here: the
+/// "Liga" row of the table states it.
 library;
 
 import 'package:flutter/widgets.dart';
@@ -19,12 +19,10 @@ class ComparePlayerHead extends StatelessWidget {
     required this.kicker,
     required this.name,
     this.isReference = false,
-    this.eliteAsset = false,
     this.imageUrl,
     this.crestUrl,
     this.country,
     this.club,
-    this.league,
   });
 
   final String kicker;
@@ -32,12 +30,10 @@ class ComparePlayerHead extends StatelessWidget {
 
   /// The reference's kicker is ink and semi-bold; candidates' are muted.
   final bool isReference;
-  final bool eliteAsset;
   final String? imageUrl;
   final String? crestUrl;
   final String? country;
   final String? club;
-  final String? league;
 
   @override
   Widget build(BuildContext context) {
@@ -49,25 +45,12 @@ class ComparePlayerHead extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 8,
       children: [
-        Text.rich(
-          TextSpan(
-            text: kicker,
-            style: DelphosText.ui(
-              size: TypeScale.secondary,
-              weight: isReference ? FontWeight.w600 : FontWeight.w500,
-              color: isReference ? DelphosColors.ink : DelphosColors.ink3,
-            ),
-            children: [
-              if (eliteAsset)
-                TextSpan(
-                  text: ' · Activo élite',
-                  style: DelphosText.ui(
-                    size: TypeScale.secondary,
-                    weight: FontWeight.w500,
-                    color: DelphosColors.ink2,
-                  ),
-                ),
-            ],
+        Text(
+          kicker,
+          style: DelphosText.ui(
+            size: TypeScale.secondary,
+            weight: isReference ? FontWeight.w600 : FontWeight.w500,
+            color: isReference ? DelphosColors.ink : DelphosColors.ink3,
           ),
         ),
         Row(
@@ -99,8 +82,6 @@ class ComparePlayerHead extends StatelessWidget {
                     ],
                   ),
                   if (club != null) Text(club!, style: sub),
-                  if (league != null)
-                    Text(league!, maxLines: 1, softWrap: false, style: sub),
                 ],
               ),
             ),

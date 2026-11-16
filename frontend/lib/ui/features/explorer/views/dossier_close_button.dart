@@ -5,6 +5,7 @@ library;
 import 'package:flutter/widgets.dart';
 
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/motion.dart';
 import '../../../core/widgets/line_glyph.dart';
 import '../../../core/widgets/pressable.dart';
@@ -20,7 +21,7 @@ class DossierCloseButton extends StatelessWidget {
     return Pressable(
       onPressed: onPressed,
       semanticLabel: 'Cerrar ficha',
-      borderRadius: 7,
+      borderRadius: DelphosRadius.control,
       builder: (context, hovered) => AnimatedContainer(
         // Hover feedback (DESIGN.md §5).
         duration: DelphosMotion.duration(context, DelphosMotion.hover),
@@ -30,7 +31,7 @@ class DossierCloseButton extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: hovered ? DelphosColors.surfaceSubtle : DelphosColors.surface,
-          borderRadius: BorderRadius.circular(7),
+          borderRadius: BorderRadius.circular(DelphosRadius.control),
           border: Border.all(
             color: hovered ? DelphosColors.ink2 : DelphosColors.controlBorder,
           ),

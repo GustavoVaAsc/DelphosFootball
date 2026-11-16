@@ -10,6 +10,7 @@ import '../../../../domain/models/archetype_overview.dart';
 import '../../../core/format/numbers.dart';
 import '../../../core/labels/archetypes.dart';
 import '../../../core/theme/delphos_colors.dart';
+import '../../../core/theme/delphos_radius.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
 import 'share_legend_item.dart';
@@ -60,7 +61,7 @@ class ShareBar extends StatelessWidget {
           label: described,
           image: true,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(3),
+            borderRadius: BorderRadius.circular(DelphosRadius.small),
             child: SizedBox(
               height: 12,
               // Stretch: a childless ColoredBox takes the smallest size it
