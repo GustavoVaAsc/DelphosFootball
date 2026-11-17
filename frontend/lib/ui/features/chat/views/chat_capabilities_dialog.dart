@@ -71,7 +71,7 @@ class _ChatCapabilitiesDialogState extends State<ChatCapabilitiesDialog> {
           child: Semantics(
             scopesRoute: true,
             explicitChildNodes: true,
-            label: 'Capacidades del asistente de scouting',
+            label: 'Ventana de capacidades de PitIA',
             child: Container(
               color: DelphosColors.scrim,
               alignment: Alignment.center,

@@ -48,7 +48,7 @@ class ChatCapabilitiesCard extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                '¿Qué puede hacer el asistente de scouting?',
+                '¿Qué puede hacer PitIA?',
                 style: DelphosText.ui(
                   size: TypeScale.title,
                   weight: FontWeight.w700,
@@ -59,7 +59,7 @@ class ChatCapabilitiesCard extends StatelessWidget {
           ],
         ),
         Text(
-          'Escribe una petición o pide comparar jugadores. Responde con los datos del modelo y muestra cada consulta que hace.',
+          'Escribe una petición o pide comparar jugadores. PitIA responde con los datos del modelo y muestra cada consulta que hace.',
           style: DelphosText.ui(color: DelphosColors.ink2, height: 1.45),
         ),
         for (final (title, desc) in chatCapabilities)

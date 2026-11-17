@@ -88,7 +88,7 @@ class _Segment extends StatelessWidget {
         duration: DelphosMotion.duration(context, DelphosMotion.hover),
         curve: DelphosMotion.easeOut,
         height: 26,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 7),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active

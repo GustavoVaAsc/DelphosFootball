@@ -50,13 +50,19 @@ abstract final class LedgerCells {
     ],
   );
 
-  static Widget market(double? value) =>
-      Text(formatEur(value), style: DelphosText.condensed());
+  static Widget market(double? value) => Text(
+    formatEur(value),
+    maxLines: 1,
+    softWrap: false,
+    style: DelphosText.condensed(),
+  );
 
   /// The estimate takes the verdict's colour, never the raw gap's
   /// (DESIGN.md §2): one verdict per player.
   static Widget estimate(double? value, ValuationStatus? status) => Text(
     formatEur(value),
+    maxLines: 1,
+    softWrap: false,
     style: value == null
         ? _missing
         : DelphosText.condensed(
@@ -75,7 +81,7 @@ abstract final class LedgerCells {
     final pct = valuationGapPct(fair: p.fairValueEur, market: p.marketValueEur);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.center,
       spacing: 3,
       children: [
         if (status != null) StatusText(status: status),

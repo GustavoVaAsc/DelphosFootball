@@ -36,11 +36,7 @@ class SidebarModules extends StatelessWidget {
       Routes.archetypes,
       (color) => NavGlyph.archetypes(color: color),
     ),
-    (
-      'Asistente de Scouting',
-      Routes.chat,
-      (color) => NavGlyph.assistant(color: color),
-    ),
+    ('PitIA', Routes.chat, (color) => NavGlyph.assistant(color: color)),
   ];
 
   bool _isActive(String path) =>

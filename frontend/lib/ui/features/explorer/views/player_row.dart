@@ -26,8 +26,8 @@ class PlayerRow extends StatefulWidget {
 
   /// Row height including the 1 px hairline, used as the list's fixed
   /// item extent: 10 px padding above and below the three-line identity
-  /// block (name 15/1.25, club and archetype 12/1.3, 3 px of gaps).
-  static const double extent = 74;
+  /// block (name 16/1.25, club and archetype 13/1.3, 2 px gap).
+  static const double extent = 78;
 
   final PlayerSummary player;
   final bool selected;

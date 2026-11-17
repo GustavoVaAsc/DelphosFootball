@@ -1,7 +1,7 @@
-/// The explorer's name search (DESIGN.md §4, Filter bar). The backend
-/// searches names only, so the placeholder says "Buscar jugador". Escape
-/// with text clears the field first; Escape on an empty field is left to
-/// the explorer, which closes the dossier.
+/// The explorer's search input (DESIGN.md §4, Filter bar). The backend
+/// matches word prefixes across player name, club and country, so the
+/// placeholder reads "Buscar jugador, club o país". Escape with text clears
+/// the field first; Escape on an empty field closes the dossier.
 library;
 
 import 'package:flutter/services.dart';
@@ -14,7 +14,7 @@ import '../../../core/theme/delphos_text.dart';
 import '../../../core/widgets/focus_ring.dart';
 import '../../../core/widgets/line_glyph.dart';
 
-/// A 196 x 32 search box with the magnifier and the ink focus ring. It has a
+/// A 240 x 32 search box with the magnifier and the ink focus ring. It has a
 /// placeholder and an accessible label, and no visible label (an explicit
 /// exception, DESIGN.md §4).
 class SearchField extends StatefulWidget {
@@ -26,7 +26,7 @@ class SearchField extends StatefulWidget {
     required this.focusNode,
   });
 
-  static const double width = 196;
+  static const double width = 240;
 
   /// The live text from the ViewModel (it changes on "Restablecer").
   final String text;

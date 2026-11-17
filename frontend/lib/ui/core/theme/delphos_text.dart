@@ -1,10 +1,11 @@
-/// Text style builders for the three voices of DESIGN.md §3: Archivo at
-/// normal width for UI text, Archivo condensed with tabular figures for
-/// names and euro figures, and Source Serif 4 for report prose.
+/// Text style builders for the app's typography voices: League Spartan for
+/// prominent headings and titles (>= 15 px), Source Sans 3 for compact UI
+/// labels and controls (< 15 px), Archivo condensed with tabular figures for
+/// player names and euro figures, and Source Serif 4 for report prose.
 ///
-/// Both families are bundled variable fonts. A variable font is shaped by
-/// its axes, so every style sets the `wght` axis from its weight (and
-/// `wdth` or `opsz` where they apply) alongside `fontWeight`.
+/// All bundled families are variable fonts. A variable font is shaped by its
+/// axes, so every style sets the `wght` axis from its weight (and `wdth` or
+/// `opsz` where they apply) alongside `fontWeight`.
 library;
 
 import 'package:flutter/widgets.dart';
@@ -14,7 +15,9 @@ import 'type_scale.dart';
 
 /// Builds the app's text styles.
 abstract final class DelphosText {
-  static const String sansFamily = 'Archivo';
+  static const String displayFamily = 'LeagueSpartan';
+  static const String sansFamily = 'SourceSans3';
+  static const String condensedFamily = 'Archivo';
   static const String serifFamily = 'SourceSerif4';
 
   /// Archivo's `wdth` value for the condensed cut (CSS `font-stretch: 80%`).
@@ -22,7 +25,8 @@ abstract final class DelphosText {
 
   static const List<FontFeature> _tabular = [FontFeature.tabularFigures()];
 
-  /// Archivo at normal width: labels, controls, table body, navigation.
+  /// League Spartan for prominent headings (`size >= 15`) and Source Sans 3
+  /// for smaller labels, controls, table body and navigation.
   static TextStyle ui({
     double size = TypeScale.body,
     FontWeight weight = FontWeight.w400,
@@ -30,7 +34,7 @@ abstract final class DelphosText {
     double? height,
     bool tabular = false,
   }) => TextStyle(
-    fontFamily: sansFamily,
+    fontFamily: size >= TypeScale.section ? displayFamily : sansFamily,
     fontSize: size,
     fontWeight: weight,
     fontVariations: [FontVariation('wght', weight.value.toDouble())],
@@ -46,7 +50,7 @@ abstract final class DelphosText {
     Color color = DelphosColors.ink,
     double? height,
   }) => TextStyle(
-    fontFamily: sansFamily,
+    fontFamily: condensedFamily,
     fontSize: size,
     fontWeight: weight,
     fontVariations: [

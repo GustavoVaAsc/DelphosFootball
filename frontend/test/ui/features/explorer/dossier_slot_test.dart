@@ -3,6 +3,7 @@
 // the open layout, then leaves; a filter, a player switch or an error during
 // the exit never leaves stale or blank content behind.
 import 'package:delphos_frontend/ui/features/explorer/views/dossier_panel.dart';
+import 'package:delphos_frontend/ui/features/explorer/views/ledger_layout.dart';
 import 'package:delphos_frontend/ui/features/explorer/views/section_skeleton.dart';
 import 'package:delphos_frontend/ui/features/explorer/views/table_header.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,16 +11,15 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../../support/app_harness.dart';
 import '../../../support/explorer_harness.dart';
 
-/// The Posición column's width, from the header: its text starts 8 px into
-/// the cell, and the right-aligned Mercado text ends 8 px before the end of
-/// its 76 px cell, which starts where Posición ends.
-double positionWidth(WidgetTester tester) {
-  Finder header(String text) =>
-      find.descendant(of: find.byType(TableHeader), matching: find.text(text));
-  return tester.getTopRight(header('Mercado')).dx -
-      tester.getTopLeft(header('Posición')).dx -
-      (76 - 8 - 8);
-}
+/// The Posición column's width, measured from its cell box in the header.
+double positionWidth(WidgetTester tester) => tester
+    .getSize(
+      find.descendant(
+        of: find.byType(TableHeader),
+        matching: find.byKey(LedgerLayout.positionCellKey),
+      ),
+    )
+    .width;
 
 void main() {
   testWidgets('the panel slides in from the right and fades', (tester) async {
@@ -54,14 +54,21 @@ void main() {
     tester,
   ) async {
     final router = await pumpAppAt(tester, '/explorador?jugador=1000');
-    expect(positionWidth(tester), closeTo(142, 0.5));
+    expect(positionWidth(tester), closeTo(LedgerLayout.positionOpenWidth, 0.5));
 
     router.go('/explorador');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 80));
-    expect(positionWidth(tester), closeTo(142, 0.5), reason: 'mid-exit');
+    expect(
+      positionWidth(tester),
+      closeTo(LedgerLayout.positionOpenWidth, 0.5),
+      reason: 'mid-exit',
+    );
     await tester.pumpAndSettle();
-    expect(positionWidth(tester), closeTo(180, 0.5));
+    expect(
+      positionWidth(tester),
+      closeTo(LedgerLayout.positionClosedWidth, 0.5),
+    );
   });
 
   testWidgets('a search during the exit does not blank the content', (
@@ -94,7 +101,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(DossierPanel), findsOneWidget);
     expect(find.byType(SectionSkeleton), findsNothing);
-    expect(positionWidth(tester), closeTo(142, 0.5));
+    expect(positionWidth(tester), closeTo(LedgerLayout.positionOpenWidth, 0.5));
   });
 
   testWidgets('the same player reopened during the exit is never cleared', (
@@ -121,7 +128,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(DossierPanel), findsOneWidget);
     expect(fetches(), before, reason: 'the view model was never cleared');
-    expect(positionWidth(tester), closeTo(142, 0.5));
+    expect(positionWidth(tester), closeTo(LedgerLayout.positionOpenWidth, 0.5));
   });
 
   testWidgets('reduced motion removes the panel at once', (tester) async {
@@ -135,7 +142,10 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.byType(DossierPanel), findsNothing);
-    expect(positionWidth(tester), closeTo(180, 0.5));
+    expect(
+      positionWidth(tester),
+      closeTo(LedgerLayout.positionClosedWidth, 0.5),
+    );
   });
 
   testWidgets('an error during the exit still clears the dossier', (

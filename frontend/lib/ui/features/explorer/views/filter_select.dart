@@ -50,7 +50,7 @@ class _FilterSelectState<T> extends State<FilterSelect<T>> {
     final valueStyle = DelphosText.ui(weight: FontWeight.w500);
     return Row(
       mainAxisSize: MainAxisSize.min,
-      spacing: 8,
+      spacing: 6,
       children: [
         ExcludeSemantics(
           child: Text(
@@ -73,7 +73,7 @@ class _FilterSelectState<T> extends State<FilterSelect<T>> {
             opacity: widget.onChanged == null ? 0.5 : 1,
             child: Container(
               height: 32,
-              padding: const EdgeInsets.only(left: 10, right: 6),
+              padding: const EdgeInsets.only(left: 8, right: 4),
               decoration: BoxDecoration(
                 color: DelphosColors.surface,
                 borderRadius: BorderRadius.circular(DelphosRadius.control),

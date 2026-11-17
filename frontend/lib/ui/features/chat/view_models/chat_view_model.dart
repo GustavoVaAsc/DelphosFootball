@@ -100,7 +100,7 @@ class ChatViewModel extends ChangeNotifier {
     } on FormatException {
       _failTurn(
         turnIndex,
-        'La respuesta del asistente llegó incompleta. Inténtalo de nuevo.',
+        'La respuesta de PitIA llegó incompleta. Inténtalo de nuevo.',
       );
     } finally {
       if (identical(_activeCancel, cancel)) _activeCancel = null;

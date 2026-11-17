@@ -42,7 +42,7 @@ class FilterBar extends StatelessWidget {
       ),
       Row(
         mainAxisSize: MainAxisSize.min,
-        spacing: 8,
+        spacing: 6,
         children: [
           ExcludeSemantics(
             child: Text(
@@ -98,11 +98,11 @@ class FilterBar extends StatelessWidget {
         // The controls wrap to a second line when the window is narrower
         // than 1440 px; the reset button keeps its place on the right.
         child: Row(
-          spacing: 14,
+          spacing: 8,
           children: [
             Expanded(
               child: Wrap(
-                spacing: 14,
+                spacing: 8,
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: controls,
