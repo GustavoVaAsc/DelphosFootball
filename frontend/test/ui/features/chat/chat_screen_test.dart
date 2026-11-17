@@ -20,14 +20,11 @@ void main() {
     // Reopen from the header so the pop-up has an opener to restore.
     await tester.tap(find.text('Entendido'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('¿Qué puede hacer el asistente?'));
+    await tester.tap(find.text('Capacidades de PitIA'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Extremos infravalorados sub-24'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('¿Qué puede hacer el asistente de scouting?'),
-      findsNothing,
-    );
+    expect(find.text('¿Qué puede hacer PitIA?'), findsNothing);
     expect(FocusManager.instance.primaryFocus?.debugLabel, 'chat prompt input');
   });
 
@@ -36,34 +33,22 @@ void main() {
     (tester) async {
       await pumpAppAt(tester, '/chat');
 
-      expect(
-        find.text('¿Qué puede hacer el asistente de scouting?'),
-        findsOneWidget,
-      );
+      expect(find.text('¿Qué puede hacer PitIA?'), findsOneWidget);
 
       await tester.tap(find.text('Entendido'));
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('¿Qué puede hacer el asistente de scouting?'),
-        findsNothing,
-      );
+      expect(find.text('¿Qué puede hacer PitIA?'), findsNothing);
 
-      await tester.tap(find.text('¿Qué puede hacer el asistente?'));
+      await tester.tap(find.text('Capacidades de PitIA'));
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('¿Qué puede hacer el asistente de scouting?'),
-        findsOneWidget,
-      );
+      expect(find.text('¿Qué puede hacer PitIA?'), findsOneWidget);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('¿Qué puede hacer el asistente de scouting?'),
-        findsNothing,
-      );
+      expect(find.text('¿Qué puede hacer PitIA?'), findsNothing);
     },
   );
 
@@ -149,7 +134,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.textContaining('El asistente no está disponible en este momento'),
+      find.textContaining('PitIA no está disponible en este momento'),
       findsOneWidget,
     );
     expect(find.textContaining('Chat inference'), findsNothing);

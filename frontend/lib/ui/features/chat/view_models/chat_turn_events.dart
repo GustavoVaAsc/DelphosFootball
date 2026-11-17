@@ -50,7 +50,7 @@ ChatTurn applyChatEvent(
     case 'error':
       return turn.copyWith(
         errorMessage:
-            'El asistente se interrumpió antes de terminar la respuesta. '
+            'PitIA se interrumpió antes de terminar la respuesta. '
             'Inténtalo de nuevo.',
         isStreaming: false,
       );
@@ -61,7 +61,7 @@ ChatTurn applyChatEvent(
 /// The message for an API error.
 String chatApiErrorMessage(ApiException error) {
   if (error.statusCode == 503) {
-    return 'El asistente no está disponible en este momento. Inténtalo de '
+    return 'PitIA no está disponible en este momento. Inténtalo de '
         'nuevo en unos minutos.';
   }
   return 'No se pudo completar la consulta. Inténtalo de nuevo o reformula '

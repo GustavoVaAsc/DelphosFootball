@@ -22,7 +22,7 @@ abstract final class Routes {
         ['explorador'] => 'Explorador de Mercado',
         ['comparador', ...] => 'Comparador Moneyball',
         ['arquetipos'] => 'Arquetipos Tácticos',
-        ['chat'] => 'Asistente de Scouting',
+        ['chat'] => 'PitIA',
         _ => null,
       };
 

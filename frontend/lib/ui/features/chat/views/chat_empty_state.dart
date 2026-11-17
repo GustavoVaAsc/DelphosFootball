@@ -31,14 +31,14 @@ class ChatEmptyState extends StatelessWidget {
         spacing: 10,
         children: [
           Text(
-            'Conversa con los datos calculados por el modelo',
+            'Conversa con PitIA sobre los datos del modelo',
             style: DelphosText.ui(
               size: TypeScale.section,
               weight: FontWeight.w600,
             ),
           ),
           Text(
-            'Pregunta por jugadores concretos, solicita comparaciones frente a sus reemplazos o filtra oportunidades infravaloradas. Verás en todo momento qué consultas realiza el asistente antes de responder.',
+            'Pregunta por jugadores concretos, solicita comparaciones frente a sus reemplazos o filtra oportunidades infravaloradas. Verás en todo momento qué consultas realiza PitIA antes de responder.',
             style: DelphosText.ui(color: DelphosColors.ink2, height: 1.5),
           ),
           ChatOpenerFocus(

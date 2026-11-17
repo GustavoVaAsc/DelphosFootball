@@ -26,7 +26,7 @@ void main() {
     await pumpAppAt(tester, '/chat', backend: backend);
     await _ask(tester, 'Busca delanteros');
 
-    expect(find.textContaining('El asistente se interrumpió'), findsOneWidget);
+    expect(find.textContaining('PitIA se interrumpió'), findsOneWidget);
     expect(find.textContaining('inferencia'), findsNothing);
     expect(find.textContaining('traceback'), findsNothing);
   });

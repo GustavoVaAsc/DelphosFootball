@@ -52,7 +52,7 @@ Rules:
 - **Archivo** (Google Fonts, variable, `wdth 62..125`, `wght 100..900`):
   - Condensed cut (`font-stretch: 80%`) for player names and every euro figure, with `font-variant-numeric: tabular-nums`. Reason: scoreboard and kit-number voice, and long names fit narrow columns.
   - Normal width for UI text (labels, controls, table body, navigation).
-- **Source Serif 4** for the Asistente de Scouting's answers (`ChatAnswer`), `15px`, line-height `1.55`, `68ch` max measure. Reason: a written answer reads as prose, apart from the data.
+- **Source Serif 4** for PitIA's scouting answers (`ChatAnswer`), `15px`, line-height `1.55`, `68ch` max measure. Reason: a written answer reads as prose, apart from the data.
 - **Numeric discipline**: tabular numerals on every euro value, percentage, age and match statistic.
 - **Scale** (only these six sizes): `11 / 12 / 13 / 15 / 20 / 28` px.
   - `28`: reserved for the two dossier valuation figures (market price and estimate).
@@ -74,7 +74,7 @@ Rules:
 - **Shell**: full-height grid, independent internal scroll containers, no page-level vertical scroll.
 - **Sidebar (`240px`, navy; `64px` rail when folded)**:
   - Brand header (`60px`): the hamburger button at the top left, then `DelphosFootball · Dirección Deportiva` in two lines. There is no brand logo or mark in the sidebar; the button takes its place so it is easy to see. The button is `36px`, with `14px` to its left, so it is centred on the `64px` rail and sits in exactly the same place open and folded. It is drawn for the navy ground (three painted lines, no icon font): `--sidebar-text`, white on hover, `--sidebar-active` hover ground and the white focus ring (§2). It is the first stop of the sidebar for the keyboard and keeps focus when it flips the sidebar. Its Spanish label is "Plegar menú" while the sidebar is open and "Desplegar menú" while it is folded (with the matching expanded state), and its tooltip also opens on keyboard focus.
-  - The modules as text items, without icons while the sidebar is open: `Explorador de Mercado`, `Comparador Moneyball`, `Arquetipos Tácticos`, `Asistente de Scouting`. The HTML preview shows only the three data modules, because the Asistente de Scouting chat is outside the preview (§7).
+  - The modules as text items, without icons while the sidebar is open: `Explorador de Mercado`, `Comparador Moneyball`, `Arquetipos Tácticos`, `PitIA`. The HTML preview shows only the three data modules, because the PitIA chat is outside the preview (§7).
   - Nav item font weight is constant across states (active is shown with ground and text colour only), so labels never reflow or wrap.
   - The hamburger button in the brand header folds and unfolds the sidebar. The change animates (§5).
   - Folded, the sidebar is a `64px` rail: the hamburger button alone, then one `20px` line icon per module in the same stroke style as the other glyphs (a ledger, two opposed arrows, three groups, a speech bubble; drawn in code, no icon font), in `--sidebar-text` and white on hover. The active module keeps its `--sidebar-active` ground. Each icon has a tooltip with the module's name, which also opens on keyboard focus, and the same Spanish semantics label. The footer is hidden.
@@ -110,7 +110,7 @@ Rules:
   - Candidate cells show a signed delta against the reference, computed from the values as displayed so the arithmetic on screen adds up; share deltas in percentage points ("+8 pp"). The price row has no delta. A value that prints "N/D" (a missing count, or a share out of range, §3) has no delta on either side. Toning per §2.
   - Savings is one row. The reference cell of that row states the price ceiling for a replacement (80% of its price).
   - With fewer than 3 candidates, one placeholder column carries "N de 3 reemplazos" and the shortfall text. Never a padded candidate.
-  - Player selector above the table. No report here: scouting reports live in the Asistente de Scouting chat.
+  - Player selector above the table. No report here: scouting reports live in the PitIA chat.
 - **Arquetipos Tácticos**:
   - Intro card with one stacked share bar: player count and share of the total per archetype, legend aligned under each segment.
   - Three cards share row tracks through CSS subgrid (top line, title block, pitch, metrics, representative players, link), so the pitch diagrams and lists align whatever the title length.
@@ -153,4 +153,4 @@ Implemented in the preview so the Flutter app can copy them. Review one with the
   - `fewer_than_three_qualifying_peers`: "Solo N jugadores cumplen todos los criterios: mismo arquetipo y posición, similitud suficiente, ahorro mínimo del 20% y no sobrevalorado."
   - Any other code: a generic "Solo N jugadores cumplen los criterios de reemplazo."
 - **Filtered to empty** (`empty`): the filters are preset to the first status and archetype pair with no rows. The message names the active filters ("Filtros activos: estado En precio · arquetipo Ancla Defensiva."), next to "Restablecer filtros". The dossier is closed: it never shows a player the table does not list.
-- **Out of scope**: the generated scouting reports and the data chat (`POST /reports/generate`, `POST /chat`; delivery priority 4 in ADR-007) have no states in this preview. The dossier has no "Resumen": reports live in the Asistente de Scouting chat.
+- **Out of scope**: the generated scouting reports and the data chat (`POST /reports/generate`, `POST /chat`; delivery priority 4 in ADR-007) have no states in this preview. The dossier has no "Resumen": reports live in the PitIA chat.

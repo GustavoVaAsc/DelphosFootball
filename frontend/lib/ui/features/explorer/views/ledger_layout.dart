@@ -1,17 +1,17 @@
 /// The column grid of the market table (DESIGN.md §4, Market table):
 /// Jugador | Edad | Posición | Mercado | Valor estimado | Brecha.
 ///
-/// Fixed widths include the cell padding, as in the preview's fixed table
-/// layout: 48 / 142 / 76 / 100 / 112 px with the dossier open, Posición
-/// 180 px with it closed, and Jugador takes the rest. Posición is wider than
-/// DESIGN.md's 130 px, measured with Archivo: it fits its longest single
-/// word ("Mediocentro", 74 px, beside the 36 px glyph), so a label wraps only
-/// between words. Brecha is narrower than DESIGN.md's old 120 px: the
-/// verdict is plain text with no pill padding, and it fits the widest word
-/// ("Sobrevalorado", 82 px). See ADR-027. Cells have 8 px a
-/// side (16 px between columns) and 14 px at the row edges. The header,
-/// the rows and the skeleton rows all lay out through this one widget, so
-/// their columns cannot drift apart.
+/// Fixed widths include the cell padding: with the dossier open,
+/// 58 / 142 / 88 / 110 / 112 px; with the dossier closed,
+/// 80 / 204 / 108 / 126 / 128 px; Jugador takes the rest. Posición rows stay
+/// left-aligned so the pitch glyphs line up vertically across every row, while
+/// the table header centres the Posición title via [centerPosition]. Edad,
+/// Mercado, Valor estimado and Brecha are centred. Posición (142 px open)
+/// fits its longest single word ("Mediocentro" beside the 36 px glyph), so a
+/// label wraps only between words. See ADR-027. Cells have 8 px a side (16 px
+/// between columns) and 14 px at the row edges. The header, the rows and the
+/// skeleton rows all lay out through this one widget, so their columns cannot
+/// drift apart.
 library;
 
 import 'package:flutter/widgets.dart';
@@ -28,6 +28,7 @@ class LedgerLayout extends StatelessWidget {
     required this.estimate,
     required this.gap,
     this.verticalPadding = 10,
+    this.centerPosition = false,
   });
 
   final bool dossierOpen;
@@ -38,7 +39,12 @@ class LedgerLayout extends StatelessWidget {
   final Widget estimate;
   final Widget gap;
   final double verticalPadding;
+  final bool centerPosition;
 
+  static const Key positionCellKey = ValueKey('ledger-position-cell');
+  static const double positionOpenWidth = 142;
+  static const double positionClosedWidth = 204;
+  static const double marketWidth = 88;
   static const double _edge = 14;
   static const double _side = 8;
 
@@ -46,8 +52,9 @@ class LedgerLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget cell(
       Widget child, {
+      Key? key,
       double? width,
-      bool end = false,
+      bool centered = false,
       bool first = false,
       bool last = false,
     }) {
@@ -59,24 +66,29 @@ class LedgerLayout extends StatelessWidget {
           verticalPadding,
         ),
         child: Align(
-          alignment: end ? Alignment.centerRight : Alignment.centerLeft,
+          alignment: centered ? Alignment.center : Alignment.centerLeft,
           child: child,
         ),
       );
       return width == null
-          ? Expanded(child: padded)
-          : SizedBox(width: width, child: padded);
+          ? Expanded(key: key, child: padded)
+          : SizedBox(key: key, width: width, child: padded);
     }
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         cell(player, first: true),
-        cell(age, width: 48, end: true),
-        cell(position, width: dossierOpen ? 142 : 180),
-        cell(market, width: 76, end: true),
-        cell(estimate, width: 100, end: true),
-        cell(gap, width: 112, end: true, last: true),
+        cell(age, width: dossierOpen ? 58 : 80, centered: true),
+        cell(
+          position,
+          key: positionCellKey,
+          width: dossierOpen ? positionOpenWidth : positionClosedWidth,
+          centered: centerPosition,
+        ),
+        cell(market, width: dossierOpen ? marketWidth : 108, centered: true),
+        cell(estimate, width: dossierOpen ? 110 : 126, centered: true),
+        cell(gap, width: dossierOpen ? 112 : 128, centered: true, last: true),
       ],
     );
   }
