@@ -24,6 +24,7 @@ from delphos_ml.pipeline._publish_artifacts import (
     sanitize_model_run_id,
 )
 from delphos_ml.pipeline._publish_db import bulk_load_analytics, verify_published_counts
+from delphos_ml.pipeline._publish_names import validate_candidate_names
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,14 @@ def run_publish(settings: Settings | None = None) -> Path:
     except ValueError as exc:
         raise PublishError(str(exc)) from exc
 
-    # 3. Promote staged artifacts
+    # 3. Refuse a candidate name the scouting report cannot carry, before anything
+    #    is written: the report request would render it as an instruction.
+    try:
+        validate_candidate_names(data_dir)
+    except ValueError as exc:
+        raise PublishError(f"publication refused: {exc}") from exc
+
+    # 4. Promote staged artifacts
     staged_dir = data_dir / "train" / "staged"
     artifacts_root = settings.get_artifacts_dir()
     target_artifacts_dir = artifacts_root / model_run_id
@@ -99,7 +107,7 @@ def run_publish(settings: Settings | None = None) -> Path:
     except Exception as exc:
         raise PublishError(f"failed promoting artifacts to {target_artifacts_dir}: {exc}") from exc
 
-    # 4. Database bulk load and activation inside single transaction
+    # 5. Database bulk load and activation inside single transaction
     db_url = settings.get_database_url()
     try:
         with psycopg.connect(db_url) as conn:
@@ -116,7 +124,7 @@ def run_publish(settings: Settings | None = None) -> Path:
         shutil.rmtree(target_artifacts_dir, ignore_errors=True)
         raise PublishError(f"publication transaction failed: {exc}") from exc
 
-    # 5. Write _publish.json atomically
+    # 6. Write _publish.json atomically
     manifest = {
         "published_at": datetime.now(UTC).isoformat(),
         "model_run_id": model_run_id,

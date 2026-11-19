@@ -8,11 +8,17 @@ llm_client, bounds the concurrent LLM calls, parses the model's JSON tool calls,
 and feeds typed tool errors back to the model. The prompt assembly lives in
 chat_budget and the reply parsing in chat_protocol. May raise InferenceError;
 callers map it to a problem response or an SSE error event.
+
+The inference endpoint is decided once per turn, before the first answer of that
+turn exists, and it is pinned for the whole turn: the tool results of the turn
+never cross to the peer half-way through it, and one answer is never composed of
+two models' output (ADR-033).
 """
 
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
@@ -25,7 +31,14 @@ from delphos_backend.services.chat_prompt import FALLBACK_ANSWER
 from delphos_backend.services.chat_protocol import parse_tool_call
 from delphos_backend.services.chat_tool_summary import safe_tool_name, summarize_tool_result
 from delphos_backend.services.chat_tools import execute_tool
-from delphos_backend.services.llm_client import InferenceError, chat_completion
+from delphos_backend.services.llm_client import (
+    PRIMARY_ENDPOINT,
+    InferenceError,
+    chat_completion,
+    resolve_target,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -62,6 +75,9 @@ async def stream_chat_turn(
     messages = build_messages(question, history, settings)
     tools_called: list[str] = []
     semaphore = llm_call_semaphore(settings)
+    # One endpoint for the whole turn: it is decided here, before the first
+    # answer of the turn exists, and every call of the turn goes to it.
+    target = await resolve_target(settings)
     # Zero means "no tool execution at all": the model is asked once and a tool
     # call is answered with the fallback instead of being run.
     max_iterations = max(0, settings.llm_max_tool_iterations)
@@ -70,7 +86,9 @@ async def stream_chat_turn(
         # computed, so the messages are re-trimmed before every completion.
         messages = trim_to_budget(messages, settings)
         async with semaphore:
-            result = await chat_completion(messages, settings=settings)
+            result = await chat_completion(messages, settings=settings, target=target)
+        if result.endpoint != PRIMARY_ENDPOINT:
+            logger.info("Chat turn served by the %s endpoint", result.endpoint)
         content = result.content.strip()
         call = parse_tool_call(content)
         if call is None:

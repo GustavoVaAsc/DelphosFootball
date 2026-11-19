@@ -11,46 +11,60 @@ Every LLM failure — timeout, transport or protocol error, malformed or empty
 completion, schema validation failure, unknown placeholder, a failed repair, or a
 second numeric violation — returns the deterministic text instead of raising, so the
 endpoint answers 200 with a report in every case (LLM_PLAN §7.1, C5). A timeout is
-logged separately: with no completed draft there is nothing to repair. `seed` is
-sent when available (the offline experiments pass a fixed one, §17). The stored
-`llm_model` is the model the backend ASKED for (`cfg.llm_model_name`), because that
-is the id the cache key is built from; the id the server reports back is logged
-when the two differ.
+logged separately: with no completed draft there is nothing to repair. `seed` is sent
+when available (the offline experiments pass a fixed one, §17).
+
+Two data failures take the same exit before the model is contacted: a candidate name
+the request cannot represent (it would carry an instruction into the prompt) and a
+card whose candidates do not share one key set. The first is answered with the
+deterministic rendering of the same card, which escapes every value; the second means
+the request cannot be built at all.
+
+The prose of one report comes wholly from ONE endpoint: the endpoint is resolved
+once, the draft and its repair go to it, and the stored `llm_model` is the id of
+the model that wrote the whole text. The stored id is the model the backend ASKED
+for — the primary's id, or the fallback's when the fallback served the call; the id
+the server reports back is logged when the two differ. The cache accepts a report
+written by either configured model, so the stored id is always one of the lookup's
+candidates; the endpoint is not part of the key, and the provenance names the model,
+not the machine that served it (ADR-033).
 """
 
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
+import httpx
 from pydantic import ValidationError
 
 from delphos_backend.core.config import Settings, get_settings
+from delphos_backend.services.llm_chain import EndpointChain
 from delphos_backend.services.llm_client import (
+    PRIMARY_ENDPOINT,
     CompletionResult,
     InferenceError,
     InferenceTimeout,
     chat_completion,
+    resolve_target,
 )
 from delphos_backend.services.report_bindings import UnknownPlaceholderError
-from delphos_backend.services.report_drafting import draft_report_text
-from delphos_backend.services.report_facts import allowed_number_tokens, build_fact_card
+from delphos_backend.services.report_drafting import complete_draft, draft_report_text
+from delphos_backend.services.report_facts import (
+    allowed_number_tokens,
+    build_deterministic_card,
+    build_fact_card,
+)
+from delphos_backend.services.report_names import UnrepresentableCandidateNameError
 from delphos_backend.services.report_prompt import SYSTEM_PROMPT, build_prompt_version
+from delphos_backend.services.report_prompt_scope import build_user_message
 from delphos_backend.services.report_render import render_deterministic_report
 from delphos_backend.services.report_schema import ScoutingReportDraft
+from delphos_backend.services.report_scope import InconsistentCandidateScope
 
 logger = logging.getLogger(__name__)
-
-_DRAFT_FORMAT = {
-    "type": "json_schema",
-    "json_schema": {
-        "name": "scouting_report_draft",
-        "schema": ScoutingReportDraft.model_json_schema(),
-    },
-}
 
 
 @dataclass(frozen=True)
@@ -70,24 +84,40 @@ async def generate_report(
     *,
     settings: Settings | None = None,
     seed: int | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
 ) -> ReportResult:
     """Generate the scouting report; never raises for an LLM failure (falls back)."""
     cfg = settings or get_settings()
-    card = build_fact_card(profile, valuation, replacements)
+    try:
+        card = build_fact_card(profile, valuation, replacements)
+    except UnrepresentableCandidateNameError as exc:
+        # A candidate name the request cannot represent never reaches the model: the
+        # deterministic renderer reads the same card and escapes every value.
+        logger.warning("Report generation used the deterministic renderer: %s", exc)
+        return _deterministic(
+            render_deterministic_report(build_deterministic_card(profile, valuation, replacements))
+        )
     fallback_text = render_deterministic_report(card)
     allowed = allowed_number_tokens(card)
-    messages: list[dict[str, Any]] = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": json.dumps(card, ensure_ascii=False)},
-    ]
+    try:
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": build_user_message(card)},
+        ]
+    except InconsistentCandidateScope as exc:
+        logger.warning("Report generation fell back to the deterministic renderer: %s", exc)
+        return _deterministic(fallback_text)
 
     async def complete(
         request: Sequence[dict[str, Any]],
     ) -> tuple[ScoutingReportDraft, CompletionResult]:
         """One structured generation call, bound to this request's settings."""
-        return await _complete_draft(request, cfg, seed)
+        return await complete_draft(request, chain, cfg, seed)
 
     try:
+        # One endpoint for the whole report: it is resolved here, before the
+        # first answer exists, and the chain keeps the draft and its repair on it.
+        chain = EndpointChain(await resolve_target(cfg, transport), cfg, transport, chat_completion)
         drafted = await draft_report_text(messages, complete, card, allowed)
     except InferenceTimeout as exc:
         logger.warning("Report generation timed out; using the deterministic renderer: %s", exc)
@@ -98,36 +128,27 @@ async def generate_report(
     if drafted is None:
         return _deterministic(fallback_text)
     text, completion = drafted
-    if completion.model != cfg.llm_model_name:
-        logger.info(
-            "Server reported model %s for the requested model %s",
+    requested = completion.requested_model or cfg.llm_model_name
+    if completion.model and completion.model != requested:
+        # The server answered with a model nobody asked for: the prose cannot
+        # be attributed to the club's model, so it is not stored.
+        logger.warning(
+            "The inference endpoint answered with model %s for the requested model %s; "
+            "using the deterministic renderer",
             completion.model,
-            cfg.llm_model_name,
+            requested,
+        )
+        return _deterministic(fallback_text)
+    if completion.endpoint != PRIMARY_ENDPOINT:
+        logger.warning(
+            "The scouting report was served by the %s inference endpoint", completion.endpoint
         )
     return ReportResult(
         text=text,
         source="llm",
-        llm_model=cfg.llm_model_name,
+        llm_model=requested,
         prompt_version=build_prompt_version(cfg),
     )
-
-
-async def _complete_draft(
-    messages: Sequence[dict[str, Any]],
-    cfg: Settings,
-    seed: int | None,
-) -> tuple[ScoutingReportDraft, CompletionResult]:
-    """One structured generation call: request the draft, parse and validate it."""
-    completion = await chat_completion(
-        list(messages),
-        settings=cfg,
-        max_tokens=cfg.llm_report_max_tokens,
-        enable_thinking=cfg.llm_enable_thinking,
-        seed=seed,
-        response_format=_DRAFT_FORMAT,
-    )
-    draft = ScoutingReportDraft.model_validate_json(completion.content)
-    return draft, completion
 
 
 def _deterministic(text: str) -> ReportResult:

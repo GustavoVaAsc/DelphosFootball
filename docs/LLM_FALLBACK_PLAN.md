@@ -5,8 +5,13 @@ describes the report and chat features this builds on. This document is the
 working plan; the decisions it produces belong in
 [ARCHITECTURE.md](ARCHITECTURE.md) §10 once implemented.
 
-Status: **specification, not implemented.** Written to survive a conversation
-compaction, so it is self-contained about the code it builds on.
+Status: **implemented.** The decisions this plan produced are recorded in
+[ARCHITECTURE.md](ARCHITECTURE.md) §10 as
+[ADR-033](ARCHITECTURE.md#adr-033-the-backend-falls-back-to-a-second-inference-endpoint-over-zerotier);
+this document stays as the working plan that produced them. One decision was
+deliberately not implemented as written: §6 decision 1 (a short timeout on the
+primary *call*) is replaced by a cheap reachability probe, so a healthy
+generation keeps its full timeout. See the ADR for the reasoning.
 
 ---
 
@@ -86,8 +91,8 @@ turn a 200 into a 503 or vice versa.
 `app.reports` records `source`, `llm_model`, `prompt_version`, and
 `get_latest_player_report` keys on all of them (`repositories/reports.py`). A
 report generated on the fallback is therefore recorded honestly — including the
-model id — and the cache cannot serve one generator's output as another's. This
-is the property that makes the fallback cheap to add.
+model id — and the cache serves it back only to a request whose candidate set
+holds that id ([ADR-033](ARCHITECTURE.md#adr-033-the-backend-falls-back-to-a-second-inference-endpoint-over-zerotier)).
 
 ## 3. The problem
 
@@ -180,14 +185,31 @@ Add to `core/config.py` and document in `.env.example` **and**
 Two more, in §6's decision list rather than fixed here:
 `DELPHOS_LLM_PRIMARY_PROBE_SECONDS` and `DELPHOS_LLM_FALLBACK_ENABLED`.
 
+The fallback URL is guarded by an **allowlist** where it is read: it must be
+empty or an `http`/`https` URL whose host is an IP literal inside
+`DELPHOS_LLM_FALLBACK_PEER_CIDR`, with no userinfo, no query string, no
+fragment and no whitespace, and an invalid value fails the settings load with a
+message naming the variable. The host should be a **different machine** than the
+backend's, or the fallback is only a second path to the same process; the
+backend warns about that case instead of refusing it. §7 states what the
+allowlist does and does not stop.
+
+**As implemented** ([ADR-033](ARCHITECTURE.md#adr-033-the-backend-falls-back-to-a-second-inference-endpoint-over-zerotier)):
+`DELPHOS_LLM_PRIMARY_PROBE_SECONDS` is `5.0` (0 < value ≤ 60),
+`DELPHOS_LLM_FALLBACK_PEER_CIDR` is `10.0.0.0/8`, and the
+`DELPHOS_LLM_FALLBACK_ENABLED` flag was dropped — the empty
+`DELPHOS_LLM_FALLBACK_API_URL` is the switch, so one key decides both whether
+the fallback exists and where it is.
+
 ### 5.2 The retry loop
 
 In `llm_client.chat_completion`:
 
-1. If the fallback is configured, attempt the **primary** with a short timeout
-   (see §6 decision 1).
-2. On `InferenceTimeout` or `InferenceError`, attempt the **fallback** with
-   `llm_fallback_timeout_seconds`.
+1. If the fallback is configured, **probe** the primary (see §6 decision 1) and
+   attempt it when the probe says it is serving.
+2. On `InferenceTimeout` or `InferenceError`, **probe** the fallback and
+   attempt it with `llm_fallback_timeout_seconds` when its probe says it is
+   serving.
 3. On a second failure, raise as today.
 
 The call site (`generate_report`, `chat_agent`) needs **no change** — it already
@@ -200,8 +222,11 @@ logged and (see §6 decision 3) recorded.
 ### 5.3 What the existing design gives for free
 
 - **Provenance.** `ReportResult.llm_model` is already in the cache key. A report
-  generated on the fallback records the model that actually produced it, and a
-  later report from the primary is a separate cache entry if the ids differ.
+  generated on the fallback records the model that actually produced it. The
+  lookup matches the model id against the **candidate set** of the configured
+  endpoints — the primary's id plus the fallback's id — so a report written by
+  one endpoint answers the next request even when the other one produced it;
+  the endpoint itself is not part of the key.
 - **Deterministic floor.** Both endpoints down is still a 200 with a valid
   report. The fallback changes the *quality* of the degraded path, never the
   *status code*.
@@ -229,6 +254,18 @@ slot. Three options:
   genuinely rare and the load is trivial.
 
 **Recommendation: (a).**
+
+> **Superseded by [ADR-033](ARCHITECTURE.md#adr-033-the-backend-falls-back-to-a-second-inference-endpoint-over-zerotier).**
+> Option (a) is not implemented: a 20 s timeout on the primary *call* would
+> abandon healthy report generations, which legitimately take 30-60 s. The
+> implemented mechanism is a cheap reachability probe (`GET /models`, 5 s) whose
+> result is cached for a few seconds: a dead primary is skipped in seconds, and
+> a refused connection fails instantly, while a healthy primary keeps its full
+> 120 s budget. The worst case is now the primary's timeout plus the fallback's.
+> The probe runs against **both** endpoints, and an endpoint counts as
+> serving only when it answers HTTP 200 with a JSON body carrying a model
+> list; the fallback's reachability is therefore known **before** it is given
+> a prompt, not discovered by a failing `POST`.
 
 ### Decision 2 — streaming
 
@@ -268,6 +305,45 @@ unauthenticated on the shared Docker network. A ZeroTier link widens that
 surface: a ZeroTier network can have members beyond the two hosts, and every
 prompt crosses it (they contain player data).
 
+### What the code does today
+
+Four controls are implemented in the backend, and they are recorded in
+[ADR-033](ARCHITECTURE.md#adr-033-the-backend-falls-back-to-a-second-inference-endpoint-over-zerotier):
+
+1. **The peer's address is allowlisted.** `DELPHOS_LLM_FALLBACK_API_URL` must
+   name an IP literal inside `DELPHOS_LLM_FALLBACK_PEER_CIDR` (default
+   `10.0.0.0/8`, the RFC1918 `10/8` block — the range ZeroTier managed
+   networks usually sit in; narrow it to the peer's actual subnet). A
+   hostname, a public address, an address of another network, a loopback,
+   link-local, unspecified, multicast or reserved address, a query string, a
+   fragment, userinfo or whitespace all fail the settings load with a message
+   naming the variable. The range must not be empty while a fallback URL is
+   set.
+2. **The peer is probed before it is given anything.** The same cheap
+   `GET {base}/models` that judges the primary judges the fallback, and the
+   probe carries no prompt and no credential. A dead or wrong address never
+   receives a prompt.
+3. **The peer's served model id must match.** With
+   `DELPHOS_LLM_FALLBACK_MODEL_NAME` set, a peer that reports another model is
+   refused with a WARNING; with it empty, a difference from the requested id
+   is warned about.
+4. **The logs do not carry the request.** A failed call logs the endpoint as
+   `scheme://host:port` and the exception's class name, never the exception's
+   text: `httpx.HTTPStatusError` renders the full request URL, path and query,
+   and an operator may put an API key in that query.
+
+### The honest limit of the allowlist
+
+A **wrong address inside the allowed range still passes the check**: the range
+says where the peer may sit, not which machine it is. The controls that stop
+that case are the **probe** (a wrong address inside the range is unlikely to
+answer it — but a host that runs an OpenAI-compatible server would) and the
+**ZeroTier ACL** (the control that pins the address to the peer). The allowlist is a guard against the plausible
+mistakes — a public host, an address of another network, a transposed octet
+that leaves the range — not a proof of identity.
+
+### What is still open
+
 If the ZeroTier network is not exclusively these two machines:
 
 - Set `LLAMA_ARG_API_KEY` on the remote llama.cpp.
@@ -278,13 +354,28 @@ If the ZeroTier network is not exclusively these two machines:
 
 If the network is only these two machines, this is optional but cheap.
 
-Also worth pinning: the remote image tag should be pinned by digest the same way
-the local one should be, so the served binary cannot change between pulls.
+Also worth pinning: the remote image tag should be pinned by digest, so the
+served binary cannot change between pulls. The local image keeps its mutable
+tag on purpose, because the same variable (`LLAMA_ARG_IMAGE`) selects the CPU
+variant; [ADR-031](ARCHITECTURE.md#adr-031-the-inference-server-is-published-on-a-named-host-address)
+records the digest verified on the analyst host and accepts that risk. The
+remote host has no such constraint, so it should be pinned by digest.
+
+The cheapest control that needs no code is a **ZeroTier ACL** pinning
+`tcp/8081` to the peer's address: it removes every unauthorized member of the
+network in one controller-side rule, and it covers both the generation abuse
+and the native routes (`/completion`, `/tokenize`, `/lora-adapters`) that an
+API key may or may not protect. Apply it before the peer is let in, and apply
+the API key as the follow-up.
 
 ## 8. Tests
 
 Follow `backend/tests/` conventions (see `tests/test_llm_client.py` and
-`conftest.py` — fake `httpx`, never make a real network call).
+`conftest.py` — fake `httpx`, never make a real network call). The cases below
+are implemented in `tests/test_llm_client.py` (the endpoint choice), in
+`tests/test_llm_probe.py` (the probe and its cache), in
+`tests/test_report_pipeline.py` (one report, one endpoint) and in
+`tests/test_config.py` (the allowlist).
 
 - Primary succeeds → fallback is never contacted (`call_count == 1`).
 - Primary raises `InferenceTimeout` → fallback is attempted and its result is
@@ -299,6 +390,13 @@ Follow `backend/tests/` conventions (see `tests/test_llm_client.py` and
   a probe failure routes the stream to the fallback before the first byte.
 - Config: the three new settings have bounds, and the `.env.example` /
   `docs/ARCHITECTURE.md` §9 key sets still agree in both directions.
+- The fallback is probed before it is given anything: a fallback whose probe
+  fails receives no `POST` at all.
+- The fallback's served model id matches the configured one, or the fallback is
+  refused.
+- The draft and the repair of one report go to the same endpoint.
+- The logs carry the endpoint's label and the exception's class name, never a
+  URL with a query string.
 
 ## 9. Work order
 

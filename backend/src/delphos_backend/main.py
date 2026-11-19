@@ -24,6 +24,7 @@ from delphos_backend.api import chat, clusters, health, players, reports
 from delphos_backend.core.config import get_settings
 from delphos_backend.core.db import close_db_pool, init_db_pool
 from delphos_backend.core.problem_details import register_problem_details
+from delphos_backend.services.llm_targets import warn_about_fallback_address
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """Manage application startup and shutdown lifecycle hooks."""
     logger.info("Starting DelphosFootball FastAPI backend...")
+    warn_about_fallback_address(get_settings())
     await init_db_pool()
     yield
     logger.info("Shutting down DelphosFootball FastAPI backend...")

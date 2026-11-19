@@ -11,6 +11,19 @@ from httpx import ASGITransport, AsyncClient
 
 from delphos_backend.core.db import get_db
 from delphos_backend.main import app
+from delphos_backend.services import llm_readiness
+from delphos_backend.services.llm_probe import clear_probe_cache
+
+
+@pytest.fixture(autouse=True)
+def fresh_probe_cache() -> None:
+    """Every test starts with an empty reachability-probe cache.
+
+    The probe cache is a module-level dict that outlives a test, so a probe
+    answered by one test would otherwise decide the endpoint of the next one.
+    """
+    clear_probe_cache()
+    llm_readiness._WARNED_OWN_ADDRESSES.clear()
 
 
 @pytest.fixture(autouse=True)
