@@ -93,9 +93,18 @@ def _oldest_tool_result(messages: list[dict[str, Any]]) -> int | None:
 
 
 def _turn_aligned(history: list[dict[str, Any]], settings: Settings) -> list[dict[str, Any]]:
-    """The most recent exchanges, starting at a user turn."""
+    """The most recent exchanges, starting at a user turn.
+
+    Persisted rows carry UUID and datetime columns the LLM request cannot encode
+    as JSON, so each message is projected onto the {role, content} pair the
+    chat-completions API accepts.
+    """
     keep = max(0, settings.llm_chat_history_turns) * 2
-    recent = [m for m in history if m.get("role") in ("user", "assistant")]
+    recent = [
+        {"role": m["role"], "content": str(m.get("content") or "")}
+        for m in history
+        if m.get("role") in ("user", "assistant")
+    ]
     recent = recent[-keep:] if keep else []
     while recent and recent[0].get("role") != "user":
         recent.pop(0)
