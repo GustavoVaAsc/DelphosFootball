@@ -15,6 +15,7 @@ from typing import Any
 
 from delphos_domain import (
     POSITION_LABELS,
+    SUB_POSITION_LABELS,
     VALUATION_STATUS_LABELS,
     resolve_cluster_label,
     resolve_position_label,
@@ -23,6 +24,7 @@ from delphos_domain import (
 from psycopg import AsyncConnection
 
 from delphos_backend.repositories.clusters import get_clusters_summary
+from delphos_backend.repositories.player_order import DEFAULT_SORT, PLAYER_ORDERINGS
 from delphos_backend.repositories.players import list_players
 from delphos_backend.services.chat_tool_args import (
     DEFAULT_LIMIT,
@@ -48,6 +50,8 @@ async def search_players_tool(
         return error
     for argument, allowed in (
         ("position", POSITION_LABELS),
+        ("sub_position", SUB_POSITION_LABELS),
+        ("sort_by", PLAYER_ORDERINGS),
         ("valuation_status", VALUATION_STATUS_LABELS),
     ):
         if error := enum_arg("search_players", argument, args, allowed):
@@ -59,16 +63,24 @@ async def search_players_tool(
     if error:
         return error
     page_size = limit or DEFAULT_LIMIT
+    sort_by = args.get("sort_by") or DEFAULT_SORT  # a null argument means "unset"
     players, total = await list_players(
         conn,
         run_id,
         name=name,
         position=args.get("position"),
+        sub_position=args.get("sub_position"),
+        sort_by=sort_by,
         valuation_status=args.get("valuation_status"),
         cluster_id=cluster_id,
         page_size=page_size,
     )
-    return {"players": [_player_summary(p) for p in players], "total": total, "limit": page_size}
+    return {
+        "players": [_player_summary(p) for p in players],
+        "total": total,
+        "limit": page_size,
+        "sort_by": sort_by,
+    }
 
 
 def _player_summary(row: dict[str, Any]) -> dict[str, Any]:
@@ -81,7 +93,17 @@ def _player_summary(row: dict[str, Any]) -> dict[str, Any]:
         "market_value_eur": row.get("market_value_eur"),
         "valuation_label": resolve_valuation_label(row.get("valuation_status") or ""),
         "cluster_id": row.get("cluster_id"),
+        "age": _season_age(row.get("age")),
     }
+
+
+def _season_age(age: float | None) -> float | None:
+    """The age the search reports: fct_player_seasons.age, as of the active season.
+
+    It is the same column get_player_profile returns in its `age`, rounded to one
+    decimal here to keep 10 rows inside the JSON cap and the figure readable.
+    """
+    return round(age, 1) if age is not None else None
 
 
 async def get_cluster_summary_tool(
