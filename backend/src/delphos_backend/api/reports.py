@@ -29,7 +29,7 @@ from delphos_backend.schemas.reports import (
     ReportResponse,
 )
 from delphos_backend.services import llm_reports
-from delphos_backend.services.report_cache import find_cached_report
+from delphos_backend.services.report_cache import find_cached_report, report_cache_model_candidates
 from delphos_backend.services.report_prompt import build_prompt_version
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
@@ -65,7 +65,7 @@ async def generate_report(
             player_id=body.player_id,
             model_run_id=run_id,
             report_type=body.report_type,
-            llm_model=cfg.llm_model_name,
+            llm_models=report_cache_model_candidates(cfg),
             prompt_version=build_prompt_version(cfg),
         )
         if cached:

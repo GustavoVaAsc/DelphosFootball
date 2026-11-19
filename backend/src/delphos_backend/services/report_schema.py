@@ -59,13 +59,27 @@ class ReplacementCandidate(BaseModel):
 
     nombre: str = Field(
         description=(
-            "Candidate name copied verbatim from the fact card. No digits: the name "
+            "Candidate name copied verbatim from the fact card's candidate list, "
+            "without the quotes that surround it there. No digits: the name "
             "identifies the candidate the assessment belongs to."
         )
     )
     valoracion: str = Field(
-        description="Assessment in Spanish prose. No digits; only {fact_ref} placeholders."
+        min_length=1,
+        description=(
+            "Assessment in Spanish prose. No digits; only {fact_ref} placeholders. "
+            "Not empty and not blank: a candidate with no assessment is not published "
+            "at all, so a blank one loses a market option."
+        ),
     )
+
+    @field_validator("valoracion")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        """Reject a blank assessment: the renderer omits such a candidate."""
+        if not value.strip():
+            raise ValueError("the assessment is blank")
+        return value
 
     @field_validator("nombre", "valoracion")
     @classmethod

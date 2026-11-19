@@ -12,7 +12,7 @@ measurements see identical calls — E1 compares the LLM report against
 `report_render.render_deterministic_report` in a blind pairwise write-up with the A/B
 order randomised per case and recorded; E2 scores terminology and register as `pending`
 for the later blind J1/human read and computes the deterministic format check over every
-numeric token; E3 reads the server's `timings.prompt_n` / `predicted_n` and flags any
+numeric token; E3 reads the server's prompt and completion token counts and flags any
 case over the 8000-prompt-token budget.
 
 No judge runs here (§17.1: J1 is an offline blind pairwise step; the human read is the
@@ -224,13 +224,15 @@ def generate_one_report(
 ) -> ReportGenOutcome:
     """One schema-constrained draft call via the harness; records one JSONL call row.
 
-    This is the shipped §7.2 request (report SYSTEM_PROMPT + fact-card JSON +
-    `ScoutingReportDraft` json_schema), rendered by the shipped `draft_render` and
-    scored by the shipped verifier — with an explicit seed the shipped path cannot
+    This is the shipped §7.2 request (report SYSTEM_PROMPT + the shipped user message,
+    which is the fact-card JSON plus the list of the keys each part of the draft may
+    cite, + `ScoutingReportDraft` json_schema), rendered by the shipped `draft_render`
+    and scored by the shipped verifier — with an explicit seed the shipped path cannot
     guarantee. Generation failures are recorded and returned, never raised, so one bad
     case cannot abort an experiment mid-run.
     """
     report_prompt = backend_import("delphos_backend.services.report_prompt", script)
+    report_scope = backend_import("delphos_backend.services.report_prompt_scope", script)
     schema_mod = backend_import("delphos_backend.services.report_schema", script)
     draft_render = backend_import("delphos_backend.services.draft_render", script)
     facts = backend_import("delphos_backend.services.report_facts", script)
@@ -238,7 +240,7 @@ def generate_one_report(
 
     messages = [
         {"role": "system", "content": report_prompt.SYSTEM_PROMPT},
-        {"role": "user", "content": json.dumps(ctx.card, ensure_ascii=False)},
+        {"role": "user", "content": report_scope.build_user_message(ctx.card)},
     ]
     response_format = {
         "type": "json_schema",
@@ -355,10 +357,19 @@ def generate_one_report(
 
 
 def timings_of(result: CompletionResult) -> tuple[int, int]:
-    """prompt_n / predicted_n from the server's timings, with usage as the fallback."""
+    """(prompt tokens, predicted tokens) of one completion.
+
+    The prompt's SIZE is the server's `usage.prompt_tokens`. The server's
+    `timings.prompt_n` counts the tokens it PROCESSED, which its prompt cache
+    makes a small number as soon as the request repeats a prefix: on a warm
+    cache it read 4 tokens for a request of more than three thousand, so a
+    budget check measured against it would never fire. The budget is about the
+    size of the request, so the usage count is the one to compare.
+    """
+    usage = result.usage
     timings = result.timings
-    prompt_n = int(timings.get("prompt_n") or result.usage.get("prompt_tokens") or 0)
-    predicted_n = int(timings.get("predicted_n") or result.usage.get("completion_tokens") or 0)
+    prompt_n = int(usage.get("prompt_tokens") or timings.get("prompt_n") or 0)
+    predicted_n = int(timings.get("predicted_n") or usage.get("completion_tokens") or 0)
     return prompt_n, predicted_n
 
 

@@ -6,6 +6,7 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from chat_fakes import TrackingConnectionFactory, simple_factory
 
@@ -19,7 +20,9 @@ from delphos_backend.services.llm_client import (
     CompletionResult,
     InferenceError,
     TokenUsage,
+    chat_completion,
 )
+from delphos_backend.services.llm_probe import ProbeResult
 
 RUN_ID = "run_test_001"
 GROUNDING_RULE = (
@@ -334,6 +337,12 @@ async def test_a_non_positive_tool_cap_still_produces_one_answer(iterations: int
         llm_chat_history_turns=8,
         llm_context_size=32768,
         llm_max_tokens=512,
+        llm_api_url="http://llm.test/v1",
+        llm_model_name="test-model",
+        llm_timeout_seconds=5.0,
+        llm_fallback_api_url="",
+        llm_fallback_model_name="",
+        llm_fallback_timeout_seconds=30.0,
     )
     fake = AsyncMock(return_value=completion("Respuesta directa."))
 
@@ -410,3 +419,65 @@ async def test_inference_error_propagates_out_of_the_loop() -> None:
         pytest.raises(InferenceError, match="inference down"),
     ):
         await run_chat_turn(simple_factory(MagicMock()), RUN_ID, "¿Pregunta?", [], settings)
+
+
+FALLBACK_HOST = "10.147.85.4"
+"""The peer's address: an IP literal inside the default peer range (ADR-033)."""
+
+PRIMARY_HOST = "llm.test"
+
+
+@pytest.mark.asyncio
+async def test_one_turn_is_served_by_one_endpoint() -> None:
+    """The endpoint is decided once: the primary recovering mid-turn changes nothing.
+
+    The turn starts with the primary unreachable, so it is pinned to the
+    fallback. The primary answers again half-way through the turn — and is not
+    used: the tool results of the turn never cross to the other endpoint
+    (ADR-033).
+    """
+    settings = make_settings(
+        llm_api_url=f"http://{PRIMARY_HOST}/v1",
+        llm_fallback_api_url=f"http://{FALLBACK_HOST}/v1",
+        llm_fallback_model_name="test-model",
+    )
+    calls: list[httpx.Request] = []
+    replies = [TOOL_CALL_JSON, "Sin datos."]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(
+            200,
+            json={"model": "test-model", "choices": [{"message": {"content": replies.pop(0)}}]},
+        )
+
+    async def fake_completion(messages: list[dict], **kwargs: object) -> CompletionResult:
+        return await chat_completion(messages, transport=httpx.MockTransport(handler), **kwargs)
+
+    execute = AsyncMock(return_value={"players": [], "total": 0})
+    with (
+        patch.object(chat_agent, "chat_completion", fake_completion),
+        patch.object(chat_agent, "execute_tool", execute),
+        patch(
+            "delphos_backend.services.llm_readiness.probe_endpoint",
+            new=AsyncMock(
+                side_effect=lambda url, *args, **kwargs: ProbeResult(
+                    serving=FALLBACK_HOST in url,
+                    reason="the endpoint did not answer",
+                    reported_model="test-model",
+                )
+            ),
+        ),
+    ):
+        events = [
+            event
+            async for event in stream_chat_turn(
+                simple_factory(MagicMock()), RUN_ID, "q", [], settings
+            )
+        ]
+
+    posts = [call for call in calls if call.url.path.endswith("/chat/completions")]
+    assert [call.url.host for call in posts] == [FALLBACK_HOST, FALLBACK_HOST]
+    assert all(call.url.host != PRIMARY_HOST for call in calls)
+    assert events[-1].type == "message"
+    assert events[-1].data["content"] == "Sin datos."

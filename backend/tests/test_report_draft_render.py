@@ -12,15 +12,18 @@ from __future__ import annotations
 import re
 
 import pytest
+from pydantic import ValidationError
 from scouting_fixtures import profile, replacements, valuation
 
 from delphos_backend.services.draft_render import (
     UnknownCandidateError,
     UnknownPlaceholderError,
     render_draft,
+    substitute_placeholders,
 )
 from delphos_backend.services.report_facts import build_fact_card
 from delphos_backend.services.report_schema import ScoutingReportDraft
+from delphos_backend.services.report_scope import MODEL_INTERNAL_KEYS
 
 _TAG_RE = re.compile(r"</?(?:p|strong|em)[^>]*>")
 
@@ -160,3 +163,85 @@ def test_candidates_are_joined_with_a_comma_like_the_deterministic_renderer() ->
     html = render_draft(draft, _card())
 
     assert "Ahorra €4.0M, <strong>Serhou Guirassy</strong>" in html
+
+
+def test_a_candidate_assessment_that_ends_with_a_full_stop_reads_as_one_sentence() -> None:
+    """The model's own full stop must not collide with the separator."""
+    draft = _draft(
+        alternativas=_alternatives(
+            {"nombre": "Jonathan David", "valoracion": "Ahorra {cost_savings_eur}."}
+        )
+    )
+
+    html = render_draft(draft, _card())
+
+    assert "%.," not in html
+    assert "<strong>Jonathan David</strong>: Ahorra €4.0M." in html
+
+
+def test_the_models_own_exclamation_mark_is_kept() -> None:
+    """An assessment that ends with '!' keeps it: flattening it into a full stop
+    would change what the model wrote."""
+    draft = _draft(
+        alternativas=_alternatives(
+            {"nombre": "Jonathan David", "valoracion": "¡Ahorra {cost_savings_eur}!"}
+        )
+    )
+
+    html = render_draft(draft, _card())
+
+    assert "<strong>Jonathan David</strong>: ¡Ahorra €4.0M!" in html
+    assert "€4.0M!." not in html  # no full stop is appended after the exclamation
+
+
+def test_the_models_own_question_mark_is_kept() -> None:
+    draft = _draft(
+        alternativas=_alternatives(
+            {"nombre": "Jonathan David", "valoracion": "¿Ahorra {cost_savings_eur}?"}
+        )
+    )
+
+    html = render_draft(draft, _card())
+
+    assert "<strong>Jonathan David</strong>: ¿Ahorra €4.0M?" in html
+    assert "€4.0M?." not in html  # no full stop is appended after the question
+
+
+def test_a_blank_assessment_is_rejected_by_the_schema() -> None:
+    """A blank assessment must not render as 'Nombre: .' — and must not render at all.
+
+    The renderer skips a candidate with no assessment, so publishing one would
+    lose a market option silently. The schema refuses it instead: the draft
+    spends the one repair attempt and the report falls back if the repair still
+    leaves it blank.
+    """
+    with pytest.raises(ValidationError):
+        _draft(
+            alternativas=_alternatives(
+                {"nombre": "Jonathan David", "valoracion": "   "},
+                {"nombre": "Serhou Guirassy", "valoracion": "Ahorra {cost_savings_eur}."},
+            )
+        )
+
+
+def test_a_model_diagnostic_cannot_be_cited_in_the_verdict() -> None:
+    """The model's own diagnostics are not scouting facts: they are not citable."""
+    card = _card()
+
+    for key in MODEL_INTERNAL_KEYS:
+        assert key in card["facts"]  # the card still carries them for the renderer
+        with pytest.raises(UnknownPlaceholderError):
+            substitute_placeholders("{" + key + "}", card)
+
+
+def test_a_model_diagnostic_in_a_draft_falls_back_instead_of_being_published() -> None:
+    """A draft that quotes a diagnostic is refused, not rendered."""
+    draft = _draft(
+        dictamen_financiero={
+            "headline": "Margen favorable.",
+            "body": "Probabilidad de infravaloración {rf_undervalued_prob}.",
+        }
+    )
+
+    with pytest.raises(UnknownPlaceholderError):
+        render_draft(draft, _card())

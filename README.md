@@ -27,6 +27,16 @@ Start the PostgreSQL 16 container and apply the Alembic schema migrations (`anal
 docker compose up -d
 ```
 
+The `inference-chat` service needs an NVIDIA GPU (`gpus: all`). On a host without one, run the whole stack with the CPU override and the CPU build of the server:
+
+```bash
+LLAMA_ARG_IMAGE=server docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
+```
+
+The override applies to the whole stack, so every service comes up; starting only `inference-chat` leaves the rest of the stack down.
+
+The CPU variant also needs a CPU-sized model in `llms/models/` (see `.env.example`).
+
 ### ML Pipeline (train and publish)
 
 Run these from `ml/`:
@@ -64,7 +74,8 @@ Each root file sits where its tool looks for it, so none of them can move into a
 | --- | --- | --- |
 | `.env.example` | The configuration keys documented for every component. Copy it to `.env` at the repo root (gitignored). | It is the global key list for all components, and the repo root is the documented `.env` location. |
 | `.gitignore` | Files Git leaves out: secrets, generated outputs, virtual environments. | Git reads it from the repo root. |
-| `docker-compose.yml` | Multi-container definition for PostgreSQL 16 (`delphos-db`) and automated schema migration service (`delphos-migrate`). | Docker Compose anchors on the repo root. |
+| `docker-compose.yml` | Multi-container definition for the whole stack: PostgreSQL 16 (`delphos-db`), automated schema migration service (`delphos-migrate`), the FastAPI backend, the Flutter web app, and the local llama.cpp inference server. | Docker Compose anchors on the repo root. |
+| `docker-compose.cpu.yml` | Override that removes the GPU request from the inference server, for a host without an NVIDIA card. | Used together with the base file: `docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d`. |
 | `AGENTS.md` | Shared instructions for any AI coding agent. | Agent tools discover it only at the repo root. |
 | `README.md` | This file. | It is the entry point of the repository. |
 | `analysis/` | Plain Python analysis scripts (`analysis/eda.py`, `analysis/inefficiency_analysis.py`, `analysis/model_comparison.py`) that write tables and figures to gitignored `analysis/output/` ([ADR-009](docs/ARCHITECTURE.md#adr-009-analysis-scripts-over-jupyter-notebooks), [ADR-014](docs/ARCHITECTURE.md#adr-014-analysis-scripts-run-in-the-ml-uv-project-through-a-dependency-group)). | Kept outside `ml/src/` because analysis scripts answer report questions and are not part of the deployable package. |

@@ -61,6 +61,17 @@ services:
       # Must equal the model id the inference server serves (LLAMA_ARG_ALIAS
       # below); a mismatch makes every LLM request fail to resolve the model.
       DELPHOS_LLM_MODEL_NAME: ${DELPHOS_LLM_MODEL_NAME:-qwen/qwen3.5-9b}
+      # Second inference endpoint, reached over ZeroTier. An empty URL disables
+      # the fallback; the empty model name means "the same model as the primary".
+      # The peer range is the allowlist: the peer's address must sit inside it.
+      DELPHOS_LLM_FALLBACK_API_URL: ${DELPHOS_LLM_FALLBACK_API_URL:-}
+      DELPHOS_LLM_FALLBACK_MODEL_NAME: ${DELPHOS_LLM_FALLBACK_MODEL_NAME:-}
+      DELPHOS_LLM_FALLBACK_TIMEOUT_SECONDS: ${DELPHOS_LLM_FALLBACK_TIMEOUT_SECONDS:-60.0}
+      DELPHOS_LLM_FALLBACK_PEER_CIDR: ${DELPHOS_LLM_FALLBACK_PEER_CIDR:-10.0.0.0/8}
+      DELPHOS_LLM_PRIMARY_PROBE_SECONDS: ${DELPHOS_LLM_PRIMARY_PROBE_SECONDS:-5.0}
+      # The address this host publishes its inference server on; the backend
+      # reads it to warn about a fallback that names this host itself.
+      DELPHOS_INFERENCE_PUBLISH_IP: ${DELPHOS_INFERENCE_PUBLISH_IP:-127.0.0.1}
     ports:
       - "${DELPHOS_API_PORT:-8000}:8000"
     volumes:
@@ -122,6 +133,10 @@ services:
     # same compose file serves both. Overridable through LLAMA_ARG_IMAGE.
     image: ghcr.io/ggml-org/llama.cpp:${LLAMA_ARG_IMAGE:-server-cuda}
     container_name: delphos-inference-chat
+    # The CUDA build needs the GPU handed to the container; see ARCHITECTURE.md
+    # §4.6. A host without an NVIDIA card uses docker-compose.cpu.yml, which
+    # resets this key.
+    gpus: all
     environment:
       LLAMA_ARG_HOST: 0.0.0.0
       LLAMA_ARG_PORT: 8080
@@ -146,12 +161,35 @@ services:
       LLAMA_ARG_CACHE_TYPE_V: q8_0
     volumes:
       - ./llms/models:/models:ro
+    # Published on a host address so a peer can reach the inference API over
+    # that interface. 0.0.0.0 must not be used, and the named interface must
+    # be up at start-up. See ARCHITECTURE.md ADR-031.
+    ports:
+      - "${DELPHOS_INFERENCE_PUBLISH_IP:-127.0.0.1}:${DELPHOS_INFERENCE_PUBLISH_PORT:-8081}:8080"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 60s
+    # The published endpoint parses model files in-process, so it runs with no
+    # capabilities, a read-only root and a writable /tmp only. The model
+    # directory is already mounted read-only. The image runs as root, which
+    # the tmpfs ownership assumes; cap_drop ALL also removes root's DAC
+    # override, so a write outside /tmp fails with a permission error.
+    read_only: true
+    tmpfs:
+      - /tmp:uid=0,gid=0,size=64m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Bounds for a published, unauthenticated endpoint: the container cannot
+    # exhaust the host's RAM, and the server comes back by itself after a
+    # crash instead of taking the report and chat paths down with it.
+    mem_limit: 12g
+    pids_limit: 256
+    restart: unless-stopped
     networks:
       - delphos-network
 

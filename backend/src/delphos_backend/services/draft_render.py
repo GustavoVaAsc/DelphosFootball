@@ -1,23 +1,14 @@
-"""LLM draft rendering: `{fact_ref}` substitution plus the executive HTML wrapper.
+"""LLM draft rendering: the executive HTML wrapper around the substituted draft.
 
 Input: a validated `ScoutingReportDraft` and the fact card from `report_facts`.
 Output: the final report HTML — three `<p>` paragraphs shaped like
 `report_render.render_deterministic_report`.
-Responsibility: replace every `{fact_ref}` placeholder with the fact's formatted
-display string and wrap the sections in the backend-owned labels, so the LLM path
-and the deterministic renderer emit the same markup by construction (LLM_PLAN §7.1).
-An unknown placeholder raises `UnknownPlaceholderError`: substituting an empty
-string would silently publish a broken sentence, so the caller falls back to the
-deterministic renderer instead (LLM_PLAN §8.2).
+Responsibility: wrap the sections in the backend-owned labels, so the LLM path and
+the deterministic renderer emit the same markup by construction (LLM_PLAN §7.1).
 
-Scoping: a placeholder resolves against exactly one scope. The three top-level
-sections resolve against the card's top-level facts, and a candidate's prose
-resolves against that candidate's own cells only. The card's candidates share key
-names with the target's facts, so a candidate scope that fell back to the top-level
-facts would let a candidate's sentence quote the TARGET player's figures — a wrong
-number about a real person, published as if the model had written it. An unknown key
-is therefore an error, not a fallback. Which card candidate a drafted candidate
-refers to is decided by `report_bindings`.
+The `{fact_ref}` substitution lives in `draft_placeholders`, which this module
+re-exports: the placeholder syntax, the scope it resolves against and the error an
+unknown key raises are one concern, and the markup around the result is another.
 
 Escaping: the prose and every substituted value are escaped for an HTML text
 context, because the stored content is injected with innerHTML. Model prose and
@@ -27,17 +18,15 @@ and are not escaped.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping
 from html import escape
 from typing import Any
 
-from delphos_backend.services.report_bindings import (
-    UnknownCandidateError,
+from delphos_backend.services.draft_placeholders import (
     UnknownPlaceholderError,
-    bind_candidate_scope,
+    substitute_placeholders,
 )
-from delphos_backend.services.report_prompt import PLACEHOLDER_RE
+from delphos_backend.services.report_bindings import UnknownCandidateError, bind_candidate_scope
 from delphos_backend.services.report_schema import (
     AlternativesSection,
     ReportSection,
@@ -70,28 +59,6 @@ def render_draft(draft: ScoutingReportDraft, card: dict[str, Any]) -> str:
     )
 
 
-def substitute_placeholders(
-    text: str,
-    card: Mapping[str, Any],
-    candidate: Mapping[str, dict[str, Any]] | None = None,
-) -> str:
-    """Replace each `{fact_ref}` with its display string; unknown keys raise.
-
-    `candidate` scopes the lookup to that candidate's own cells; without it the
-    lookup is the card's top-level facts. The two scopes never mix.
-    """
-
-    def replace(match: re.Match[str]) -> str:
-        key = match.group(0)[1:-1]
-        scope = candidate if candidate is not None else card["facts"]
-        fact = scope.get(key)
-        if fact is None:
-            raise UnknownPlaceholderError(key)
-        return str(fact["display"])
-
-    return PLACEHOLDER_RE.sub(replace, text)
-
-
 def _section(label: str, section: ReportSection, card: Mapping[str, Any]) -> str:
     headline = substitute_placeholders(section.headline, card)
     body = substitute_placeholders(section.body, card)
@@ -101,7 +68,15 @@ def _section(label: str, section: ReportSection, card: Mapping[str, Any]) -> str
 def _alternatives_section(section: AlternativesSection, card: Mapping[str, Any]) -> str:
     headline = _esc(substitute_placeholders(section.headline, card))
     body = _esc(substitute_placeholders(section.body, card))
-    sentences = ", ".join(_candidate_sentence(candidate, card) for candidate in section.candidatos)
+    sentences = ", ".join(
+        sentence
+        for sentence in (_candidate_sentence(candidate, card) for candidate in section.candidatos)
+        if sentence
+    )
+    if sentences and not sentences.endswith((".", "!", "?")):
+        # Each assessment lost its own trailing full stop (see `_one_sentence`); the
+        # section ends with one, unless the last assessment already ends the sentence.
+        sentences = f"{sentences}."
     prose = f"{headline} {body}".strip()
     if sentences:
         prose = f"{prose} {sentences}"
@@ -109,11 +84,32 @@ def _alternatives_section(section: AlternativesSection, card: Mapping[str, Any])
 
 
 def _candidate_sentence(candidate: Any, card: Mapping[str, Any]) -> str:
-    """`<strong>Name</strong>: assessment`, bound to the card's candidate of that name."""
+    """`<strong>Name</strong>: assessment`, bound to the card's candidate of that name.
+
+    A candidate whose assessment is blank is left out of the sentence join: an empty
+    assessment would otherwise render as "Name: ." and say nothing.
+    """
     scope = bind_candidate_scope(candidate, card)
     name = scope["candidate_name"]["display"]
-    assessment = substitute_placeholders(candidate.valoracion, card, scope)
+    assessment = _one_sentence(substitute_placeholders(candidate.valoracion, card, scope))
+    if not assessment:
+        return ""
     return f"<strong>{_esc(name)}</strong>: {_esc(assessment)}"
+
+
+def _one_sentence(text: str) -> str:
+    """The text as one sentence: no trailing full stop, so the join reads well.
+
+    The candidates are joined with ", ", and the model's assessment usually
+    ends with a full stop of its own: "similitud del 63%." + ", " reads as
+    "63%.,". Only the full stop is dropped: an assessment that ends with "!" or "?"
+    keeps it, because flattening it into a full stop would change what the model
+    wrote.
+    """
+    stripped = text.strip()
+    if stripped.endswith("."):
+        stripped = stripped[:-1].rstrip()
+    return stripped
 
 
 def _esc(value: Any) -> str:
