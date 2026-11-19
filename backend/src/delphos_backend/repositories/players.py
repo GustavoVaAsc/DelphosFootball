@@ -12,6 +12,7 @@ from typing import Any
 from psycopg import AsyncConnection
 
 from delphos_backend.repositories.clusters import CLUSTER_NAMES
+from delphos_backend.repositories.player_order import DEFAULT_SORT, order_by_sql
 from delphos_backend.repositories.player_search import build_search_clause
 from delphos_backend.repositories.valuations import (
     get_player_valuation as get_player_valuation,
@@ -54,8 +55,12 @@ async def list_players(
     cluster_id: int | None = None,
     page: int = 1,
     page_size: int = 20,
+    *,
+    sub_position: str | None = None,
+    sort_by: str = DEFAULT_SORT,
 ) -> tuple[list[dict[str, Any]], int]:
     """Return paginated player summaries matching filters for the active model run."""
+    order_sql = order_by_sql(sort_by)
     conditions = ["p.model_run_id = %s", "s.season = %s"]
     params: list[Any] = [model_run_id, ACTIVE_SEASON]
     if search_clause := build_search_clause(name):
@@ -64,6 +69,7 @@ async def list_players(
         params.extend(search_params)
     for cond, val in (
         ("p.position = %s", position),
+        ("p.sub_position = %s", sub_position),
         ("s.club_id = %s", club_id),
         ("pred.valuation_status = %s", valuation_status),
         ("cl.cluster_id = %s", cluster_id),
@@ -102,7 +108,7 @@ async def list_players(
                 s.age, cl.cluster_id
             {base_joins}
             WHERE {where_sql}
-            ORDER BY pred.market_value_eur DESC NULLS LAST, p.name ASC
+            ORDER BY {order_sql}
             LIMIT %s OFFSET %s;
             """,
             [*params, page_size, offset],

@@ -532,7 +532,7 @@ Five typed tools over the `analytics` schema, executed in-process with the API r
 
 | Tool | Arguments | Reads |
 | --- | --- | --- |
-| `search_players` | `position?`, `valuation_status?`, `cluster_id?`, `limit?` | `list_players` (`repositories/players.py:46`) |
+| `search_players` | `name?`, `position?`, `sub_position?`, `valuation_status?`, `sort_by?` (`market_value` by default, `undervaluation`, `overvaluation`), `cluster_id?`, `limit?` | `list_players` (`repositories/players.py:46`) |
 | `get_player_profile` | `player_id` | `get_player_profile` (`repositories/players.py:116`) |
 | `get_player_valuation` | `player_id` | `get_player_valuation` (`repositories/valuations.py:12`) |
 | `get_player_replacements` | `player_id` | `get_player_replacements` (`repositories/replacements.py:12`) |
