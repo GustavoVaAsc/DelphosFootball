@@ -3,21 +3,21 @@ library;
 
 /// Font sizes in logical pixels, named by their reserved role.
 abstract final class TypeScale {
-  /// 11: stat labels and axis labels only.
-  static const double label = 11;
+  /// 12: stat labels and axis labels only.
+  static const double label = 12;
 
-  /// 12: secondary lines, status words, labels, buttons, footers.
-  static const double secondary = 12;
+  /// 13: secondary lines, status words, labels, buttons, footers.
+  static const double secondary = 13;
 
-  /// 13: body and table text, controls, navigation.
-  static const double body = 13;
+  /// 14: body and table text, controls, navigation.
+  static const double body = 14;
 
-  /// 15: section titles, table name and price, stat figures, report prose.
-  static const double section = 15;
+  /// 16: section titles, table name and price, stat figures, report prose.
+  static const double section = 16;
 
-  /// 20: page title, dossier player name, archetype title.
-  static const double title = 20;
+  /// 22: page title, dossier player name, archetype title.
+  static const double title = 22;
 
-  /// 28: the two dossier valuation figures only.
-  static const double figure = 28;
+  /// 30: the two dossier valuation figures only.
+  static const double figure = 30;
 }

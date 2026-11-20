@@ -124,7 +124,7 @@ void main() {
       'Explorador de Mercado',
       'Comparador Moneyball',
       'Arquetipos Tácticos',
-      'Asistente de Scouting',
+      'PitIA',
       'Desplegar menú',
     ]) {
       expect(tooltip(label), findsOneWidget, reason: label);
@@ -309,7 +309,7 @@ void main() {
     '/explorador': 'Explorador de Mercado · DelphosFootball',
     '/comparador/9': 'Comparador Moneyball · DelphosFootball',
     '/arquetipos': 'Arquetipos Tácticos · DelphosFootball',
-    '/chat': 'Asistente de Scouting · DelphosFootball',
+    '/chat': 'PitIA · DelphosFootball',
     '/no-existe': 'DelphosFootball · Dirección Deportiva',
   };
   titles.forEach((path, title) {

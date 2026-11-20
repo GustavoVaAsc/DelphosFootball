@@ -21,7 +21,7 @@ class NavGlyph extends StatelessWidget {
   const NavGlyph.archetypes({super.key, required this.color, this.size = 20})
     : _kind = _Kind.archetypes;
 
-  /// A speech bubble: the Asistente de Scouting.
+  /// A speech bubble: PitIA, the scouting assistant.
   const NavGlyph.assistant({super.key, required this.color, this.size = 20})
     : _kind = _Kind.assistant;
 

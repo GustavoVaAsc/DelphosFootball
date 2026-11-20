@@ -44,7 +44,7 @@ class ChatHeader extends StatelessWidget {
               spacing: 2,
               children: [
                 Text(
-                  'Consultas y comparaciones con datos calculados por el modelo',
+                  'Consultas y comparaciones de scouting con datos calculados por el modelo',
                   style: DelphosText.ui(
                     size: TypeScale.secondary,
                     color: DelphosColors.ink2,
@@ -55,7 +55,7 @@ class ChatHeader extends StatelessWidget {
           ),
           ChatOpenerFocus(
             builder: (context, focusOpener) => ActionButton(
-              label: '¿Qué puede hacer el asistente?',
+              label: 'Capacidades de PitIA',
               onPressed: () {
                 focusOpener();
                 onOpenCapabilities();

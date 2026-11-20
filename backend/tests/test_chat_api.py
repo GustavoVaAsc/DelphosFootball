@@ -7,18 +7,25 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
+import httpx
 import pytest
 from chat_fakes import TrackingConnectionFactory
 from httpx import AsyncClient
 
 from delphos_backend.api.chat import chat_connection_factory
+from delphos_backend.core.config import Settings
 from delphos_backend.main import app
 from delphos_backend.services import chat_agent
 from delphos_backend.services.llm_client import (
     CompletionResult,
     InferenceError,
     TokenUsage,
+    chat_completion,
 )
+from delphos_backend.services.llm_probe import ProbeResult
+
+FALLBACK_HOST = "10.147.85.4"
+"""The peer's address: an IP literal inside the default peer range (ADR-033)."""
 
 ACTIVE_RUN = {"model_run_id": "run_test_001", "dataset_version": 679, "activated_at": None}
 
@@ -395,3 +402,58 @@ async def test_get_chat_session_not_found(client: AsyncClient, mock_db) -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Chat session not found"
+
+
+@pytest.mark.asyncio
+async def test_post_chat_stream_serves_the_fallback_when_the_primary_is_unreachable(
+    chat_client: AsyncClient, mock_db
+) -> None:
+    """The endpoint is decided before the first byte, so the stream uses the fallback."""
+    cur = mock_db.cursor.return_value.__aenter__.return_value
+    cur.fetchone.side_effect = [ACTIVE_RUN, {"id": uuid4()}, {"created_at": datetime.now(UTC)}]
+    calls: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if request.url.host == FALLBACK_HOST:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "qwen/qwen3.5-9b"}]})
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": "Respuesta del fallback."}}]},
+            )
+        raise httpx.ConnectError("connection refused")
+
+    transport = httpx.MockTransport(handler)
+    cfg = Settings(
+        llm_api_url="http://primary.chat.test/v1",
+        llm_model_name="qwen/qwen3.5-9b",
+        llm_fallback_api_url=f"http://{FALLBACK_HOST}/v1",
+        llm_primary_probe_seconds=1.0,
+    )
+
+    async def fake_completion(messages: list[dict], **kwargs: object) -> CompletionResult:
+        return await chat_completion(messages, transport=transport, **kwargs)
+
+    with (
+        patch("delphos_backend.api.chat.get_settings", return_value=cfg),
+        patch("delphos_backend.api.chat_stream.get_settings", return_value=cfg),
+        patch.object(chat_agent, "chat_completion", fake_completion),
+        patch(
+            "delphos_backend.services.llm_readiness.probe_endpoint",
+            new=AsyncMock(
+                side_effect=lambda url, *args, **kwargs: ProbeResult(
+                    serving=FALLBACK_HOST in url,
+                    reason="the endpoint did not answer",
+                    reported_model="qwen/qwen3.5-9b",
+                )
+            ),
+        ),
+    ):
+        response = await chat_client.post("/chat", json={"message": "hola", "stream": True})
+
+    assert response.status_code == 200
+    assert "event: message" in response.text
+    assert "Respuesta del fallback." in response.text
+    completions = [call for call in calls if call.url.path.endswith("/chat/completions")]
+    assert [call.url.host for call in completions] == [FALLBACK_HOST]

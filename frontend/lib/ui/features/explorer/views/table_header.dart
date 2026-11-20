@@ -40,6 +40,7 @@ class TableHeader extends StatelessWidget {
         child: LedgerLayout(
           dossierOpen: dossierOpen,
           verticalPadding: 0,
+          centerPosition: true,
           player: label('Jugador'),
           age: label('Edad'),
           position: label('Posición'),

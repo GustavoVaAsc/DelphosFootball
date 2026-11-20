@@ -31,7 +31,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byType(ChatHeader),
-        matching: find.text('Asistente de Scouting'),
+        matching: find.text('PitIA'),
       ),
       findsNothing,
     );

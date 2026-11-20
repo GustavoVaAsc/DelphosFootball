@@ -76,7 +76,7 @@ frontend/
 │       │                    # PitchDetails), LineGlyph, FocusRing, FocusVisibility, InsetFocusFrame, FadeInOnce, EnterMotion,
 │       │                    # CountUpText, KeyboardTooltip, FlagImage, PlayerAvatar, RemoteLogo (crests and league logos),
 │       │                    # ShimmerText (the chat's working labels)
-│       └── features/<feature>/{view_models,views}/   # explorer (view 1), comparator (view 2), archetypes (view 3), chat (Asistente de Scouting)
+│       └── features/<feature>/{view_models,views}/   # explorer (view 1), comparator (view 2), archetypes (view 3), chat (PitIA)
 ├── test/                    # mirrors lib/; support/ has the fake backends, player fixtures and the app harness
 ├── assets/
 │   ├── fonts/               # Archivo and Source Serif 4 variable fonts with their OFL.txt

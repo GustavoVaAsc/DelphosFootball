@@ -42,14 +42,21 @@ String currentPath(GoRouter router) =>
 
 bool _archivoLoaded = false;
 
-/// Registers the bundled Archivo font, so widget tests lay text out with the
-/// app's real metrics instead of the wide test font.
+/// Registers the bundled fonts (`Archivo`, `LeagueSpartan`, `SourceSans3`),
+/// so widget tests lay text out with the app's real metrics instead of the
+/// wide test font.
 Future<void> loadArchivo() async {
   if (_archivoLoaded) return;
-  final bytes = File('assets/fonts/archivo/Archivo-Variable.ttf')
-      .readAsBytesSync();
-  final loader = FontLoader('Archivo')
-    ..addFont(Future.value(ByteData.view(bytes.buffer)));
-  await loader.load();
+  const fonts = {
+    'Archivo': 'assets/fonts/archivo/Archivo-Variable.ttf',
+    'LeagueSpartan': 'assets/fonts/league_spartan/LeagueSpartan-Variable.ttf',
+    'SourceSans3': 'assets/fonts/source_sans_3/SourceSans3-Variable.ttf',
+  };
+  for (final entry in fonts.entries) {
+    final bytes = File(entry.value).readAsBytesSync();
+    final loader = FontLoader(entry.key)
+      ..addFont(Future.value(ByteData.view(bytes.buffer)));
+    await loader.load();
+  }
   _archivoLoaded = true;
 }

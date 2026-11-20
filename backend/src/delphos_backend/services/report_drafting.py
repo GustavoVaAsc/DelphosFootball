@@ -4,15 +4,22 @@ Input: the prompt messages, the function that asks the LLM for a draft, the fact
 card and its allowed numbers. Output: the report text the draft renders to, or None
 when no grounded draft was obtained. Responsibility: validate the answer against the
 draft schema and spend at most one repair attempt on whichever failure comes first —
-a schema rejection (a hand-written number, a candidate name that is not the card's) or
-a number in the rendered prose the card does not ground.
+a schema rejection (a hand-written number, a candidate name that is not the card's), a
+draft that does not carry every candidate of the card, or a number in the rendered
+prose the card does not ground.
 
 The LLM call itself belongs to the caller: the pipeline owns the transport, the
 settings and the seed, and hands the draft request in as a function.
 
 The draft schema and the numeric verifier own one failure each, so the repair
 request is built by the module that knows the failure: `report_schema` for a
-rejected draft, `report_verify` for an ungrounded number.
+rejected draft, `report_candidates` for a draft that left a candidate out, and
+`report_verify` for an ungrounded number.
+
+The draft and its repair are asked of the same endpoint: the completer the
+caller hands in is bound to the report's chain, which pins the second call to
+the endpoint that served the first, so one report's prose never comes from two
+models (ADR-033).
 """
 
 from __future__ import annotations
@@ -25,6 +32,11 @@ from pydantic import ValidationError
 
 from delphos_backend.services.draft_render import render_draft
 from delphos_backend.services.llm_client import CompletionResult
+from delphos_backend.services.report_candidates import (
+    build_candidate_repair_messages,
+    candidate_problems,
+)
+from delphos_backend.services.report_draft_call import DRAFT_FORMAT, complete_draft
 from delphos_backend.services.report_schema import (
     ScoutingReportDraft,
     build_schema_repair_messages,
@@ -32,6 +44,8 @@ from delphos_backend.services.report_schema import (
 from delphos_backend.services.report_verify import build_repair_messages, verify_prose_numbers
 
 logger = logging.getLogger(__name__)
+
+__all__ = ["DRAFT_FORMAT", "complete_draft", "draft_report_text"]
 
 DraftCompleter = Callable[
     [Sequence[dict[str, Any]]], Awaitable[tuple[ScoutingReportDraft, CompletionResult]]
@@ -47,9 +61,10 @@ async def draft_report_text(
 ) -> tuple[str, CompletionResult] | None:
     """The rendered, grounded report text, or None when no draft could be grounded.
 
-    A `ValidationError` from the draft schema and an ungrounded number are both
-    repaired once. The repair attempt is spent on whichever failure comes first,
-    so the pipeline never issues more than two generation calls.
+    A `ValidationError` from the draft schema, a draft that does not carry every
+    candidate of the card, and an ungrounded number are each repaired once. The
+    repair attempt is spent on whichever failure comes first, so the pipeline never
+    issues more than two generation calls.
     """
     repair_used = False
     try:
@@ -60,6 +75,24 @@ async def draft_report_text(
         repair_used = True
         logger.info("Draft rejected by the schema; one repair attempt: %s", exc)
         draft, completion = await complete(build_schema_repair_messages(messages, exc))
+    problems = candidate_problems(draft, card)
+    if problems:
+        if repair_used:
+            logger.warning(
+                "Draft misses %s after its repair attempt; using the deterministic renderer",
+                "; ".join(problems),
+            )
+            return None
+        repair_used = True
+        logger.info("Draft misses a candidate of the card; one repair attempt: %s", problems)
+        draft, completion = await complete(build_candidate_repair_messages(messages, problems))
+        problems = candidate_problems(draft, card)
+        if problems:
+            logger.warning(
+                "Draft still misses %s after its repair attempt; using the deterministic renderer",
+                "; ".join(problems),
+            )
+            return None
     text = render_draft(draft, card)
     check = verify_prose_numbers(text, allowed)
     if check.passed:
@@ -70,6 +103,16 @@ async def draft_report_text(
         )
         return None
     draft, completion = await complete(build_repair_messages(messages, check))
+    # The repair rewrites the whole report, so it may drop a candidate too: the
+    # completeness check runs on THIS draft as well, and the repair budget is
+    # already spent, so a missing candidate falls back to the deterministic
+    # renderer rather than publishing a report with a lost market option.
+    problems = candidate_problems(draft, card)
+    if problems:
+        logger.warning(
+            "The repaired draft misses %s; using the deterministic renderer", "; ".join(problems)
+        )
+        return None
     text = render_draft(draft, card)
     if not verify_prose_numbers(text, allowed).passed:
         logger.warning("Draft ungrounded after one repair; using the deterministic renderer")

@@ -45,7 +45,7 @@ ChatTurn applyChatEvent(
       return turn.copyWith(
         steps: [for (final s in turn.steps) s.settled(failed: true)],
         errorMessage:
-            'El asistente se interrumpió antes de terminar la respuesta. '
+            'PitIA se interrumpió antes de terminar la respuesta. '
             'Inténtalo de nuevo.',
         isStreaming: false,
       );

@@ -33,13 +33,22 @@ from urllib.parse import quote_plus
 
 import httpx
 import psycopg
+from psycopg.rows import dict_row
 
 from delphos_ml.config import find_project_root
 
 # Defaults mirror backend/src/delphos_backend/core/config.py (Settings field -> env var
 # DELPHOS_<FIELD>): llm_api_url, llm_model_name, llm_timeout_seconds, llm_temperature,
 # llm_top_p, llm_top_k, llm_presence_penalty, llm_enable_thinking, llm_max_tokens.
-DEFAULT_LLM_API_URL = "http://inference-chat:8080/v1"
+# llm_api_url is the exception: the harness runs on the host, not inside the
+# compose network, so it points at the published address, which
+# DELPHOS_INFERENCE_PUBLISH_IP and DELPHOS_INFERENCE_PUBLISH_PORT name (the
+# two variables docker-compose.yml reads to publish the inference port), with
+# 127.0.0.1 and 8081 as their defaults. A published address that is not the
+# loopback (the host's ZeroTier address, say) therefore resolves without
+# editing this file.
+DEFAULT_PUBLISH_IP = "127.0.0.1"
+DEFAULT_PUBLISH_PORT = "8081"
 DEFAULT_LLM_MODEL_NAME = "qwen/qwen3.5-9b"
 DEFAULT_TIMEOUT_SECONDS = 120.0
 DEFAULT_TEMPERATURE = 0.7
@@ -89,10 +98,22 @@ def _env_number(name: str, default: float, cast: Callable) -> Any:
         raise HarnessError(f"{name}={text!r} is not a valid {cast.__name__}") from exc
 
 
+def default_llm_api_url() -> str:
+    """The published inference address, from the two publish variables.
+
+    The harness runs on the host, so it cannot use the compose service name; it
+    reaches the server on the address docker-compose.yml published it on.
+    """
+    ip = os.environ.get("DELPHOS_INFERENCE_PUBLISH_IP") or DEFAULT_PUBLISH_IP
+    port = os.environ.get("DELPHOS_INFERENCE_PUBLISH_PORT") or DEFAULT_PUBLISH_PORT
+    return f"http://{ip}:{port}/v1"
+
+
 def load_config() -> HarnessConfig:
     """Resolve the harness settings from `DELPHOS_LLM_*` env vars (backend defaults)."""
+    load_repo_env()
     return HarnessConfig(
-        base_url=os.environ.get("DELPHOS_LLM_API_URL", DEFAULT_LLM_API_URL).rstrip("/"),
+        base_url=os.environ.get("DELPHOS_LLM_API_URL", default_llm_api_url()).rstrip("/"),
         model=os.environ.get("DELPHOS_LLM_MODEL_NAME", DEFAULT_LLM_MODEL_NAME),
         timeout_seconds=_env_number("DELPHOS_LLM_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS, float),
         temperature=_env_number("DELPHOS_LLM_TEMPERATURE", DEFAULT_TEMPERATURE, float),
@@ -291,6 +312,8 @@ def preflight(base_url: str | None = None) -> dict[str, Any]:
             f"inference server unreachable at {root} "
             f"({type(exc).__name__}: {exc}). Start it with `docker compose up inference-chat` "
             "(LLM_PLAN §6.1) or point DELPHOS_LLM_API_URL at a running llama.cpp server. "
+            "From the host the server is on the published address and port "
+            "(DELPHOS_INFERENCE_PUBLISH_IP / _PORT, default 127.0.0.1:8081). "
             "No requests were sent.",
             script="preflight",
         )
@@ -314,6 +337,28 @@ def repo_root() -> Path:
     """The repository root: the parent of the uv project (`ml/`) holding `uv.lock`."""
     project_root = find_project_root()
     return project_root.parent if project_root is not None else Path.cwd()
+
+
+def load_repo_env() -> None:
+    """Load the repository's `.env` into the environment, without overriding it.
+
+    The experiments run from `ml/` on the host and read their configuration from the
+    environment, while the pipeline and the backend read the same values from the
+    `.env` at the repository root. Without this an experiment would look for the
+    database on the default port while the stack publishes it on another, and it
+    would look for the inference server on the loopback while the stack publishes
+    it on the host address. The variables already in the environment win: the shell
+    overrides the file.
+    """
+    env_file = repo_root() / ".env"
+    if not env_file.is_file():
+        return
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        name, _, value = stripped.partition("=")
+        os.environ.setdefault(name.strip(), value.strip().strip('"').strip("'"))
 
 
 def backend_import(module: str, script: str) -> Any:
@@ -390,6 +435,7 @@ def database_url() -> str:
     `DELPHOS_DB_PORT`, `DELPHOS_DB_NAME`, `DELPHOS_APP_DB_USER` and `DELPHOS_APP_DB_PASSWORD`
     — the same env names `core/config.py` reads.
     """
+    load_repo_env()
     explicit = os.environ.get("DELPHOS_APP_DATABASE_URL")
     if explicit:
         return explicit.replace("postgresql+psycopg://", "postgresql://")
@@ -416,10 +462,16 @@ def connect_readonly(script: str) -> psycopg.Connection:
 
 
 async def connect_readonly_async(script: str) -> psycopg.AsyncConnection:
-    """Async twin of `connect_readonly` for the shipped repositories and tool executors."""
+    """Async twin of `connect_readonly` for the shipped repositories and tool executors.
+
+    The rows come back as dicts: the shipped repositories and tool executors read
+    them by column name (`row["season"]`), which a tuple row cannot answer.
+    """
     try:
         return await psycopg.AsyncConnection.connect(
-            database_url(), options="-c default_transaction_read_only=on"
+            database_url(),
+            options="-c default_transaction_read_only=on",
+            row_factory=dict_row,
         )
     except psycopg.Error as exc:
         fail(

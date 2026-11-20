@@ -7,8 +7,8 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../support/app_harness.dart';
 
-const _title = '¿Qué puede hacer el asistente de scouting?';
-const _trigger = '¿Qué puede hacer el asistente?';
+const _title = '¿Qué puede hacer PitIA?';
+const _trigger = 'Capacidades de PitIA';
 
 bool _inDialog(FocusNode node) => node.ancestors.any(
   (n) => n is FocusScopeNode && n.debugLabel == 'chat pop-up',

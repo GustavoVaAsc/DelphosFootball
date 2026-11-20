@@ -31,12 +31,20 @@ flutter:
   assets:
     - assets/flags/
     - assets/fonts/archivo/OFL.txt
+    - assets/fonts/league_spartan/OFL.txt
+    - assets/fonts/source_sans_3/OFL.txt
     - assets/fonts/source_serif_4/OFL.txt
 
   fonts:
     - family: Archivo
       fonts:
         - asset: assets/fonts/archivo/Archivo-Variable.ttf
+    - family: LeagueSpartan
+      fonts:
+        - asset: assets/fonts/league_spartan/LeagueSpartan-Variable.ttf
+    - family: SourceSans3
+      fonts:
+        - asset: assets/fonts/source_sans_3/SourceSans3-Variable.ttf
     - family: SourceSerif4
       fonts:
         - asset: assets/fonts/source_serif_4/SourceSerif4-Variable.ttf

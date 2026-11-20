@@ -127,7 +127,7 @@ Prose quality was checked against the alternative: Qwen3.5-9B leads gpt-oss-20b 
 
 | Role | Model | Quant | Size | When |
 | --- | --- | --- | --- | --- |
-| **Primary** | Qwen3.5-9B | `Q5_K_M` | 6.58 GB | 16 GB host. Default. |
+| **Primary** | Qwen3.5-9B | `Q5_K_M` | 6,782 MiB (7.11 GB / 6.62 GiB) | 16 GB host. Default. The provisioned file is `bartowski/Qwen_Qwen3.5-9B-GGUF` / `Qwen_Qwen3.5-9B-Q5_K_M.gguf`; the earlier 6.58 GB figure does not match it (see ARCHITECTURE.md ADR-017 amendment). |
 | **Memory-constrained** | Qwen3.5-9B | `Q4_K_M` | 5.68 GB | 8 GB host, or more slots on 16 GB. |
 | **CPU-only** | Qwen3.5-4B | `Q4_K_M` | 2.74 GB | No GPU. Replaces the superseded 3B choice. |
 | **Independent fallback** | Granite 4.2-8B | `Q4_K_M` / `Q5_K_M` | 5.54 / 6.41 GB | If a Qwen3.5 llama.cpp parser bug blocks delivery. Documents a non-thinking mode (`enable_thinking=false`) that Qwen3.5's toggle does not reliably provide (§6.2). |
@@ -155,12 +155,14 @@ Two mutually exclusive serving modes. This plan pins **single-model mode**, beca
 
 ```yaml
   inference-chat:
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    image: ghcr.io/ggml-org/llama.cpp:${LLAMA_ARG_IMAGE:-server-cuda}
     container_name: delphos-inference-chat
+    gpus: all
     environment:
       LLAMA_ARG_HOST: 0.0.0.0
       LLAMA_ARG_PORT: 8080
-      LLAMA_ARG_MODEL: /models/Qwen3.5-9B-Q5_K_M.gguf
+      LLAMA_ARG_MODEL: ${LLAMA_ARG_MODEL:-/models/Qwen3.5-9B-Q5_K_M.gguf}
+      LLAMA_ARG_ALIAS: ${DELPHOS_LLM_MODEL_NAME:-qwen/qwen3.5-9b}
       LLAMA_ARG_CTX_SIZE: 32768
       LLAMA_ARG_N_PARALLEL: 4
       LLAMA_ARG_KV_UNIFIED: "on"
@@ -172,17 +174,31 @@ Two mutually exclusive serving modes. This plan pins **single-model mode**, beca
       LLAMA_ARG_CACHE_TYPE_V: q8_0
     volumes:
       - ./llms/models:/models:ro
+    ports:
+      # Published on a named host address; see ARCHITECTURE.md ADR-031. The
+      # shipped file publishes on 127.0.0.1:8081 by default.
+      - "${DELPHOS_INFERENCE_PUBLISH_IP:-127.0.0.1}:${DELPHOS_INFERENCE_PUBLISH_PORT:-8081}:8080"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 60s
+    read_only: true
+    tmpfs:
+      - /tmp:uid=0,gid=0,size=64m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 12g
+    pids_limit: 256
+    restart: unless-stopped
     networks:
       - delphos-network
 ```
 
-Required changes against the current file: the image moves from `server` (CPU build, 5 layers) to `server-cuda` (13 layers, CUDA runtime); `LLAMA_ARG_MODEL` binds the file; the serving flags are set; a healthcheck is added.
+The shipped file now sets all of it: the CUDA image, `gpus: all` (the request the CUDA build needs; without it the image only warns and serves on the CPU), the model binding, the serving flags, the healthcheck, the published port and the container hardening. `LLAMA_ARG_ALIAS` is derived from `DELPHOS_LLM_MODEL_NAME` so the id the server reports and the id the backend sends cannot drift ([ADR-022](#adr-022-one-model-id-derived-on-both-sides)). On a host with no NVIDIA card the service uses `docker-compose.cpu.yml`, which resets `gpus`.
 
 **`LLAMA_ARG_KV_UNIFIED: "on"` is load-bearing, not decoration.** Without it, setting `LLAMA_ARG_N_PARALLEL: 4` explicitly divides the 32K context into four 8K slots and the §10.4 chat budget does not fit. See §6.2 for the source-level explanation.
 
@@ -242,7 +258,7 @@ Qwen3.5-9B is a hybrid: 32 layers, of which **8 are `full_attention`** and 24 ar
 8 layers × 2 (K and V) × 4 KV heads × 256 head_dim × 1 byte = 16 KiB per token
 ```
 
-So a 32K pool is **~512 MiB**, and the *divided* 8K-per-slot layout would be ~128 MiB per slot. Either way the pool is cheap: the 6.58 GB of `Q5_K_M` weights dominate, and `n_parallel=4` costs almost nothing in VRAM once the cache is unified. The original "~1.0 GiB per slot" figure was roughly double the correct value and described a layout the configuration does not produce.
+So a 32K pool is **~512 MiB**, and the *divided* 8K-per-slot layout would be ~128 MiB per slot. Either way the pool is cheap: the 6,782 MiB of `Q5_K_M` weights dominate, and `n_parallel=4` costs almost nothing in VRAM once the cache is unified. The original "~1.0 GiB per slot" figure was roughly double the correct value and described a layout the configuration does not produce.
 
 `GGML_CUDA_DISABLE_GRAPHS=1` is the documented workaround if the Blackwell CUDA-graph hang appears (llama.cpp #27330: watchdog reset / Xid 8 on sm_120). It is not set by default.
 
@@ -359,9 +375,59 @@ The prompt states:
 - that the body may contain only `{fact_ref}` placeholders for numbers, and that `{fact_ref}` keys must come from the supplied card list;
 - that the output language is Spanish, and that the canonical Spanish football vocabulary from the fact cards must be used verbatim rather than substituted (§7.6).
 
-The prompt is **written in Spanish** and instructs Spanish output. It is not an English instruction with a Spanish-output clause: the section names, the vocabulary, and the register are Spanish, and an English instruction would leave the model to translate its own instructions before translating the facts. The prompt's own token cost is negligible (§7.6) — a 179-character instruction is 35 tokens.
+The prompt is **written in Spanish** and instructs Spanish output. It is not an English instruction with a Spanish-output clause: the section names, the vocabulary, and the register are Spanish, and an English instruction would leave the model to translate its own instructions before translating the facts. Its token cost is **measured, not estimated**: the shipped system prompt is 3,024 characters, and the whole report request — the system prompt, the card's JSON and the scope block — measures **2,295 to 3,123 prompt tokens** on the published sample (the server's `usage.prompt_tokens`; 2,295–2,359 for a player without candidates, 2,593–3,123 for one with three), against the 8,000-token threshold of §17.2. The earlier figure in this plan ("a 179-character instruction is 35 tokens") described a draft that was never shipped.
 
 The prompt lives in a dedicated module (`backend/src/delphos_backend/services/report_prompt.py`), versioned by a `PROMPT_VERSION` constant that is recorded with each report (§12), so a prompt change invalidates the cache rather than silently serving stale prose.
+
+**The two citation scopes, and the revision that carries them.**
+
+**The defect this closes.** The card's JSON does not carry the names the model may cite: its keys are one level down, under `facts` and under each candidate, so a model told only "use the keys of the card list" guesses them. It wrote `{season_value}` where the key is `{season}`, and `{similarity_score}` where that key belongs to a candidate, not to the player. A key the resolver does not know is a hard error (`draft_render.substitute_placeholders`), the report is discarded, and the deterministic renderer answers instead: every report degraded to the fallback while the log said only `draft cited unknown fact key 'season_value'`.
+
+**The two scopes.** The resolver resolves a placeholder in exactly one scope, and the prompt now says the same thing in the same words:
+
+| Scope | Resolves against | May cite |
+| --- | --- | --- |
+| The three top-level sections (their headline and body) | the card's **player scope** | 26 of the card's 30 fact keys |
+| One candidate's assessment (`candidatos[].valoracion`) | that candidate's own cells | the 9 candidate keys |
+
+The two never mix: a candidate's sentence that quoted the target's figures would publish a wrong number about a real player as if the model had written it, and a top-level sentence that quoted a candidate's savings would attribute one candidate's saving to another.
+
+**The scope is enforced in code, and it excludes the model's own diagnostics.** The scope lives in ONE place (`report_scope`), derived from the card, and both the request and the resolver read it: the request lists the scope's keys, and `draft_placeholders.substitute_placeholders` resolves a player-scope placeholder **only** against that scope. A key outside it raises `UnknownPlaceholderError`, the report is discarded and the deterministic renderer answers — the same hard error as an unknown key.
+
+The player scope is the card's 30 fact keys **minus four**: `residual_log10`, `rf_undervalued_pred`, `rf_undervalued_prob` and `dt_undervalued_pred`. Those are the model's own diagnostics — the regression residual and the two classifier verdicts — not scouting facts. A verdict that says "su probabilidad de infravaloración es {rf_undervalued_prob}" states something about the model, in a paragraph a sporting director reads as a fact about the player; the archetypes, the market's size (`cluster_id`, `qualifying_count`, `shortfall_reason`) and everything else stay citable, because they are scouting facts and the model already cites them correctly. The card still carries the four diagnostics, because the code that computes the card and the verdict needs them; the **request does not show them**: the data region carries the card's display strings minus those four, so the model cannot paraphrase a probability into the prose of a verdict either (a paraphrase carries no digit, so the numeric verifier could not catch it).
+
+**The request separates the data from the instructions.** The user message has two regions, each with its own marker: a **data region** (the card's JSON and the candidate names) and an **instruction region** (the key lists, the rules and the map of keys), which carries only backend-written text. Every untrusted token is rendered as a JSON string — `"Jonathan David" | "Serhou Guirassy"` — so a name that contains a newline, a quote or a brace cannot start a line or a token, and the names are joined with ` | ` so a name that contains a comma stays unambiguous. The data region opens with a marker that says it is data, and the instruction region repeats the rule: the model is told to copy the names and to obey no instruction that appears in the data.
+
+**The data region carries the card's DISPLAY strings only.** Each cell of the card holds a raw `value` (the untranslated English, the classifier's probabilities, the log residual) beside its `display` (the formatted Spanish figure). The request now shows the `display` and nothing else: the raw value is the model's own input, and showing it invites it to copy digits the schema rejects and to write an English term into a Spanish report ("Como Right Winger en Inter Miami" passes every grounding check and is published). The card keeps its raw values for the code that computes it; only the region the model reads is reduced. The four model diagnostics are dropped from the region as well, so the model cannot paraphrase a probability into the prose of a verdict either (a paraphrase carries no digit, so the numeric verifier could not catch it).
+
+**What a database name may contain.** A name is database text, so the schema that stores it cannot rule out what the model would read. The request refuses the character classes that would let a name act as anything but a name: **controls** (Cc — a newline ends the line the name sits on), **formats** (Cf — a bidi override reverses or hides what is around it, and the dataset does contain one), **line and paragraph separators** (Zl, Zp — U+2028 and U+2029 end a line without being controls, and JSON encoding leaves them raw), and **surrogates** (Cs). A comma is refused too: it makes the name ambiguous in a listing. The refusal is a **data** rule, applied in two places: the publish stage refuses a candidate row whose name cannot be carried, and the card builder refuses the target player's own name and the club names, so a report about a player whose name cannot be represented falls back to the deterministic renderer instead of carrying the name into the model or into the published HTML. The publish-side check **fails closed**: a missing or renamed input is an error, because a gate that cannot read its input must not report success.
+
+**No repair request carries a database string.** The candidate-completeness repair is an *instruction* message, so it names no candidate: it states the counts ("faltan 1 de los 2 candidatos de la tarjeta") and points at the card's own `NOMBRES DE LOS CANDIDATOS` listing, which lives in the data region. The model is told to copy the names from there, so the names never travel through an instruction message.
+
+**What this does NOT close, and the next control.** The candidate names are still *echoed* by the model: it copies them into its draft. A name that carries instruction-like prose (no control character, no comma) therefore still reaches the model as data — inside the data region, fenced by the marker and by the instruction that the model obeys nothing that appears there, but fenced in the prompt rather than in code. The fix is to stop asking the model to echo database free text at all: bind the candidates by **index** (`C1`, `C2`, `C3` → the card's candidate *n*) and render the name server-side from the card. That closes this residue, and with it the two smaller ones the same change closes: a whitespace-only assessment (the renderer omits such a candidate, so it loses a market option) and two candidates that share a name (the binding is by name, so the second would bind to the first's cells — not reachable today, since no published target has a duplicated candidate name, but a missing guard rather than a proof). Until then, the residue is bounded by the data-region fencing and by the fact that a name can carry no digit, so it can induce a qualitative claim but never a forged figure.
+
+A name that cannot be represented at all is a **data problem**, and it is refused where the data enters the system: the publish stage rejects the row (`_publish_names.validate_candidate_names`) before it reaches the database, naming the offending row, and the card builder refuses it again (`report_names.assert_representable_candidate_names`), so no row reaches the prompt carrying a name the prompt cannot represent. The deterministic renderer, which escapes every value and never sends the card to a model, still answers for such a player.
+
+**The figures the report must carry.** A report of adjectives is not a scouting report, so the prompt asks for the decision-relevant ones: the financial verdict's market value, fair value and gap; the performance section's minutes, appearances, goals and assists; each candidate's name, savings and similarity. A figure whose card value is `0` or `N/D` is left out rather than quoted as `N/D` in a sentence.
+
+**The user message carries the lists.** The request's user message is the card's data region followed by the instruction region (`report_prompt_scope.build_user_message`), which names, in Spanish, the fact keys, the candidate keys and the map of which keys belong in which part of the draft. The lists are **derived from the card**, never written by hand, so they cannot drift from what the resolver accepts; the candidate names are listed because the draft is bound to a candidate by its exact name (`report_bindings.bind_candidate_scope`). The block also carries the rule that a headline is a short sentence without figures, so the figures land in the body where they are read — including the alternatives headline, which carries no figure at all, while the alternatives body carries `qualifying_count` and `cluster_id`.
+
+**The draft must carry every candidate.** Nothing compared the length of `draft.alternativas.candidatos` with the number of candidates in the card, so a draft that left one out was published and the report silently lost a market option. The mismatch is now a **schema failure**: the draft spends the pipeline's one repair attempt on it, and the deterministic renderer answers if the repair still does not carry all of them. The check runs on **every** draft, including the one the numeric repair produces — that repair rewrites the whole report, so it may drop a candidate too, and the repair budget is already spent when it does, so the report falls back rather than publishing a shortened one. A candidate with a **blank** assessment is a schema failure too (`valoracion` has `min_length=1`): the renderer omits such a candidate from the sentence join, so an empty assessment would lose a market option exactly like a missing candidate.
+
+**The hand-written key map cannot drift.** The prompt's map of keys per part and its list of the figures the report must carry are written by hand, so a test extracts every `{...}` token from the system prompt and from the request's scope block and asserts that each one resolves in the scope the map assigns it — the player scope for the three sections, the candidate's own scope for a candidate's assessment. Rename a fact in `report_facts` and the test fails, instead of the reports failing at run time.
+
+**The measured effect.** Against the running llama.cpp server (`qwen/qwen3.5-9b`), on 46 published players sampled from the active run (18 with replacement candidates, 12 without, plus 16 more), the draft that survives the whole pipeline — schema validation, placeholder resolution and numeric verification, with the one repair attempt the pipeline spends — went from **12/30 to 30/30** on the holdout sample (36.7% → 100% first-pass, 40.0% → 100% after the repair) and from **10/16 to 16/16** on the first sample. The failures the old prompt produced were 10 schema rejections (a figure written by hand) and 8 unknown-key errors (a candidate key cited in a top-level section, or a player key cited in a candidate's assessment); the new prompt produced none of either on the same samples.
+
+**The measured effect of the enforcement.** The scope enforcement and the candidate-completeness rule can reject drafts that used to pass, so the rate was **re-measured with the shipped path** (`llm_reports.generate_report`, the whole pipeline) on the same 46 published players, against the same server, with the same sample rule: the 28 players with replacement candidates (the first 10 and the 17th–34th of the published targets) and the 18 without (the first 18 players of the 2025 season with no candidate).
+
+| | accepted (LLM path) | first pass (one call) | prompt tokens |
+| --- | --- | --- | --- |
+| Before the enforcement | **46/46 (100%)** | 46/46 | 2,147–2,967 |
+| After the enforcement | **46/46 (100%)** | 46/46 | 2,295–3,123 |
+
+The rate did not move: no draft cited an excluded diagnostic, no draft dropped a candidate, and no report fell back to the deterministic renderer. The request costs about 150 prompt tokens more per report — the data region's marker, the JSON-encoded names and the extra rules — and stays far below the §17.2 threshold of 8,000. The measurement is reproducible with `analysis/llm_eval/exp_report_quality.py` (§17.2), which imports the shipped prompt, request, resolver and verifier.
+
+**The revision.** The prompt text changed, so the revision moved from `v1` to `v2` (`DELPHOS_LLM_REPORT_PROMPT_VERSION`, default `v2-t0.7-p0.8-k20`): the cache key changes with it, which is the point — the prose `v1` produced was written by a prompt that never named the keys, and it is not worth keeping.
 
 ### 7.4 Number formatting
 
@@ -632,7 +698,7 @@ One migration, `0004`, on the `app` branch.
 
 `llm_model` and `prompt_version` are the provenance [docs/ARCHITECTURE.md](ARCHITECTURE.md) §9 already promises ("reports record the model version used") and the schema does not deliver. They are also **required for cache correctness**: `get_latest_player_report` keys on `(player_id, model_run_id, report_type)` with no model in the key, so the C1 model swap would otherwise serve stale 3B-written reports indefinitely. The key becomes `(player_id, model_run_id, report_type, llm_model, prompt_version)`.
 
-**`prompt_version` encodes the sampling configuration, not only the prompt text.** The report path is non-deterministic, and E7 (§17.4) will select `temperature`, `top_p` and `top_k` from a measured grid. Two reports generated from the same fact bundle at different temperatures differ in wording, so a temperature change is a change in output as real as a prompt change. The version string therefore covers both: `PROMPT_VERSION = "v1-t0.7-p0.8-k20"`, incremented whenever either the prompt text or the sampling parameters change. A separate `sampling_config` column would be cleaner but is more than the provenance the architecture promises; folding it into the version keeps the cache key honest at no schema cost.
+**`prompt_version` encodes the sampling configuration, not only the prompt text.** The report path is non-deterministic, and E7 (§17.4) will select `temperature`, `top_p` and `top_k` from a measured grid. Two reports generated from the same fact bundle at different temperatures differ in wording, so a temperature change is a change in output as real as a prompt change. The version string therefore covers both: `PROMPT_VERSION = "v2-t0.7-p0.8-k20"`, incremented whenever either the prompt text or the sampling parameters change. A separate `sampling_config` column would be cleaner but is more than the provenance the architecture promises; folding it into the version keeps the cache key honest at no schema cost.
 
 **`app.reports.report_type`** — the CHECK constraint is added over **`('scouting')`**, and the column is left as `VARCHAR(64)`.
 
@@ -777,7 +843,7 @@ The backend suite is 18 tests today; the LLM work adds to it.
 - Numeric extraction: a prose string with an injected number is rejected; a clean one passes.
 - The generation call: the request carries `response_format` with the schema; a malformed response is rejected and the deterministic path is taken.
 - The fallback path: an LLM timeout, an HTTP 500, and an empty completion all yield a 200 with `source='deterministic'`.
-- Cache correctness: a report generated by a different `llm_model` or `prompt_version` is not served from the cache.
+- Cache correctness: a report generated by a different `prompt_version` is not served from the cache, and neither is one generated by a model that is not configured. A report generated by either configured endpoint is served from the cache, because the cache key lists the configured model ids (ADR-033).
 
 **Chat.**
 
@@ -887,7 +953,7 @@ Four instruments, chosen so that the strongest claims rest on the deterministic 
 
 *Cases:* the 9 players.
 
-*Metrics:* prompt tokens (from the server's reported `prompt_n`), completion tokens, and the total against the 32K context.
+*Metrics:* prompt tokens (from the server's reported `usage.prompt_tokens`, the size of the request; the server's `timings.prompt_n` counts the tokens it PROCESSED, which its prompt cache makes a small number on a warm cache), completion tokens, and the total against the 32K context.
 
 *Decision rule:* if prompt tokens exceed 8000 for any case, the card builder is pruned (§8.1) before anything else ships. This is cheap to run and it prevents the failure from appearing as a truncation bug in production.
 

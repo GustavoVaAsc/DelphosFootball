@@ -53,7 +53,7 @@ Rules:
 - **Archivo** (Google Fonts, variable, `wdth 62..125`, `wght 100..900`):
   - Condensed cut (`font-stretch: 80%`) for player names and every euro figure, with `font-variant-numeric: tabular-nums`. Reason: scoreboard and kit-number voice, and long names fit narrow columns.
   - Normal width for UI text (labels, controls, table body, navigation).
-- **Source Serif 4** for the Asistente de Scouting's answers (`ChatAnswer`), `15px`, line-height `1.55`, `68ch` max measure. Reason: a written answer reads as prose, apart from the data. The dossier's Resumen prose (`ReportProse`) uses the same style.
+- **Source Serif 4** for PitIA's scouting answers (`ChatAnswer`), `15px`, line-height `1.55`, `68ch` max measure. Reason: a written answer reads as prose, apart from the data. The dossier's Resumen prose (`ReportProse`) uses the same style.
 - **Numeric discipline**: tabular numerals on every euro value, percentage, age and match statistic.
 - **Scale** (only these six sizes): `11 / 12 / 13 / 15 / 20 / 28` px.
   - `28`: reserved for the two dossier valuation figures (market price and estimate).
@@ -75,7 +75,7 @@ Rules:
 - **Shell**: full-height grid, independent internal scroll containers, no page-level vertical scroll.
 - **Sidebar (`240px`, navy; `64px` rail when folded)**:
   - Brand header (`60px`): the hamburger button at the top left, then `DelphosFootball · Dirección Deportiva` in two lines. There is no brand logo or mark in the sidebar; the button takes its place so it is easy to see. The button is `36px`, with `14px` to its left, so it is centred on the `64px` rail and sits in exactly the same place open and folded. It is drawn for the navy ground (three painted lines, no icon font): `--sidebar-text`, white on hover, `--sidebar-active` hover ground and the white focus ring (§2). It is the first stop of the sidebar for the keyboard and keeps focus when it flips the sidebar. Its Spanish label is "Plegar menú" while the sidebar is open and "Desplegar menú" while it is folded (with the matching expanded state), and its tooltip also opens on keyboard focus.
-  - The modules as text items, without icons while the sidebar is open: `Explorador de Mercado`, `Comparador Moneyball`, `Arquetipos Tácticos`, `Asistente de Scouting`. The HTML preview shows only the three data modules, because the Asistente de Scouting chat is outside the preview (§7).
+  - The modules as text items, without icons while the sidebar is open: `Explorador de Mercado`, `Comparador Moneyball`, `Arquetipos Tácticos`, `PitIA`. The HTML preview shows only the three data modules, because the PitIA chat is outside the preview (§7).
   - Nav item font weight is constant across states (active is shown with ground and text colour only), so labels never reflow or wrap.
   - The hamburger button in the brand header folds and unfolds the sidebar. The change animates (§5).
   - Folded, the sidebar is a `64px` rail: the hamburger button alone, then one `20px` line icon per module in the same stroke style as the other glyphs (a ledger, two opposed arrows, three groups, a speech bubble; drawn in code, no icon font), in `--sidebar-text` and white on hover. The active module keeps its `--sidebar-active` ground. Each icon has a tooltip with the module's name, which also opens on keyboard focus, and the same Spanish semantics label. The footer is hidden.
@@ -126,7 +126,7 @@ Rules:
   - The pitch banner is the shared pitch drawing (§1) at a real `105:68` aspect ratio (`240:155` with the goals and a stroke margin), centred on a `--surface-subtle` ground and capped at `264px` wide, never stretched to the card's width. The three cards have the same width, so their pitches have the same height and the rows stay aligned.
   - Metrics use one word: "Valor promedio", "Minutos promedio", "Goles promedio", "Asistencias promedio".
   - Representative players as a compact list of text links (flag and name on the left, price on the right, hairlines between rows). One quiet text link per card: "Ver en el explorador".
-- **Asistente de Scouting** (`/chat`, a module page like the others): the chat about the results.
+- **PitIA** (`/chat`, a module page like the others): the chat about the results.
   - Before the first event the label reads "Analizando tu petición…". While the turn runs, each tool step shows the server's sentence with a dot while it runs, a check when it is done and a cross when it failed; a failed step reads "No se pudo completar". Between results the label reads "Analizando los resultados…". The label that is working shimmers (§5); a finished step is static text.
   - Steps are plain Spanish. A step text that reads as code (braces, a JSON key, a tool name) is replaced by a generic label.
   - "Conversaciones" in the header opens the saved conversations, newest first, under "Nueva conversación". Choosing one restores it. Restored answers have no steps. When a conversation is longer than the 200 messages restored, "Mostrando los últimos N mensajes" appears above it.
@@ -168,4 +168,4 @@ Implemented in the preview so the Flutter app can copy them. Review one with the
   - `fewer_than_three_qualifying_peers`: "Solo N jugadores cumplen todos los criterios: mismo arquetipo y posición, similitud suficiente, ahorro mínimo del 20% y no sobrevalorado."
   - Any other code: a generic "Solo N jugadores cumplen los criterios de reemplazo."
 - **Filtered to empty** (`empty`): the filters are preset to the first status and archetype pair with no rows. The message names the active filters ("Filtros activos: estado En precio · arquetipo Ancla Defensiva."), next to "Restablecer filtros". The dossier is closed: it never shows a player the table does not list.
-- **Out of scope**: the preview shows neither the Resumen nor the Asistente de Scouting. Their states are specified in §4, and the Flutter app is their reference. The endpoints are `POST /reports/generate` and `POST /chat` (delivery priority 4 in ADR-007).
+- **Out of scope**: the preview shows neither the Resumen nor the PitIA chat. Their states are specified in §4, and the Flutter app is their reference. The endpoints are `POST /reports/generate` and `POST /chat` (delivery priority 4 in ADR-007).

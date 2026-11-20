@@ -1,0 +1,18 @@
+# Override for a host without an NVIDIA GPU.
+#
+# The base file asks for the GPU with `gpus: all`, because the CUDA image
+# otherwise serves on the CPU with only a warning. On a host with no NVIDIA
+# card that request fails at container creation, so this override removes it
+# and the plain `server` image runs on the CPU:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.cpu.yml \
+#     up -d inference-chat
+#
+# with LLAMA_ARG_IMAGE=server and a CPU-sized model in .env (see
+# .env.example). Compose resets the key with `!reset null`, which needs
+# Compose v2.24 or newer; the base file's `gpus` key needs v2.30, so the
+# effective minimum for the pair is v2.30.
+
+services:
+  inference-chat:
+    gpus: !reset null

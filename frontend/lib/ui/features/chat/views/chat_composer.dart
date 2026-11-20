@@ -75,7 +75,7 @@ class ChatComposer extends StatelessWidget {
                       style: style,
                       cursorColor: DelphosColors.ink,
                       decoration: InputDecoration.collapsed(
-                        hintText: 'Escribe una consulta o comparación (p. ej. Compara a Harry Kane con sus reemplazos)…',
+                        hintText: 'Pregunta a PitIA o pide una comparación (p. ej. Compara a Harry Kane con sus reemplazos)…',
                         hintStyle: style.copyWith(color: DelphosColors.ink3),
                       ),
                     ),
