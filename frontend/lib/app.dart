@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'data/repositories/archetype_repository.dart';
 import 'data/repositories/chat_repository.dart';
 import 'data/repositories/player_repository.dart';
+import 'data/repositories/report_repository.dart';
 import 'data/services/api_client.dart';
 import 'routing/app_router.dart';
 import 'routing/routes.dart';
@@ -17,6 +18,7 @@ import 'ui/core/util/first_load_tracker.dart';
 import 'ui/core/view_models/dataset_view_model.dart';
 import 'ui/core/view_models/sidebar_view_model.dart';
 import 'ui/core/widgets/focus_visibility.dart';
+import 'ui/features/chat/view_models/chat_view_model.dart';
 
 /// Provides the [ApiClient] and the repositories built on it to every
 /// screen, then shows the routed app.
@@ -62,6 +64,7 @@ class _DelphosAppState extends State<DelphosApp> {
         Provider<ApiClient>.value(value: api),
         Provider(create: (_) => PlayerRepository(apiClient: api)),
         Provider(create: (_) => ArchetypeRepository(apiClient: api)),
+        Provider(create: (_) => ReportRepository(apiClient: api)),
         Provider(create: (_) => ChatRepository(apiClient: api)),
         // Dataset facts for the shell (total, season, data date), loaded
         // once at start-up.
@@ -69,6 +72,12 @@ class _DelphosAppState extends State<DelphosApp> {
           create: (_) =>
               DatasetViewModel(archetypes: ArchetypeRepository(apiClient: api))
                 ..load(),
+        ),
+        // The chat's conversation, in memory: leaving the chat and coming
+        // back during the same app run shows the same session.
+        ChangeNotifierProvider(
+          create: (context) =>
+              ChatViewModel(repository: context.read<ChatRepository>()),
         ),
         // The sidebar's collapsed flag, in memory only: it survives page
         // changes but not a reload.

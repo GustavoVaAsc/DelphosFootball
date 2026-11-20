@@ -135,6 +135,39 @@ void main() {
     },
   );
 
+  testWidgets(
+    'tool_start and tool events show the server description and outcome',
+    (tester) async {
+      final backend = FakePlayersBackend()
+        ..chatSseBody =
+            'event: tool_start\n'
+            'data: {"step":1,"tool":"search_players","description":"Buscando delanteros infravalorados ordenados por infravaloración"}\n\n'
+            'event: tool\n'
+            'data: {"step":1,"tool":"search_players","ok":true,"summary":"Se encontraron 2 jugadores.","description":"Buscando delanteros infravalorados ordenados por infravaloración"}\n\n'
+            'event: message\n'
+            'data: {"session_id":"sess-3","message":"Hay dos delanteros infravalorados.","model_run_id":"run_test","tools_called":["search_players"],"created_at":"2026-11-13T12:00:00Z"}\n\n';
+      await pumpAppAt(tester, '/chat', backend: backend);
+      await tester.tap(find.text('Entendido'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'Busca delanteros');
+      await tester.tap(find.text('Enviar'));
+      await tester.pumpAndSettle();
+
+      // One step, not a started one plus a finished one.
+      expect(
+        find.text(
+          'Buscando delanteros infravalorados ordenados por infravaloración',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Se encontraron 2 jugadores.'), findsOneWidget);
+      expect(find.textContaining('search_players'), findsNothing);
+      // The turn is over: nothing is left animating.
+      expect(tester.hasRunningAnimations, isFalse);
+    },
+  );
+
   testWidgets('uninitialized LLM server shows a clear Spanish notice', (
     tester,
   ) async {

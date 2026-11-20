@@ -9,6 +9,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../data/repositories/player_repository.dart';
+import '../../../../data/repositories/report_repository.dart';
 import '../../../../routing/explorer_query.dart';
 import '../../../core/layout/dossier_presentation.dart';
 import '../../../core/util/first_load_tracker.dart';
@@ -37,6 +38,7 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
   );
   late final DossierViewModel _dossier = DossierViewModel(
     players: context.read<PlayerRepository>(),
+    reports: context.read<ReportRepository>(),
   );
   late final DossierExit _exit = DossierExit(
     dossier: _dossier,

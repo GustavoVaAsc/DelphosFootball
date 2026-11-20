@@ -9,17 +9,22 @@ import '../../../core/theme/type_scale.dart';
 import '../../../core/widgets/action_button.dart';
 import 'chat_opener_focus.dart';
 
-/// Displays the module subtitle and actions to inspect capabilities or reset.
+/// Displays the module subtitle and actions to inspect capabilities, open
+/// the saved conversations or start a new one.
 class ChatHeader extends StatelessWidget {
   const ChatHeader({
     super.key,
     required this.hasTurns,
     required this.onOpenCapabilities,
+    required this.onOpenSessions,
     required this.onClear,
   });
 
   final bool hasTurns;
   final VoidCallback onOpenCapabilities;
+
+  /// Opens the "Conversaciones" menu.
+  final VoidCallback onOpenSessions;
   final VoidCallback onClear;
 
   @override
@@ -54,6 +59,15 @@ class ChatHeader extends StatelessWidget {
               onPressed: () {
                 focusOpener();
                 onOpenCapabilities();
+              },
+            ),
+          ),
+          ChatOpenerFocus(
+            builder: (context, focusOpener) => ActionButton(
+              label: 'Conversaciones',
+              onPressed: () {
+                focusOpener();
+                onOpenSessions();
               },
             ),
           ),
