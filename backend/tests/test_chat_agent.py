@@ -11,10 +11,11 @@ from chat_fakes import TrackingConnectionFactory, simple_factory
 
 from delphos_backend.core.config import Settings
 from delphos_backend.services import chat_agent
-from delphos_backend.services.chat_agent import run_chat_turn, stream_chat_turn
+from delphos_backend.services.chat_agent import stream_chat_turn
 from delphos_backend.services.chat_budget import build_messages, estimate_tokens
 from delphos_backend.services.chat_prompt import FALLBACK_ANSWER, SYSTEM_PROMPT
 from delphos_backend.services.chat_protocol import parse_tool_call
+from delphos_backend.services.chat_turn import run_chat_turn
 from delphos_backend.services.llm_client import (
     CompletionResult,
     InferenceError,
@@ -182,7 +183,7 @@ async def test_unknown_tool_returns_typed_error_to_the_model() -> None:
     tool_result = captured[1][-1]
     assert "herramienta desconocida" in tool_result["content"]
     assert "search_players" in tool_result["content"]
-    assert events[0].data["ok"] is False
+    assert events[1].data["ok"] is False
     assert events[-1].data["content"] == "Sin datos."
     assert events[-1].data["tools_called"] == []
 
@@ -210,7 +211,7 @@ async def test_argument_validation_failure_names_the_argument() -> None:
 
     tool_result = captured[1][-1]
     assert "argumento inválido: position" in tool_result["content"]
-    assert events[0].data["ok"] is False
+    assert events[1].data["ok"] is False
     assert events[-1].data["tools_called"] == []
 
 
@@ -239,7 +240,7 @@ async def test_truncated_tool_result_is_reported_as_a_failure() -> None:
             )
         ]
 
-    assert events[0].data["ok"] is False
+    assert events[1].data["ok"] is False
     assert events[-1].data["tools_called"] == []
 
 

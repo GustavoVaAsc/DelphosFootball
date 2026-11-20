@@ -6,7 +6,7 @@ the first turn step fails before any byte is sent.
 Responsibility: starts the turn before headers so early failures stay ordinary
 problem responses, persists only a completed exchange, and maps mid-stream
 failures onto an `error` event once the 200 status is committed. The tool
-progress event carries a summary sentence, never a serialized database row.
+progress events carry a description or summary sentence, never a serialized database row.
 """
 
 from __future__ import annotations
@@ -58,8 +58,8 @@ async def start_chat_stream(
         current = first
         while True:
             try:
-                if current.type == "tool":
-                    yield _sse("tool", current.data)
+                if current.type in ("tool_start", "tool"):
+                    yield _sse(current.type, current.data)
                     current = await anext(events)
                     continue
                 async with conn_factory() as conn:
