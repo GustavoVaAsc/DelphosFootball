@@ -15,8 +15,12 @@
 /// - the dossier's two valuation figures (400 ms, each time a player's
 ///   valuation loads): draws the eye to the one question the product answers;
 /// - table rows and archetype cards on the first load of their view
-///   (200 ms each, 30 ms apart): shows the data arriving once.
-/// Nothing loops, and nothing else moves: not filters, keystrokes, paging.
+///   (200 ms each, 30 ms apart): shows the data arriving once;
+/// - the shimmer of the chat's thinking labels (`ShimmerText`, 1.5 s per pass,
+///   looping while the label is active): shows which step the assistant is
+///   on; the only loop, it ends when the turn ends and is static under
+///   reduced motion.
+/// Nothing else loops or moves: not filters, keystrokes, paging.
 library;
 
 import 'package:flutter/widgets.dart';

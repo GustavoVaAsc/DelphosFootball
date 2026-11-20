@@ -1,13 +1,13 @@
 /// The stroke glyphs the app draws itself (it ships no icon font): the
-/// search magnifier, the close × and the select chevron, each drawn on a
-/// 24-unit box like the design preview's SVGs.
+/// search magnifier, the close ×, the select chevron and the check mark, each
+/// drawn on a 24-unit box like the design preview's SVGs.
 library;
 
 import 'package:flutter/widgets.dart';
 
 import '../theme/delphos_colors.dart';
 
-enum _Kind { search, close, chevronDown }
+enum _Kind { search, close, chevronDown, check }
 
 /// A decorative stroke glyph; the control around it carries the label.
 class LineGlyph extends StatelessWidget {
@@ -31,6 +31,13 @@ class LineGlyph extends StatelessWidget {
     this.size = 14,
     this.color = DelphosColors.ink2,
   }) : _kind = _Kind.chevronDown;
+
+  /// A finished step's check mark, 12 px in `--ink-3`.
+  const LineGlyph.check({
+    super.key,
+    this.size = 12,
+    this.color = DelphosColors.ink3,
+  }) : _kind = _Kind.check;
 
   final double size;
   final Color color;
@@ -74,6 +81,14 @@ class _GlyphPainter extends CustomPainter {
             ..moveTo(6 * u, 9 * u)
             ..lineTo(12 * u, 15 * u)
             ..lineTo(18 * u, 9 * u),
+          paint,
+        );
+      case _Kind.check:
+        canvas.drawPath(
+          Path()
+            ..moveTo(5 * u, 12.5 * u)
+            ..lineTo(10 * u, 17.5 * u)
+            ..lineTo(19 * u, 7 * u),
           paint,
         );
     }

@@ -21,7 +21,6 @@ from typing import Any
 from delphos_backend.services.chat_conn import ConnectionFactory
 from delphos_backend.services.chat_tool_args import MAX_RESULT_CHARS
 from delphos_backend.services.chat_tool_queries import TOOL_HANDLERS
-from delphos_backend.services.chat_tool_summary import safe_tool_name
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +49,7 @@ async def execute_tool(
         logger.error(
             "Chat tool execution failed",
             extra={
-                "chat_tool": safe_tool_name(name),
+                "chat_tool": name if name in TOOL_NAMES else "unknown",
                 "chat_model_run_id": model_run_id,
                 "chat_error_type": type(exc).__name__,
             },

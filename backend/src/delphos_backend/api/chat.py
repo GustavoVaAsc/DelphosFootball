@@ -28,8 +28,8 @@ from delphos_backend.repositories.active_run import get_active_model_run
 from delphos_backend.repositories.chat import get_session, save_exchange
 from delphos_backend.repositories.chat_messages import list_recent_messages
 from delphos_backend.schemas.chat import ChatRequest, ChatResponse
-from delphos_backend.services.chat_agent import run_chat_turn
 from delphos_backend.services.chat_conn import ConnectionFactory
+from delphos_backend.services.chat_turn import run_chat_turn
 from delphos_backend.services.llm_client import InferenceError
 
 router = APIRouter(prefix="/chat", tags=["Chat"])

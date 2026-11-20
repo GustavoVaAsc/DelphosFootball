@@ -31,4 +31,17 @@ final class ChatTurn {
     errorMessage: errorMessage ?? this.errorMessage,
     isStreaming: isStreaming ?? this.isStreaming,
   );
+
+  /// This turn once its stream ended: no step still runs.
+  ChatTurn finished() => copyWith(
+    steps: [for (final step in steps) step.settled(failed: false)],
+    isStreaming: false,
+  );
+
+  /// This turn once it failed with [message]: running steps failed too.
+  ChatTurn failed(String message) => copyWith(
+    steps: [for (final step in steps) step.settled(failed: true)],
+    errorMessage: message,
+    isStreaming: false,
+  );
 }

@@ -13,13 +13,20 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from delphos_backend.services.chat_tool_text import safe_display_text
+
 MAX_TOOL_NAME_CHARS = 64
-_CONTROL_CHARS = re.compile(r"[\r\n\t]")
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
 
 
 def safe_tool_name(name: str) -> str:
     """The tool name without control characters, capped in length."""
     return _CONTROL_CHARS.sub(" ", str(name))[:MAX_TOOL_NAME_CHARS]
+
+
+def _shown(name: Any) -> str:
+    """A database name cleaned by the shared display rule, or a generic phrase."""
+    return safe_display_text(str(name or "")) or "el jugador solicitado"
 
 
 def summarize_tool_result(name: str, payload: dict[str, Any]) -> str:
@@ -39,14 +46,14 @@ def summarize_tool_result(name: str, payload: dict[str, Any]) -> str:
         return f"Se consultaron {count} jugadores en el mercado."
     if isinstance(payload.get("profile"), dict):
         profile = payload["profile"]
-        player_name = profile.get("name", "el jugador solicitado")
+        player_name = _shown(profile.get("name"))
         return f"Se consultó el perfil y las estadísticas de {player_name}."
     if isinstance(payload.get("valuation"), dict):
         valuation = payload["valuation"]
-        name_found = valuation.get("name") or "el jugador solicitado"
+        name_found = _shown(valuation.get("name"))
         return f"Se revisó la valoración y el diagnóstico de {name_found}."
     if isinstance(payload.get("replacements"), list):
-        target = payload.get("target_name") or "el jugador solicitado"
+        target = _shown(payload.get("target_name"))
         return (
             f"Se evaluaron {len(payload['replacements'])} candidatos de reemplazo "
             f"táctico para {target}."

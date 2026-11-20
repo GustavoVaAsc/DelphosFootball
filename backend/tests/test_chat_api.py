@@ -208,7 +208,8 @@ async def test_post_chat_stream_emits_events_and_persists(
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
     body = response.text
-    assert "event: tool" in body
+    assert "event: tool_start" in body
+    assert "event: tool\n" in body
     assert "event: message" in body
     assert "event: error" not in body
     assert '"search_players"' in body

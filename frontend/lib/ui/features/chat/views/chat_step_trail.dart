@@ -8,8 +8,12 @@ import '../../../../domain/models/chat_tool_step.dart';
 import '../../../core/theme/delphos_colors.dart';
 import '../../../core/theme/delphos_text.dart';
 import '../../../core/theme/type_scale.dart';
+import '../../../core/widgets/shimmer_text.dart';
+import 'chat_step_row.dart';
 
-/// Renders tool-call execution steps in plain Spanish, never raw function names.
+/// Renders tool-call execution steps in plain Spanish, never raw function
+/// names. While the turn streams, the label that is currently working
+/// shimmers: the first wait, a running step, or the wait after a result.
 class ChatStepTrail extends StatelessWidget {
   const ChatStepTrail({
     super.key,
@@ -23,79 +27,29 @@ class ChatStepTrail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (steps.isEmpty && !isStreaming) return const SizedBox.shrink();
+    final heading = DelphosText.ui(
+      size: TypeScale.secondary,
+      weight: FontWeight.w600,
+      color: DelphosColors.ink2,
+    );
+    final waiting = isStreaming && !steps.any((step) => step.isRunning);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 6,
       children: [
-        Text(
-          isStreaming && steps.isEmpty
-              ? 'Analizando tu petición con los datos del modelo…'
-              : 'Pasos realizados sobre la base del modelo',
-          style: DelphosText.ui(
-            size: TypeScale.secondary,
-            weight: FontWeight.w600,
-            color: DelphosColors.ink2,
-          ),
-        ),
-        for (var i = 0; i < steps.length; i++)
-          _StepRow(index: i + 1, step: steps[i]),
-        if (isStreaming && steps.isNotEmpty)
-          Text(
-            'Redactando respuesta con los resultados obtenidos…',
+        if (isStreaming && steps.isEmpty)
+          ShimmerText('Analizando tu petición…', style: heading)
+        else
+          Text('Pasos realizados sobre la base del modelo', style: heading),
+        for (final step in steps) ChatStepRow(step: step),
+        if (waiting && steps.isNotEmpty)
+          ShimmerText(
+            'Analizando los resultados…',
             style: DelphosText.ui(
               size: TypeScale.secondary,
               color: DelphosColors.ink3,
             ),
           ),
-      ],
-    );
-  }
-}
-
-class _StepRow extends StatelessWidget {
-  const _StepRow({required this.index, required this.step});
-
-  final int index;
-  final ChatToolStep step;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 8,
-      children: [
-        Container(
-          margin: const EdgeInsets.only(top: 5),
-          width: 6,
-          height: 6,
-          decoration: const BoxDecoration(
-            color: DelphosColors.ink3,
-            shape: BoxShape.circle,
-          ),
-        ),
-        Expanded(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: '$index. ${step.stepTitle}: ',
-                  style: DelphosText.ui(
-                    size: TypeScale.secondary,
-                    weight: FontWeight.w600,
-                    color: DelphosColors.ink,
-                  ),
-                ),
-                TextSpan(
-                  text: step.isError ? 'No se pudo completar' : step.summary,
-                  style: DelphosText.ui(
-                    size: TypeScale.secondary,
-                    color: DelphosColors.ink2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ],
     );
   }

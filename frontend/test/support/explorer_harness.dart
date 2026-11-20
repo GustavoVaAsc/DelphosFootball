@@ -1,6 +1,7 @@
 // A fake backend for the explorer: generated /players pages, the three
-// dossier endpoints per player, /clusters and /chat; requests it can
-// hold and release in any order, and a failure switch.
+// dossier endpoints per player, /clusters, /reports, /chat and its saved
+// sessions (/chat/sessions); requests it can hold and release in any order,
+// and failure switches.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -9,9 +10,11 @@ import 'package:delphos_frontend/data/services/api_client.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'chat_session_fixtures.dart';
 import 'cluster_fixtures.dart';
 import 'dossier_fixtures.dart';
 import 'http_fakes.dart';
+import 'report_fixtures.dart';
 
 class FakePlayersBackend {
   FakePlayersBackend() {
@@ -42,6 +45,30 @@ class FakePlayersBackend {
 
   /// Optional custom SSE body returned by POST /chat when `chatUnavailable` is false.
   String? chatSseBody;
+
+  /// The report `GET /reports` lists for any player; none when `null`.
+  Map<String, Object?>? storedReport;
+
+  /// Answers POST /reports/generate with `source="llm"` instead of the
+  /// deterministic fallback while true.
+  bool reportFromModel = false;
+
+  /// Fails every /reports request with a 503 while true.
+  bool failReports = false;
+
+  /// The sessions `GET /chat/sessions` lists, newest first.
+  List<Map<String, Object?>> chatSessions = [];
+
+  /// The stored messages `GET /chat/sessions/{id}` returns, by session id; an
+  /// id with no entry answers 404.
+  final Map<String, List<Map<String, Object?>>> chatMessages = {};
+
+  /// A session's `total` when it is longer than the messages served.
+  final Map<String, int> chatMessageTotals = {};
+
+  /// Fails `GET /chat/sessions` and `GET /chat/sessions/{id}` with a 503
+  /// while true.
+  bool failChatSessions = false;
 
   final List<Completer<void>> _held = [];
 
@@ -75,6 +102,14 @@ class FakePlayersBackend {
         segments.last == 'replacements') {
       return problemResponse(404, 'Not Found', 'none');
     }
+    if (failReports && segments.firstOrNull == 'reports') {
+      return problemResponse(503, 'Service Unavailable', 'No active run');
+    }
+    if (segments.length >= 2 &&
+        segments.first == 'chat' &&
+        segments[1] == 'sessions') {
+      return _chatSessionsResponse(segments);
+    }
     if (segments.length == 1 && segments.first == 'chat') {
       if (chatUnavailable) {
         return problemResponse(
@@ -92,6 +127,11 @@ class FakePlayersBackend {
     }
     return jsonResponse(switch (segments) {
       ['clusters'] => clustersJson(),
+      ['reports'] => reportListJson([?storedReport]),
+      ['reports', 'generate'] => reportJson(
+        reportFromModel ? 'llm' : 'deterministic',
+        playerId: (jsonDecode(request.body) as Map)['player_id'] as int,
+      ),
       ['players', final id, 'replacements'] => replacementsJson(
         int.parse(id),
         count: replacementsCount,
@@ -100,6 +140,30 @@ class FakePlayersBackend {
       ['players', _] || ['players', _, _] => dossierJsonFor(request.url.path),
       _ => _pageJson(request.url.queryParameters),
     });
+  }
+
+  http.Response _chatSessionsResponse(List<String> segments) {
+    if (failChatSessions) {
+      return problemResponse(503, 'Service Unavailable', 'database down');
+    }
+    if (segments.length == 2) {
+      return jsonResponse({
+        'items': chatSessions,
+        'total': chatSessions.length,
+      });
+    }
+    final id = segments[2];
+    final messages = chatMessages[id];
+    if (messages == null) {
+      return problemResponse(404, 'Not Found', 'Chat session not found');
+    }
+    final title = [
+      for (final session in chatSessions)
+        if (session['id'] == id) session['title'] as String?,
+    ].firstOrNull;
+    return jsonResponse(
+      chatHistoryJson(id, messages, title: title, total: chatMessageTotals[id]),
+    );
   }
 
   Map<String, Object?> _pageJson(Map<String, String> params) {
