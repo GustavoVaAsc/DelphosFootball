@@ -18,6 +18,7 @@ List<ChatTurn> chatTurnsFromHistory(ChatSessionHistory history) {
         turns.last.assistantMessage == null) {
       turns[turns.length - 1] = turns.last.copyWith(
         assistantMessage: message.content,
+        players: message.players,
       );
     }
   }

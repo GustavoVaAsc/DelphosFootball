@@ -42,6 +42,7 @@ PROFILE_SEASON_FIELDS = (
 )
 CANDIDATE_FIELDS = (
     "rank",
+    "candidate_player_id",
     "candidate_name",
     "candidate_club_name",
     "similarity_score",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
@@ -457,3 +458,146 @@ async def test_post_chat_stream_serves_the_fallback_when_the_primary_is_unreacha
     assert "Respuesta del fallback." in response.text
     completions = [call for call in calls if call.url.path.endswith("/chat/completions")]
     assert [call.url.host for call in completions] == [FALLBACK_HOST]
+
+
+@pytest.mark.asyncio
+async def test_post_chat_stream_hydrates_referenced_players_and_persists_ids(
+    chat_client: AsyncClient, mock_db
+) -> None:
+    cur = mock_db.cursor.return_value.__aenter__.return_value
+    session_id = uuid4()
+    cur.fetchone.side_effect = [ACTIVE_RUN, {"id": session_id}, {"created_at": datetime.now(UTC)}]
+    raw_profile = {
+        "player_id": 100,
+        "name": "Lionel Messi",
+        "date_of_birth": "1987-06-24",
+        "country_of_citizenship": "Argentina",
+        "position": "Attack",
+        "sub_position": "Right Winger",
+        "club_name": "Inter Miami",
+        "cluster_id": 0,
+        "active_season": {"season": 2025, "goals": 20},
+    }
+    hydrated_row = {
+        "player_id": 100,
+        "name": "Lionel Messi",
+        "position": "Attack",
+        "sub_position": "Right Winger",
+        "country": "Argentina",
+        "image_url": "https://img.a.akamaihd.net/messi.jpg",
+        "club_id": 69261,
+        "league_id": "MLS1",
+        "club_name": "Inter Miami",
+        "market_value_eur": 25000000.0,
+        "fair_value_eur": 30000000.0,
+        "valuation_status": "undervalued",
+    }
+    cur.fetchall.return_value = [hydrated_row]
+    replies = [
+        completion('{"tool": "get_player_profile", "arguments": {"player_id": 100}}'),
+        completion("**Lionel Messi** destaca por su producción ofensiva."),
+    ]
+    seen_prompt_messages: list[str] = []
+
+    async def fake_completion(messages: list[dict], **kwargs: object) -> CompletionResult:
+        seen_prompt_messages.extend(str(m.get("content", "")) for m in messages)
+        return replies.pop(0)
+
+    with (
+        patch.object(chat_agent, "chat_completion", fake_completion),
+        patch(
+            "delphos_backend.services.chat_tool_players.get_player_profile",
+            new=AsyncMock(return_value=raw_profile),
+        ),
+    ):
+        response = await chat_client.post(
+            "/chat", json={"message": "perfil de Messi", "stream": True}
+        )
+
+    assert response.status_code == 200
+    assert all("akamaihd" not in prompt for prompt in seen_prompt_messages)
+    assert all("country_of_citizenship" not in prompt for prompt in seen_prompt_messages)
+
+    msg_data_line = next(
+        line[len("data: ") :]
+        for line in response.text.splitlines()
+        if line.startswith("data: ") and '"session_id"' in line
+    )
+    msg_payload = json.loads(msg_data_line)
+    assert len(msg_payload["players"]) == 1
+    assert msg_payload["players"][0]["player_id"] == 100
+    assert msg_payload["players"][0]["country"] == "Argentina"
+    assert (
+        msg_payload["players"][0]["club_logo_url"]
+        == "https://tmssl.akamaized.net/images/wappen/head/69261.png"
+    )
+    assert "country_of_citizenship" not in response.text
+
+    assistant_params = next(
+        call.args[1]
+        for call in cur.execute.call_args_list
+        if "INSERT INTO app.chat_messages" in str(call.args[0])
+        and "'assistant'" in str(call.args[0])
+    )
+    assert assistant_params[3] == [100]
+
+
+@pytest.mark.asyncio
+async def test_get_chat_session_hydrates_persisted_referenced_players(
+    client: AsyncClient, mock_db
+) -> None:
+    cur = mock_db.cursor.return_value.__aenter__.return_value
+    session_id = uuid4()
+    now = datetime(2026, 11, 20, 12, 0, tzinfo=UTC)
+    cur.fetchone.side_effect = [
+        {"id": session_id, "title": "Cubarsí", "created_at": now, "updated_at": now},
+        {"total": 2},
+        ACTIVE_RUN,
+    ]
+    cur.fetchall.side_effect = [
+        [
+            {
+                "id": uuid4(),
+                "session_id": session_id,
+                "role": "user",
+                "content": "Analiza a Cubarsí",
+                "model_run_id": "run_test_001",
+                "referenced_player_ids": [],
+                "created_at": now,
+            },
+            {
+                "id": uuid4(),
+                "session_id": session_id,
+                "role": "assistant",
+                "content": "**Pau Cubarsí** está infravalorado.",
+                "model_run_id": "run_test_001",
+                "referenced_player_ids": [20],
+                "created_at": now,
+            },
+        ],
+        [
+            {
+                "player_id": 20,
+                "name": "Pau Cubarsí",
+                "position": "Defender",
+                "sub_position": "Centre-Back",
+                "country": "Spain",
+                "image_url": "https://img.a.akamaihd.net/20.jpg",
+                "club_id": 131,
+                "league_id": "ES1",
+                "club_name": "FC Barcelona",
+                "market_value_eur": 70000000.0,
+                "fair_value_eur": 95000000.0,
+                "valuation_status": "undervalued",
+            }
+        ],
+    ]
+
+    response = await client.get(f"/chat/sessions/{session_id}")
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert items[0]["players"] == []
+    assert len(items[1]["players"]) == 1
+    assert items[1]["players"][0]["name"] == "Pau Cubarsí"
+    assert items[1]["players"][0]["league_id"] == "ES1"

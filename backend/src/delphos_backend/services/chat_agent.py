@@ -28,6 +28,7 @@ from delphos_backend.core.config import Settings
 from delphos_backend.services.chat_budget import build_messages, trim_to_budget
 from delphos_backend.services.chat_concurrency import llm_call_semaphore
 from delphos_backend.services.chat_conn import ConnectionFactory
+from delphos_backend.services.chat_player_refs import extract_referenced_player_ids
 from delphos_backend.services.chat_prompt import FALLBACK_ANSWER
 from delphos_backend.services.chat_protocol import (
     MALFORMED_CALL_ERROR,
@@ -100,12 +101,27 @@ async def stream_chat_turn(
         if call is None and not looks_like_tool_call(content):
             if not content:
                 raise InferenceError("el modelo devolvió una respuesta vacía")
-            yield ChatEvent("message", {"content": content, "tools_called": tools_called})
+            referenced_player_ids = extract_referenced_player_ids(content, names)
+            yield ChatEvent(
+                "message",
+                {
+                    "content": content,
+                    "tools_called": tools_called,
+                    "referenced_player_ids": referenced_player_ids,
+                },
+            )
             return
         messages.append({"role": "assistant", "content": content})
         retry_spent = malformed >= MAX_MALFORMED_RETRIES or max_iterations == 0
         if (call is None and retry_spent) or (call is not None and step >= max_iterations):
-            yield ChatEvent("message", {"content": FALLBACK_ANSWER, "tools_called": tools_called})
+            yield ChatEvent(
+                "message",
+                {
+                    "content": FALLBACK_ANSWER,
+                    "tools_called": tools_called,
+                    "referenced_player_ids": [],
+                },
+            )
             return
         if call is None:
             # A broken call is retried like a bad argument; its text is never an answer.

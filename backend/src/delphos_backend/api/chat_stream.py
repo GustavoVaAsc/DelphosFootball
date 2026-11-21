@@ -20,6 +20,7 @@ from fastapi.responses import StreamingResponse
 
 from delphos_backend.core.config import get_settings
 from delphos_backend.repositories.chat import save_exchange
+from delphos_backend.repositories.chat_players import hydrate_chat_players
 from delphos_backend.schemas.chat import ChatRequest
 from delphos_backend.services.chat_agent import stream_chat_turn
 from delphos_backend.services.chat_conn import ConnectionFactory
@@ -62,6 +63,7 @@ async def start_chat_stream(
                     yield _sse(current.type, current.data)
                     current = await anext(events)
                     continue
+                ref_ids = list(current.data.get("referenced_player_ids") or [])
                 async with conn_factory() as conn:
                     saved = await save_exchange(
                         conn,
@@ -69,7 +71,9 @@ async def start_chat_stream(
                         body.message,
                         current.data["content"],
                         run_id,
+                        referenced_player_ids=ref_ids,
                     )
+                    players = await hydrate_chat_players(conn, run_id, ref_ids)
                 yield _sse(
                     "message",
                     {
@@ -78,6 +82,7 @@ async def start_chat_stream(
                         "model_run_id": run_id,
                         "tools_called": current.data["tools_called"],
                         "created_at": saved["created_at"],
+                        "players": players,
                     },
                 )
                 return

@@ -27,6 +27,7 @@ from delphos_backend.core.db import get_pool
 from delphos_backend.repositories.active_run import get_active_model_run
 from delphos_backend.repositories.chat import get_session, save_exchange
 from delphos_backend.repositories.chat_messages import list_recent_messages
+from delphos_backend.repositories.chat_players import hydrate_chat_players
 from delphos_backend.schemas.chat import ChatRequest, ChatResponse
 from delphos_backend.services.chat_conn import ConnectionFactory
 from delphos_backend.services.chat_turn import run_chat_turn
@@ -92,11 +93,20 @@ async def chat(
             detail="Chat inference service unavailable",
         ) from exc
     async with conn_factory() as conn:
-        saved = await save_exchange(conn, body.session_id, body.message, turn.answer, run_id)
+        saved = await save_exchange(
+            conn,
+            body.session_id,
+            body.message,
+            turn.answer,
+            run_id,
+            referenced_player_ids=turn.referenced_player_ids,
+        )
+        players = await hydrate_chat_players(conn, run_id, turn.referenced_player_ids)
     return ChatResponse(
         session_id=saved["session_id"],
         message=turn.answer,
         model_run_id=run_id,
         tools_called=turn.tools_called,
         created_at=saved["created_at"],
+        players=players,
     )

@@ -31,6 +31,8 @@ class _ChatScreenState extends State<ChatScreen> {
   late final ChatViewModel _vm = context.read<ChatViewModel>();
   final TextEditingController _input = TextEditingController();
   final FocusNode _inputFocus = FocusNode(debugLabel: 'chat prompt input');
+  final ScrollController _scroll = ScrollController();
+  int _lastScrollKey = 0;
 
   @override
   void dispose() {
@@ -38,7 +40,30 @@ class _ChatScreenState extends State<ChatScreen> {
     _vm.sessions.close();
     _input.dispose();
     _inputFocus.dispose();
+    _scroll.dispose();
     super.dispose();
+  }
+
+  void _scheduleScrollToBottom(List<ChatTurn> turns) {
+    if (turns.isEmpty) {
+      _lastScrollKey = 0;
+      return;
+    }
+    final last = turns.last;
+    final key = Object.hash(
+      turns.length,
+      last.steps.length,
+      last.assistantMessage?.length,
+      last.players.length,
+      last.errorMessage?.length,
+      last.isStreaming,
+    );
+    if (key == _lastScrollKey) return;
+    _lastScrollKey = key;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      _scroll.jumpTo(_scroll.position.maxScrollExtent);
+    });
   }
 
   void _submit([String? override]) {
@@ -55,31 +80,46 @@ class _ChatScreenState extends State<ChatScreen> {
     _inputFocus.requestFocus();
   }
 
+  static Widget _compact(Widget child) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 880),
+      child: child,
+    ),
+  );
+
   /// The turns, or a note while a saved session loads or fails to load.
   Widget _body(List<ChatTurn> turns) {
     if (_vm.isRestoring) {
-      return const StatePanel(
-        title: 'Cargando la conversación…',
-        text: 'Recuperando los mensajes guardados.',
+      return _compact(
+        const StatePanel(
+          title: 'Cargando la conversación…',
+          text: 'Recuperando los mensajes guardados.',
+        ),
       );
     }
     if (_vm.restoreFailed) {
-      return StatePanel(
-        title: 'No se pudo abrir la conversación',
-        text: 'Inténtalo de nuevo o empieza una conversación nueva.',
-        action: ActionButton(label: 'Reintentar', onPressed: _vm.retryRestore),
+      return _compact(
+        StatePanel(
+          title: 'No se pudo abrir la conversación',
+          text: 'Inténtalo de nuevo o empieza una conversación nueva.',
+          action: ActionButton(
+            label: 'Reintentar',
+            onPressed: _vm.retryRestore,
+          ),
+        ),
       );
     }
     if (turns.isEmpty) {
-      return ChatEmptyState(onOpenCapabilities: _vm.openCapabilities);
+      return _compact(ChatEmptyState(onOpenCapabilities: _vm.openCapabilities));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: 14,
+      spacing: 20,
       children: [
         if (_vm.shownMessages case final shown?)
           Text(
             'Mostrando los últimos $shown mensajes',
+            textAlign: TextAlign.center,
             style: DelphosText.ui(
               size: TypeScale.secondary,
               color: DelphosColors.ink3,
@@ -102,6 +142,9 @@ class _ChatScreenState extends State<ChatScreen> {
       listenable: Listenable.merge([_vm, _vm.sessions]),
       builder: (context, _) {
         final turns = _vm.turns;
+        if (!_vm.isRestoring && !_vm.restoreFailed) {
+          _scheduleScrollToBottom(turns);
+        }
         return Stack(
           children: [
             Column(
@@ -117,10 +160,11 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: Stack(
                     children: [
                       SingleChildScrollView(
+                        controller: _scroll,
                         padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
                         child: Center(
                           child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 880),
+                            constraints: const BoxConstraints(maxWidth: 1360),
                             child: _body(turns),
                           ),
                         ),

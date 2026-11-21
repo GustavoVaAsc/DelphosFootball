@@ -16,8 +16,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from psycopg import AsyncConnection
 
 from delphos_backend.core.db import get_db
+from delphos_backend.repositories.active_run import get_active_model_run
 from delphos_backend.repositories.chat import get_session, list_sessions
 from delphos_backend.repositories.chat_messages import count_messages, list_messages
+from delphos_backend.repositories.chat_players import get_chat_players_by_ids
 from delphos_backend.schemas.chat import ChatHistoryResponse, ChatSessionListResponse
 
 router = APIRouter(tags=["Chat"])
@@ -48,6 +50,19 @@ async def get_chat_session_history(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat session not found")
     messages = await list_messages(conn, session_id, limit=limit, offset=offset)
     total = await count_messages(conn, session_id)
+    all_ref_ids = [
+        pid
+        for msg in messages
+        for pid in (msg.get("referenced_player_ids") or [])
+        if isinstance(pid, int) and pid > 0
+    ]
+    if all_ref_ids:
+        active_run = await get_active_model_run(conn)
+        if active_run:
+            by_id = await get_chat_players_by_ids(conn, active_run["model_run_id"], all_ref_ids)
+            for msg in messages:
+                msg_ids = msg.get("referenced_player_ids") or []
+                msg["players"] = [by_id[pid] for pid in msg_ids if pid in by_id]
     return ChatHistoryResponse(
         session_id=session["id"],
         title=session.get("title"),

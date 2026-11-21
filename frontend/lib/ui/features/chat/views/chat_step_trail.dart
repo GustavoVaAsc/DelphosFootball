@@ -1,5 +1,6 @@
 /// Progress trail showing what the scouting assistant consulted. It has no
-/// border or ground: the turn card around it is the only card.
+/// border or ground: the assistant bubble around it is the only bordered
+/// container.
 library;
 
 import 'package:flutter/widgets.dart';

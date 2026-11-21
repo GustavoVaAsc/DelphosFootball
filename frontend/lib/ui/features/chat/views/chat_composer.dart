@@ -36,7 +36,7 @@ class ChatComposer extends StatelessWidget {
       ),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 880),
+          constraints: const BoxConstraints(maxWidth: 1360),
           child: Row(
             spacing: 12,
             children: [

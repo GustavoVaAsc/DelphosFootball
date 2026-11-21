@@ -19,11 +19,13 @@ Map<String, Object?> chatMessageJson(
   String role,
   String content, {
   int n = 0,
+  List<Map<String, Object?>>? players,
 }) => {
   'id': '00000000-0000-4000-8000-${n.toString().padLeft(12, '0')}',
   'role': role,
   'content': content,
   'created_at': '2026-11-10T09:0$n:00Z',
+  'players': ?players,
 };
 
 /// `GET /chat/sessions/{id}` for [items], with [total] when it differs.

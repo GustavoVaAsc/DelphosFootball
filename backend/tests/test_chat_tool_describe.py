@@ -39,20 +39,20 @@ CASES: list[tuple[str, object, str]] = [
             "cluster_id": 2,
             "sort_by": "market_value",
         },
-        "Buscando defensas centrales con valor justo del arquetipo Ancla Defensiva, "
+        "Buscando defensas centrales con valor justo del arquetipo Titular de Liga, "
         "ordenados por valor de mercado…",
     ),
     (
         "search_players",
         {"position": "Midfield", "cluster_id": 1, "name": "Mbappé", "sort_by": "overvaluation"},
-        "Buscando jugadores en Mediocampo del arquetipo Box-to-Box que coinciden con "
+        "Buscando jugadores en Mediocampo del arquetipo Rotación y Copas que coinciden con "
         "«Mbappé», ordenados por sobrevaloración…",
     ),
     ("get_player_profile", {"player_id": 7}, f"Consultando el perfil {UNKNOWN_DE}…"),
     ("get_player_valuation", {"player_id": 7}, f"Revisando la valoración {UNKNOWN_DE}…"),
     ("get_player_replacements", {"player_id": 7}, f"Evaluando reemplazos para {UNKNOWN_PLAYER}…"),
     ("get_cluster_summary", {}, "Consultando los arquetipos tácticos…"),
-    ("get_cluster_summary", {"cluster_id": 2}, "Consultando el arquetipo táctico Ancla Defensiva…"),
+    ("get_cluster_summary", {"cluster_id": 2}, "Consultando el arquetipo táctico Titular de Liga…"),
 ]
 INVALID_CASES: list[tuple[str, object]] = [
     ("search_players", {"position": "Goalie"}),

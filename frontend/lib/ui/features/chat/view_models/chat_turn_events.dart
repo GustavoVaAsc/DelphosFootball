@@ -3,6 +3,7 @@
 /// state and streaming.
 library;
 
+import '../../../../data/models/chat_referenced_player_dto.dart';
 import '../../../../data/models/chat_sse_event.dart';
 import '../../../../domain/models/chat_tool_step.dart';
 import '../../../../domain/models/chat_turn.dart';
@@ -39,6 +40,7 @@ ChatTurn applyChatEvent(
       return turn.copyWith(
         steps: [for (final s in steps) s.settled(failed: false)],
         assistantMessage: event.data['message'] as String? ?? '',
+        players: ChatReferencedPlayerDto.parseList(event.data['players']),
         isStreaming: false,
       );
     case 'error':

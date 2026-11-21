@@ -15,7 +15,7 @@ from uuid import UUID
 
 from psycopg import AsyncConnection
 
-MESSAGE_COLUMNS = "id, session_id, role, content, model_run_id, created_at"
+MESSAGE_COLUMNS = "id, session_id, role, content, model_run_id, referenced_player_ids, created_at"
 
 
 async def list_messages(

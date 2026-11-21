@@ -10,7 +10,7 @@ InferenceError; the caller maps it to a problem response.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from delphos_backend.core.config import Settings
@@ -25,6 +25,7 @@ class ChatTurn:
 
     answer: str
     tools_called: list[str]
+    referenced_player_ids: list[int] = field(default_factory=list)
 
 
 async def run_chat_turn(
@@ -37,11 +38,17 @@ async def run_chat_turn(
     """Consume the event stream to completion for the non-streaming path."""
     answer = ""
     tools_called: list[str] = []
+    referenced_player_ids: list[int] = []
     async for event in stream_chat_turn(conn_factory, run_id, question, history, settings):
         if event.type == "message":
             answer = event.data["content"]
             tools_called = event.data["tools_called"]
+            referenced_player_ids = list(event.data.get("referenced_player_ids") or [])
     if not answer:
         # An empty turn is a failure: it is never persisted as a successful exchange.
         raise InferenceError("el modelo no devolvió ninguna respuesta")
-    return ChatTurn(answer=answer, tools_called=tools_called)
+    return ChatTurn(
+        answer=answer,
+        tools_called=tools_called,
+        referenced_player_ids=referenced_player_ids,
+    )

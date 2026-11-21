@@ -40,6 +40,23 @@ class ChatRequest(BaseModel):
         return stripped
 
 
+class ChatReferencedPlayer(BaseModel):
+    """Visual player card hydrated deterministically outside the LLM prompt."""
+
+    player_id: int
+    name: str
+    position: str | None = None
+    sub_position: str | None = None
+    country: str | None = None
+    club_name: str | None = None
+    club_logo_url: str | None = None
+    league_id: str | None = None
+    image_url: str | None = None
+    market_value_eur: float | None = None
+    fair_value_eur: float | None = None
+    valuation_status: str | None = None
+
+
 class ChatMessage(BaseModel):
     """One persisted exchange row from app.chat_messages."""
 
@@ -47,6 +64,7 @@ class ChatMessage(BaseModel):
     role: str
     content: str
     created_at: datetime
+    players: list[ChatReferencedPlayer] = Field(default_factory=list)
 
 
 class ChatResponse(BaseModel):
@@ -57,6 +75,7 @@ class ChatResponse(BaseModel):
     model_run_id: str
     tools_called: list[str] = Field(default_factory=list)
     created_at: datetime
+    players: list[ChatReferencedPlayer] = Field(default_factory=list)
 
 
 class ChatSession(BaseModel):

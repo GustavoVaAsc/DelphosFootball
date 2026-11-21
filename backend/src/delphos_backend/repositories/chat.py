@@ -56,6 +56,7 @@ async def save_exchange(
     user_content: str,
     assistant_content: str,
     model_run_id: str,
+    referenced_player_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     """Persist a complete exchange (user + assistant) in one commit.
 
@@ -67,6 +68,9 @@ async def save_exchange(
     """
     stamp = datetime.now(UTC)
     stored_user_content = user_content[:MAX_MESSAGE_CHARS]
+    stored_player_ids = [
+        pid for pid in (referenced_player_ids or []) if isinstance(pid, int) and pid > 0
+    ]
     async with conn.cursor() as cur:
         if session_id is None:
             await cur.execute(
@@ -89,11 +93,19 @@ async def save_exchange(
         )
         await cur.execute(
             """
-            INSERT INTO app.chat_messages (session_id, role, content, model_run_id, created_at)
-            VALUES (%s, 'assistant', %s, %s, %s)
+            INSERT INTO app.chat_messages (
+                session_id, role, content, model_run_id, referenced_player_ids, created_at
+            )
+            VALUES (%s, 'assistant', %s, %s, %s, %s)
             RETURNING created_at;
             """,
-            (session_id, assistant_content, model_run_id, stamp + timedelta(microseconds=1)),
+            (
+                session_id,
+                assistant_content,
+                model_run_id,
+                stored_player_ids,
+                stamp + timedelta(microseconds=1),
+            ),
         )
         message_row = await cur.fetchone()
     await conn.commit()

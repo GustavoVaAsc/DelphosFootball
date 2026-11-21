@@ -266,7 +266,7 @@ async def test_cluster_summary_filters_and_labels(mock_db: MagicMock) -> None:
 
     assert payload["total"] == 1
     assert payload["clusters"][0]["cluster_id"] == 1
-    assert payload["clusters"][0]["cluster_label"] == "Box-to-Box"
+    assert payload["clusters"][0]["cluster_label"] == "Rotación y Copas"
 
 
 @pytest.mark.asyncio

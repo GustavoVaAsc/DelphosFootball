@@ -35,7 +35,20 @@ def remember_player_names(payload: dict[str, Any], names: dict[int, str]) -> Non
     for key in ("profile", "valuation"):
         if isinstance(payload.get(key), dict):
             rows.append(payload[key])
-    rows.append({"player_id": payload.get("player_id"), "name": payload.get("target_name")})
+    rows.append(
+        {
+            "player_id": payload.get("target_player_id") or payload.get("player_id"),
+            "name": payload.get("target_name"),
+        }
+    )
+    for cand in payload.get("replacements") or []:
+        if isinstance(cand, dict):
+            rows.append(
+                {
+                    "player_id": cand.get("candidate_player_id"),
+                    "name": cand.get("candidate_name"),
+                }
+            )
     for row in rows:
         if not isinstance(row, dict):
             continue
