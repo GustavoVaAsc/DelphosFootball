@@ -70,9 +70,9 @@ VALUATION_STATUS_LABELS: dict[str, str] = {
 # Approved product copy; do not reword without a product decision.
 # Cluster ids are integers in the data; the value is (short name, full archetype name).
 CLUSTER_LABELS: dict[int, tuple[str, str]] = {
-    0: ("Creador Ofensivo", "Creadores Ofensivos y Finalizadores"),
-    1: ("Box-to-Box", "Todocampistas Box-to-Box y Carrileros"),
-    2: ("Ancla Defensiva", "Anclas Defensivas y Especialistas de Contención"),
+    0: ("Titular Europeo", "Titulares de Élite y Exposición Europea"),
+    1: ("Rotación y Copas", "Perfiles de Rotación y Copas Nacionales"),
+    2: ("Titular de Liga", "Titulares Regulares de Liga Doméstica"),
 }
 
 

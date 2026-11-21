@@ -88,7 +88,7 @@ def test_spanish_labels_replace_raw_english() -> None:
     assert facts["sub_position"] == {"value": "Right Winger", "display": "Extremo Derecho"}
     assert facts["league_id"] == {"value": "ES1", "display": "LaLiga"}
     assert facts["valuation_status"] == {"value": "undervalued", "display": "Infravalorado"}
-    assert facts["cluster_id"] == {"value": 0, "display": "Creador Ofensivo"}
+    assert facts["cluster_id"] == {"value": 0, "display": "Titular Europeo"}
     candidates = card["replacements"]
     assert candidates[0]["candidate_valuation_status"]["display"] == "Infravalorado"
     assert candidates[1]["candidate_valuation_status"]["display"] == "Valor Justo"

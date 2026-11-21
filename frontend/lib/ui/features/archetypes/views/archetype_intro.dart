@@ -47,9 +47,10 @@ class ArchetypeIntro extends StatelessWidget {
                 ),
               ),
               Text(
-                'Clasificación de los ${formatNumber(overview.totalPlayers)} '
-                'jugadores de campo europeos en tres perfiles según su '
-                'producción estadística por 90 minutos.',
+                'Agrupamiento K-Means (k = 3, escalado robusto) de los '
+                '${formatNumber(overview.totalPlayers)} jugadores de campo '
+                'europeos según volumen de minutos, titularidades, exposición '
+                'competitiva y tasas suavizadas por 90 minutos.',
                 style: DelphosText.ui(color: DelphosColors.ink2),
               ),
             ],

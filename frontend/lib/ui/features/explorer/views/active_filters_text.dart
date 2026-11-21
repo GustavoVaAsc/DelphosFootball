@@ -1,5 +1,5 @@
 /// The empty state's list of active filters (DESIGN.md §7: "Filtros
-/// activos: estado En precio · arquetipo Ancla Defensiva."), in the order
+/// activos: estado En precio · arquetipo Titular de Liga."), in the order
 /// of the preview: search, status, position, archetype.
 library;
 

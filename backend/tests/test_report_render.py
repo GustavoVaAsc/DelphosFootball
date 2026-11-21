@@ -32,7 +32,7 @@ POSITIVE_P2 = (
 )
 POSITIVE_P3 = (
     "<p><strong>Alternativas de Mercado:</strong> Dentro del perfil "
-    "<em>Creador Ofensivo</em>, destacan como opciones de reemplazo rentable: "
+    "<em>Titular Europeo</em>, destacan como opciones de reemplazo rentable: "
     "<strong>Jonathan David</strong> (LOSC Lille, ahorra €4.0M / -16%), "
     "<strong>Serhou Guirassy</strong> (Borussia Dortmund, ahorra €3.5M / -22%).</p>"
 )
@@ -81,7 +81,7 @@ def test_zero_qualifying_replacements_renders_sensible_sentence() -> None:
     html = render_deterministic_report(_empty_card())
     expected_p3 = (
         "<p><strong>Alternativas de Mercado:</strong> Dentro del perfil "
-        "<em>Creador Ofensivo</em>, no se identificaron alternativas de reemplazo "
+        "<em>Titular Europeo</em>, no se identificaron alternativas de reemplazo "
         "rentable: no hay pares por debajo del techo de precio (0 pares cualificados).</p>"
     )
 

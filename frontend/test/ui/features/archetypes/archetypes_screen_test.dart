@@ -21,8 +21,9 @@ void main() {
     await pumpAppAt(tester, '/arquetipos');
     expect(
       find.text(
-        'Clasificación de los 5.522 jugadores de campo europeos en tres '
-        'perfiles según su producción estadística por 90 minutos.',
+        'Agrupamiento K-Means (k = 3, escalado robusto) de los 5.522 jugadores '
+        'de campo europeos según volumen de minutos, titularidades, '
+        'exposición competitiva y tasas suavizadas por 90 minutos.',
       ),
       findsOneWidget,
     );
@@ -82,9 +83,15 @@ void main() {
     tester,
   ) async {
     await pumpAppAt(tester, '/arquetipos');
-    expect(find.text('Creadores Ofensivos y Finalizadores'), findsOneWidget);
+    expect(
+      find.text('Titulares de Élite y Exposición Europea'),
+      findsOneWidget,
+    );
     expect(find.text('1.219 jugadores'), findsOneWidget);
-    expect(find.textContaining('Delanteros, extremos'), findsOneWidget);
+    expect(
+      find.textContaining('Titulares consolidados en clubes'),
+      findsOneWidget,
+    );
     final tops = tester
         .widgetList(find.byType(ArchetypePitch))
         .map((w) => tester.getTopLeft(find.byWidget(w)).dy)
@@ -93,19 +100,17 @@ void main() {
     expect(find.text('Valor promedio'), findsNWidgets(3));
   });
 
-  testWidgets('each pitch keeps a real aspect ratio, not the card width', (
+  testWidgets('each card diagram shows competition shares and starter rate', (
     tester,
   ) async {
     await pumpAppAt(tester, '/arquetipos');
-    for (final pitch in find.byType(ArchetypePitch).evaluate()) {
-      final drawing = find.descendant(
-        of: find.byWidget(pitch.widget),
-        matching: find.byType(CustomPaint),
-      );
-      final size = tester.getSize(drawing.first);
-      expect(size.width / size.height, closeTo(105 / 68, 0.05));
-      expect(size.width, lessThanOrEqualTo(264));
-    }
+    expect(find.text('Reparto de minutos por competición'), findsNWidgets(3));
+    expect(find.text('Tasa de titularidad'), findsNWidgets(3));
+    expect(find.text('UEFA 27%'), findsOneWidget);
+    expect(find.text('Copas 45%'), findsOneWidget);
+    expect(find.text('Liga 94%'), findsOneWidget);
+    expect(find.text('72%'), findsNWidgets(2));
+    expect(find.text('52%'), findsOneWidget);
   });
 
   testWidgets('the cards stagger on the first load only', (tester) async {

@@ -1,63 +1,160 @@
-/// The pitch banner of an archetype card (DESIGN.md §1 and §4): the shared
-/// `PitchPainter` in its banner variant (every marking of the reference
-/// pitch, goals outside the goal lines), the archetype's zone in ink at 16%
-/// with an ink outline, and three ink player dots. The pitch keeps a real
-/// 105:68 aspect ratio, centred on its ground at a capped width, instead of
-/// stretching to the card. No zone hues.
+/// The competitive-exposure profile chart of an archetype card (DESIGN.md §1
+/// and §4): empirical 2025 K-Means cluster shares of minutes across Liga, UEFA
+/// and Copas plus starter rate, rendered with ink tones on `--surface-subtle`.
 library;
 
 import 'package:flutter/widgets.dart';
 
 import '../../../core/theme/delphos_colors.dart';
 import '../../../core/theme/delphos_radius.dart';
-import '../../../core/widgets/pitch_painter.dart';
+import '../../../core/theme/delphos_text.dart';
+import '../../../core/theme/type_scale.dart';
 
-/// The banner for one archetype. Decorative: the card's text says the same.
+/// Competitive exposure and starter rate summary for one K-Means archetype.
 class ArchetypePitch extends StatelessWidget {
   const ArchetypePitch({super.key, required this.clusterId});
 
   final int clusterId;
 
-  /// The widest the drawing grows, so it stays a diagram and not a poster.
-  static const double _maxWidth = 264;
+  // 2025 test-cohort empirical cluster shares (Liga, UEFA, Copas, starter %)
+  // paired by `clusterId`, since `GET /clusters` omits competition splits.
+  static const Map<int, (int, int, int, int)> _profiles = {
+    0: (68, 27, 5, 72),
+    1: (54, 1, 45, 52),
+    2: (94, 1, 5, 72),
+  };
 
   @override
   Widget build(BuildContext context) {
-    final (zone, players) = _layouts[clusterId] ?? _layouts[2]!;
-    return ExcludeSemantics(
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: DelphosColors.surfaceSubtle,
-          borderRadius: BorderRadius.circular(DelphosRadius.inset),
-        ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _maxWidth),
-          child: AspectRatio(
-            aspectRatio: 240 / 155,
-            child: CustomPaint(painter: PitchPainter.banner(zone, players)),
+    final (leaguePct, uefaPct, cupPct, starterPct) =
+        _profiles[clusterId] ?? _profiles[2]!;
+    final headingStyle = DelphosText.ui(
+      size: TypeScale.label,
+      weight: FontWeight.w500,
+      color: DelphosColors.ink3,
+      height: 1.2,
+    );
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: DelphosColors.surfaceSubtle,
+        borderRadius: BorderRadius.circular(DelphosRadius.inset),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 12,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 8,
+            children: [
+              Text('Reparto de minutos por competición', style: headingStyle),
+              _bar(
+                height: 10,
+                gap: 2,
+                segments: [
+                  (leaguePct, DelphosColors.ink),
+                  (uefaPct, DelphosColors.ink2),
+                  (cupPct, DelphosColors.controlBorder),
+                ],
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _legendItem('Liga $leaguePct%', DelphosColors.ink),
+                  _legendItem('UEFA $uefaPct%', DelphosColors.ink2),
+                  _legendItem('Copas $cupPct%', DelphosColors.controlBorder),
+                ],
+              ),
+            ],
           ),
-        ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 6,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Tasa de titularidad', style: headingStyle),
+                  Text(
+                    '$starterPct%',
+                    style: DelphosText.ui(
+                      size: TypeScale.secondary,
+                      weight: FontWeight.w600,
+                      color: DelphosColors.ink,
+                      tabular: true,
+                    ),
+                  ),
+                ],
+              ),
+              _bar(
+                height: 8,
+                gap: 0,
+                background: DelphosColors.surfaceMuted,
+                segments: [
+                  (starterPct, DelphosColors.ink),
+                  (100 - starterPct, null),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  /// Zone (x, y, w, h) and player dots (x, y, r) in the painter's 240 x 155
-  /// design box, where the pitch spans x 6.5 to 233.5 and y 4 to 151: the
-  /// preview's `CLUSTER_PITCH_LAYOUTS` re-mapped onto that pitch.
-  static const Map<int, (Rect, List<(double, double, double)>)> _layouts = {
-    0: (
-      Rect.fromLTWH(147.5, 18, 80, 119),
-      [(193, 77.5, 5), (171, 39, 4), (171, 116, 4)],
+  Widget _bar({
+    required double height,
+    required double gap,
+    required List<(int, Color?)> segments,
+    Color? background,
+  }) => ExcludeSemantics(
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(DelphosRadius.small),
+      child: SizedBox(
+        height: height,
+        child: ColoredBox(
+          color: background ?? const Color(0x00000000),
+          child: Row(
+            spacing: gap,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (flex, tone) in segments)
+                Expanded(
+                  flex: flex,
+                  child: tone == null
+                      ? const SizedBox.expand()
+                      : ColoredBox(color: tone),
+                ),
+            ],
+          ),
+        ),
+      ),
     ),
-    1: (
-      Rect.fromLTWH(69, 14.5, 102, 126),
-      [(120, 77.5, 5), (105, 32, 4), (135, 123, 4)],
-    ),
-    2: (
-      Rect.fromLTWH(12.5, 21.5, 86, 112),
-      [(43.5, 56.5, 4.5), (43.5, 98.5, 4.5), (76.5, 77.5, 4.5)],
-    ),
-  };
+  );
+
+  Widget _legendItem(String label, Color tone) => Row(
+    mainAxisSize: MainAxisSize.min,
+    spacing: 5,
+    children: [
+      ExcludeSemantics(
+        child: Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            color: tone,
+            borderRadius: BorderRadius.circular(DelphosRadius.hairline),
+          ),
+        ),
+      ),
+      Text(
+        label,
+        style: DelphosText.ui(
+          size: TypeScale.secondary,
+          color: DelphosColors.ink2,
+          tabular: true,
+        ),
+      ),
+    ],
+  );
 }

@@ -4,28 +4,31 @@
 library;
 
 const Map<int, (String, String)> _archetypes = {
-  0: ('Creador Ofensivo', 'Creadores Ofensivos y Finalizadores'),
-  1: ('Box-to-Box', 'Todocampistas Box-to-Box y Carrileros'),
-  2: ('Ancla Defensiva', 'Anclas Defensivas y Especialistas de Contención'),
+  0: ('Titular Europeo', 'Titulares de Élite y Exposición Europea'),
+  1: ('Rotación y Copas', 'Perfiles de Rotación y Copas Nacionales'),
+  2: ('Titular de Liga', 'Titulares Regulares de Liga Doméstica'),
 };
 
-/// The short name ("Creador Ofensivo"), or `null` for an unknown cluster.
+/// The short name ("Titular Europeo"), or `null` for an unknown cluster.
 String? archetypeShortName(int? clusterId) => _archetypes[clusterId]?.$1;
 
-/// The long name ("Creadores Ofensivos y Finalizadores"), or `null`.
+/// The long name ("Titulares de Élite y Exposición Europea"), or `null`.
 String? archetypeLongName(int? clusterId) => _archetypes[clusterId]?.$2;
 
-/// One sentence on who an archetype groups, as the design preview's
-/// `es_desc` (app copy keyed by `cluster_id`), or `null` when unknown.
+/// One sentence on who a K-Means cluster groups by competitive exposure and
+/// match volume, or `null` when unknown.
 String? archetypeDescription(int? clusterId) => switch (clusterId) {
   0 =>
-    'Delanteros, extremos y mediapuntas con alta producción de goles y '
-        'asistencias por partido y peso determinante en el último tercio.',
+    'Titulares consolidados en clubes con participación habitual en torneos '
+        'UEFA (27% de sus minutos), alto volumen de juego (2.148\' promedio) '
+        'y máxima producción ofensiva por 90 minutos.',
   1 =>
-    'Mediocampistas interiores, volantes de recorrido y laterales de '
-        'proyección con equilibrio entre despliegue físico, apoyo y transición.',
+    'Jugadores de rotación y recambio con fuerte proporción de minutos en '
+        'copas domésticas (45%), menor minutaje anual (687\' promedio) y rol '
+        'de apoyo táctico.',
   2 =>
-    'Defensas centrales, pivotes posicionales y zagueros cuyo valor radica '
-        'en sostener porterías imbatidas y minimizar goles recibidos.',
+    'Base de titulares habituales en sus ligas nacionales (72% de titularidad '
+        'y 1.536\' promedio) con actividad concentrada casi por completo en el '
+        'torneo local.',
   _ => null,
 };

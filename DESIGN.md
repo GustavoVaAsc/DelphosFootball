@@ -7,12 +7,12 @@
 - **Mood**: Printed match-day report. Ink on warm paper, figures set like a scoreboard, colour only where money moves. Every label uses natural football terminology in executive Spanish; no API routes, no SQL column identifiers, no debug text appear in the interface.
 - **Why these choices**:
   - Colour: warm paper and navy ink read as editorial sports press; green and red are kept for the one question the product answers (is this player cheap or expensive), so they stay legible as signals.
-  - Type: a condensed grotesque for names and euro figures echoes kit numbers and scoreboards and fits long names in narrow columns; a serif for the chat assistant's answers separates the written answer from the data.
+  - Type: a condensed grotesque for names and euro figures echoes kit numbers and scoreboards and fits long names in narrow columns; a serif for stored scouting reports separates long-form dossier prose from the UI tables and chat bubbles.
   - Layout: the list is the default view, and the dossier opens on demand, so the table has the full width for scanning.
   - Cards: flat bordered containers, one level deep, because the content is tables and figures, not objects that float.
 - **Football identity signals**:
-  - Mini pitch glyph (`36x24px`) per table row, marking the player's zone (`Ataque`, `Mediocampo`, `Defensa`). One pitch drawing, shared with the view 3 banners: a horizontal `105:68` pitch seen from above with the outline, halfway line, centre circle, both penalty areas, both goal areas and the goals drawn outside the goal lines. Pitch lines in neutral warm grey; the zone filled in ink at low opacity with an ink outline. No zone hues: the zone's position on the pitch already carries the meaning. At `36x24px` the glyph drops what would render as sub-pixel noise (centre and penalty spots, penalty arcs, corner arcs) and keeps the rest.
-  - Archetype pitch banners in view 3, drawn with the same pitch at full detail (spots, penalty arcs and corner arcs included), at its real aspect ratio.
+  - Mini pitch glyph (`36x24px`) per table row, marking the player's zone (`Ataque`, `Mediocampo`, `Defensa`). A horizontal `105:68` pitch seen from above with the outline, halfway line, centre circle, both penalty areas, both goal areas and the goals drawn outside the goal lines. Pitch lines in neutral warm grey; the zone filled in ink at low opacity with an ink outline. No zone hues: the zone's position on the pitch already carries the meaning. At `36x24px` the glyph drops what would render as sub-pixel noise (centre and penalty spots, penalty arcs, corner arcs) and keeps the rest.
+  - Archetype exposure profiles in view 3, displaying empirical competition-minute shares (`Liga`, `UEFA`, `Copas`) and `Tasa de titularidad` in ink tones on a `--surface-subtle` ground instead of positional pitch zones.
   - Badge hierarchy: player portrait (`44x44px` in table, `64x64px` in dossier) + club crest (`club_logo_url`) + nationality flag (`<img>` from FlagCDN) + preferred foot (`Diestro`, `Zurdo`, `Ambidiestro`). The crest is a `20px` disc over the portrait in the table; in the dossier it is a `28px` crest with no disc, inline before the club name, and the league logo (`28px`) sits inline before the league name. Valuation status has no badge: it is plain coloured text (§2).
 
 ## 2. Colour palette and roles
@@ -53,7 +53,7 @@ Rules:
 - **Archivo** (Google Fonts, variable, `wdth 62..125`, `wght 100..900`):
   - Condensed cut (`font-stretch: 80%`) for player names and every euro figure, with `font-variant-numeric: tabular-nums`. Reason: scoreboard and kit-number voice, and long names fit narrow columns.
   - Normal width for UI text (labels, controls, table body, navigation).
-- **Source Serif 4** for PitIA's scouting answers (`ChatAnswer`), `15px`, line-height `1.55`, `68ch` max measure. Reason: a written answer reads as prose, apart from the data. The dossier's Resumen prose (`ReportProse`) uses the same style.
+- **Source Serif 4** for stored dossier scouting reports (`ReportProse`), `16px` (`15px` in preview), line-height `1.55`. **Source Sans 3** for PitIA's chat answers (`ChatAnswer`), `14px`, line-height `1.55`, `96ch` max measure, matching the UI voice and wider width of the conversation bubbles.
 - **Numeric discipline**: tabular numerals on every euro value, percentage, age and match statistic.
 - **Scale** (only these six sizes): `11 / 12 / 13 / 15 / 20 / 28` px.
   - `28`: reserved for the two dossier valuation figures (market price and estimate).
@@ -63,7 +63,7 @@ Rules:
   - `12`: secondary lines, status words, labels, buttons, footers.
   - `11`: stat labels and axis labels only.
 - **Case**: Spanish sentence case everywhere ("Precio de mercado", "Ahorro estimado"), except proper nouns and module names (`Explorador de Mercado`, `Comparador Moneyball`, `Arquetipos Tácticos`). No wide-tracked uppercase labels.
-  - Archetype names, short and long ("Creador Ofensivo", "Creadores Ofensivos y Finalizadores"), are proper names published by the clustering stage and keep their capitalisation.
+  - Archetype short labels ("Titular Europeo", "Rotación y Copas", "Titular de Liga") and long card headings ("Titulares de Élite y Exposición Europea", "Perfiles de Rotación y Copas Nacionales", "Titulares Regulares de Liga Doméstica") reflect the empirical K-Means (`k = 3`, `RobustScaler`) competitive-exposure grouping and keep their capitalisation as proper labels from `delphos_domain`.
 - **Vocabulary**:
   - The model's estimate (`fair_value_eur`) is "Valor estimado". Never "Valor justo".
   - Statuses (`valuation_status`) are "Infravalorado", "En precio", "Sobrevalorado", identical in the table, filters and comparator.
@@ -90,7 +90,7 @@ Rules:
 - **Market table (ledger)**: columns `Jugador | Edad | Posición | Mercado | Valor estimado | Brecha`.
   - Row padding `10px 14px`: 10px vertical and 14px at the row edges; 16px between columns (8px per cell side) so six columns fit at 1440.
   - Fixed widths `48 / 142 / 76 / 100 / 112px` for Edad, Posición, Mercado, Valor estimado and Brecha with the dossier open. Brecha has no pill padding to make room for: it fits the widest status word ("Sobrevalorado", `82px` in `12px` Archivo semi-bold) plus the cell's 8px and 14px edges, with 8px to spare. With it closed, Posición widens to `180px` so the longest sub-position ("Extremo izquierdo") fits on one line next to the glyph. Jugador takes the rest. No header wraps at 1440.
-  - Jugador: `44x44px` portrait with a `20x20px` crest; then three lines: name, flag + club, archetype as plain muted text (`Creador Ofensivo`, `Box-to-Box`, `Ancla Defensiva`, as published by the clustering stage). Club and archetype do not share a line: together they need up to 226px and the column has about 140px with the dossier open, so a shared line would wrap unevenly.
+  - Jugador: `44x44px` portrait with a `20x20px` crest; then three lines: name, flag + club, archetype as plain muted text (`Titular Europeo`, `Rotación y Copas`, `Titular de Liga`, as published by the clustering stage). Club and archetype do not share a line: together they need up to 226px and the column has about 140px with the dossier open, so a shared line would wrap unevenly.
   - The player name is a real `<button>` styled as text, with `aria-expanded`. The row stays a table row, so screen readers read its cells, and a click anywhere on it is a mouse shortcut. A visually hidden status line announces "Ficha de {nombre} abierta" or "Ficha cerrada" instead of re-reading the panel.
   - Flags: a country with no flag mapping shows no flag, never a stand-in such as the EU flag. Country names in alt text and tooltips are in Spanish.
   - Edad in whole years. Posición: pitch glyph + sub-position (the broad line is in a tooltip; the glyph already shows it).
@@ -122,11 +122,13 @@ Rules:
   - Player selector above the table. No report here: the Resumen is in the dossier.
 - **Arquetipos Tácticos**:
   - Intro card with one stacked share bar: player count and share of the total per archetype, legend aligned under each segment.
-  - Three cards share row tracks through CSS subgrid (top line, title block, pitch, metrics, representative players, link), so the pitch diagrams and lists align whatever the title length.
-  - The pitch banner is the shared pitch drawing (§1) at a real `105:68` aspect ratio (`240:155` with the goals and a stroke margin), centred on a `--surface-subtle` ground and capped at `264px` wide, never stretched to the card's width. The three cards have the same width, so their pitches have the same height and the rows stay aligned.
+  - Three cards share row tracks through CSS subgrid (top line, title block, exposure profile diagram, metrics, representative players, link), so all cards keep the same height and rows stay aligned.
+  - The exposure profile diagram replaces the old positional pitch diagram and shows two empirical metrics on a `--surface-subtle` ground (`DelphosRadius.inset`): a stacked bar for competition-minute shares (`Reparto de minutos por competición`: `Liga`, `UEFA`, `Copas` in `--ink`, `--ink-2`, `--control-border`) and a horizontal progress bar for `Tasa de titularidad`.
   - Metrics use one word: "Valor promedio", "Minutos promedio", "Goles promedio", "Asistencias promedio".
   - Representative players as a compact list of text links (flag and name on the left, price on the right, hairlines between rows). One quiet text link per card: "Ver en el explorador".
 - **PitIA** (`/chat`, a module page like the others): the chat about the results.
+  - Each turn splits into two conversation bubbles: the user prompt right-aligned on `--ink` with white `Source Sans 3` text (`14px`), and PitIA's reply left-aligned beside a circular `"P"` monogram badge and `"PitIA"` label inside one `--surface` bubble (`1px solid --rule`) that holds the step trail, hairline divider, formatted Markdown answer (headings, bullet and numbered lists, paragraphs, bold and italic runs), referenced player rows and/or retry error with no nested boxes.
+  - When PitIA's answer mentions players retrieved during the turn, up to 5 compact clickable rows ("Jugadores mencionados") sit below a hairline inside the assistant bubble — never inside the LLM prompt — showing the 38px portrait + 16px club crest, name, Spanish flag, 14px league logo, club + position, market price and valuation status; activating a row opens that player's dossier in the explorer.
   - Before the first event the label reads "Analizando tu petición…". While the turn runs, each tool step shows the server's sentence with a dot while it runs, a check when it is done and a cross when it failed; a failed step reads "No se pudo completar". Between results the label reads "Analizando los resultados…". The label that is working shimmers (§5); a finished step is static text.
   - Steps are plain Spanish. A step text that reads as code (braces, a JSON key, a tool name) is replaced by a generic label.
   - "Conversaciones" in the header opens the saved conversations, newest first, under "Nueva conversación". Choosing one restores it. Restored answers have no steps. When a conversation is longer than the 200 messages restored, "Mostrando los últimos N mensajes" appears above it.
@@ -167,5 +169,5 @@ Implemented in the preview so the Flutter app can copy them. Review one with the
   - `no_non_overvalued_peer`: "Los jugadores similares y más baratos están sobrevalorados."
   - `fewer_than_three_qualifying_peers`: "Solo N jugadores cumplen todos los criterios: mismo arquetipo y posición, similitud suficiente, ahorro mínimo del 20% y no sobrevalorado."
   - Any other code: a generic "Solo N jugadores cumplen los criterios de reemplazo."
-- **Filtered to empty** (`empty`): the filters are preset to the first status and archetype pair with no rows. The message names the active filters ("Filtros activos: estado En precio · arquetipo Ancla Defensiva."), next to "Restablecer filtros". The dossier is closed: it never shows a player the table does not list.
+- **Filtered to empty** (`empty`): the filters are preset to the first status and archetype pair with no rows. The message names the active filters ("Filtros activos: estado En precio · arquetipo Titular de Liga."), next to "Restablecer filtros". The dossier is closed: it never shows a player the table does not list.
 - **Out of scope**: the preview shows neither the Resumen nor the PitIA chat. Their states are specified in §4, and the Flutter app is their reference. The endpoints are `POST /reports/generate` and `POST /chat` (delivery priority 4 in ADR-007).

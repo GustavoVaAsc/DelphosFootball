@@ -104,15 +104,12 @@ void main() {
 
   group('archetypes', () {
     test('match the clustering stage names in delphos_domain', () {
-      expect(archetypeShortName(0), 'Creador Ofensivo');
-      expect(archetypeShortName(1), 'Box-to-Box');
-      expect(archetypeShortName(2), 'Ancla Defensiva');
-      expect(archetypeLongName(0), 'Creadores Ofensivos y Finalizadores');
-      expect(archetypeLongName(1), 'Todocampistas Box-to-Box y Carrileros');
-      expect(
-        archetypeLongName(2),
-        'Anclas Defensivas y Especialistas de Contención',
-      );
+      expect(archetypeShortName(0), 'Titular Europeo');
+      expect(archetypeShortName(1), 'Rotación y Copas');
+      expect(archetypeShortName(2), 'Titular de Liga');
+      expect(archetypeLongName(0), 'Titulares de Élite y Exposición Europea');
+      expect(archetypeLongName(1), 'Perfiles de Rotación y Copas Nacionales');
+      expect(archetypeLongName(2), 'Titulares Regulares de Liga Doméstica');
     });
 
     test('return null for an unknown cluster', () {
