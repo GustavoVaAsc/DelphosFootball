@@ -83,7 +83,11 @@ async def test_sub_position_is_a_bound_parameter(mock_db: MagicMock) -> None:
         ({"sort_by": "undervaluation "}, "sort_by", "undervaluation"),
         ({"sub_position": "Winger"}, "sub_position", "Left Winger"),
         ({"sub_position": "extremo"}, "sub_position", "Centre-Forward"),
-        ({"sub_position": ["Left Winger"]}, "sub_position", "Left Winger"),
+        ({"sub_position": []}, "sub_position", "Left Winger"),
+        ({"sub_position": ["Left Winger", "Winger"]}, "sub_position", "Left Winger"),
+        ({"sub_position": ["Left Winger", 3]}, "sub_position", "Left Winger"),
+        ({"sub_position": [["Left Winger"]]}, "sub_position", "Left Winger"),
+        ({"sub_position": ["Left Winger", {"a": 1}]}, "sub_position", "Left Winger"),
         ({"sub_position": {"Left Winger": 1}}, "sub_position", "Left Winger"),
         ({"sub_position": "left winger"}, "sub_position", "Left Winger"),
         ({"sub_position": "LEFT WINGER"}, "sub_position", "Left Winger"),
@@ -117,7 +121,7 @@ async def test_search_players_forwards_sort_and_sub_position(mock_db: MagicMock)
             {"sub_position": "Left Winger", "sort_by": "undervaluation", "limit": 3},
         )
 
-    assert repo.await_args.kwargs["sub_position"] == "Left Winger"
+    assert repo.await_args.kwargs["sub_position"] == ["Left Winger"]
     assert repo.await_args.kwargs["sort_by"] == "undervaluation"
 
 
@@ -165,4 +169,27 @@ async def test_system_prompt_example_is_a_valid_tool_call(mock_db: MagicMock) ->
 
     assert "error" not in payload
     assert repo.await_args.kwargs["sort_by"] == "undervaluation"
-    assert repo.await_args.kwargs["sub_position"] == "Left Winger"
+    assert repo.await_args.kwargs["sub_position"] == ["Left Winger"]
+
+
+@pytest.mark.asyncio
+async def test_system_prompt_list_example_is_a_valid_age_filtered_call(mock_db: MagicMock) -> None:
+    example = next(
+        line.strip()
+        for line in SYSTEM_PROMPT.splitlines()
+        if line.strip().startswith('{"tool"') and '"sub_position": ["' in line
+    )
+    call = parse_tool_call(example)
+    assert call is not None
+
+    with patch(
+        "delphos_backend.services.chat_tool_queries.list_players",
+        new=AsyncMock(return_value=([], 0)),
+    ) as repo:
+        payload = await execute_tool(
+            simple_factory(mock_db), RUN_ID, call["tool"], call["arguments"]
+        )
+
+    assert "error" not in payload
+    assert repo.await_args.kwargs["sub_position"] == ["Left Winger", "Right Winger"]
+    assert repo.await_args.kwargs["max_age"] == 23

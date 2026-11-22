@@ -34,7 +34,7 @@ async def execute_tool(
     if name not in TOOL_HANDLERS:
         return {
             "error": {
-                "tool": name,
+                "tool": "unknown",
                 "message": "herramienta desconocida",
                 "available_tools": list(TOOL_NAMES),
             }

@@ -20,7 +20,7 @@ from httpx import AsyncClient
 from scouting_fixtures import valuation
 
 from delphos_backend.core.config import Settings, get_settings
-from delphos_backend.repositories.players import SEASON_METRICS_KEYS
+from delphos_backend.repositories.player_profile import SEASON_METRICS_KEYS
 from delphos_backend.repositories.report_cache import get_cached_player_report
 from delphos_backend.services import llm_reports
 from delphos_backend.services.draft_render import UnknownPlaceholderError, substitute_placeholders

@@ -1,17 +1,20 @@
 """Database repository queries for outfield players and valuations.
 
-Input: Active model_run_id, search filters, and player_id.
-Output: Paginated player summaries and detailed biography/season metrics.
-Responsibility: Executes parameterized SQL over analytics.dim_players and season facts.
+Input: Active model_run_id and search filters.
+Output: Paginated player summaries and their total count.
+Responsibility: Executes the parameterized search SQL over analytics.dim_players and season
+facts. The single-player profile lives in player_profile.py.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from psycopg import AsyncConnection
 
 from delphos_backend.repositories.clusters import CLUSTER_NAMES
+from delphos_backend.repositories.player_filters import build_filters
 from delphos_backend.repositories.player_order import DEFAULT_SORT, order_by_sql
 from delphos_backend.repositories.player_search import build_search_clause
 from delphos_backend.repositories.valuations import (
@@ -20,24 +23,6 @@ from delphos_backend.repositories.valuations import (
 
 ACTIVE_SEASON = 2025
 TM_CLUB_LOGO_TEMPLATE = "https://tmssl.akamaized.net/images/wappen/head/{club_id}.png"
-SEASON_METRICS_KEYS = (
-    "season",
-    "as_of_date",
-    "league_id",
-    "minutes",
-    "apps",
-    "starts",
-    "goals",
-    "assists",
-    "yellow_cards",
-    "red_cards",
-    "starter_ratio",
-    "win_rate",
-    "clean_sheet_rate",
-    "goals_conceded_per_match",
-    "league_position",
-    "age",
-)
 
 
 def build_club_logo_url(club_id: int | None) -> str | None:
@@ -56,10 +41,17 @@ async def list_players(
     page: int = 1,
     page_size: int = 20,
     *,
-    sub_position: str | None = None,
+    sub_position: str | Sequence[str] | None = None,
     sort_by: str = DEFAULT_SORT,
+    min_age: int | None = None,
+    max_age: int | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Return paginated player summaries matching filters for the active model run."""
+    """Return paginated player summaries matching filters for the active model run.
+
+    sub_position is one value or several (any of them matches); min_age and max_age
+    bound the age in completed years (s.age >= min_age and s.age < max_age + 1). All of
+    them also bound the total.
+    """
     order_sql = order_by_sql(sort_by)
     conditions = ["p.model_run_id = %s", "s.season = %s"]
     params: list[Any] = [model_run_id, ACTIVE_SEASON]
@@ -67,16 +59,17 @@ async def list_players(
         search_sql, search_params = search_clause
         conditions.append(search_sql)
         params.extend(search_params)
-    for cond, val in (
-        ("p.position = %s", position),
-        ("p.sub_position = %s", sub_position),
-        ("s.club_id = %s", club_id),
-        ("pred.valuation_status = %s", valuation_status),
-        ("cl.cluster_id = %s", cluster_id),
-    ):
-        if val is not None:
-            conditions.append(cond)
-            params.append(val)
+    filter_conditions, filter_params = build_filters(
+        position=position,
+        sub_position=sub_position,
+        club_id=club_id,
+        valuation_status=valuation_status,
+        cluster_id=cluster_id,
+        min_age=min_age,
+        max_age=max_age,
+    )
+    conditions.extend(filter_conditions)
+    params.extend(filter_params)
 
     where_sql = " AND ".join(conditions)
     base_joins = """
@@ -122,46 +115,3 @@ async def list_players(
             for r in await cur.fetchall()
         ]
     return items, total
-
-
-async def get_player_profile(
-    conn: AsyncConnection, model_run_id: str, player_id: int
-) -> dict[str, Any] | None:
-    """Fetch complete player profile and active season statistics."""
-    async with conn.cursor() as cur:
-        await cur.execute(
-            """
-            SELECT
-                p.model_run_id, p.player_id, p.name, p.first_name, p.last_name, p.player_code,
-                p.country_of_citizenship, p.date_of_birth, p.position, p.sub_position,
-                p.foot, p.height_in_cm, p.image_url, p.url,
-                s.club_id, c.name AS club_name, cl.cluster_id,
-                s.season, s.as_of_date, s.league_id, s.minutes, s.apps, s.starts,
-                s.goals, s.assists, s.yellow_cards, s.red_cards, s.starter_ratio,
-                s.win_rate, s.clean_sheet_rate, s.goals_conceded_per_match,
-                s.league_position, s.age
-            FROM analytics.dim_players p
-            LEFT JOIN analytics.fct_player_seasons s
-              ON s.model_run_id = p.model_run_id AND s.player_id = p.player_id AND s.season = %s
-            LEFT JOIN analytics.dim_clubs c
-              ON c.model_run_id = p.model_run_id AND c.club_id = s.club_id
-            LEFT JOIN analytics.fct_clusters cl
-              ON cl.model_run_id = p.model_run_id AND cl.player_id = p.player_id AND cl.season = %s
-            WHERE p.model_run_id = %s AND p.player_id = %s;
-            """,
-            (ACTIVE_SEASON, ACTIVE_SEASON, model_run_id, player_id),
-        )
-        row = await cur.fetchone()
-        if not row:
-            return None
-
-        season_metrics = (
-            {k: row[k] for k in SEASON_METRICS_KEYS} if row["season"] is not None else None
-        )
-        c_name = CLUSTER_NAMES.get(row["cluster_id"]) if row.get("cluster_id") is not None else None
-        return {
-            **dict(row),
-            "club_logo_url": build_club_logo_url(row.get("club_id")),
-            "cluster_name": c_name,
-            "active_season": season_metrics,
-        }

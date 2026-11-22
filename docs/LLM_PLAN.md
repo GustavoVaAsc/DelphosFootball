@@ -598,11 +598,13 @@ Five typed tools over the `analytics` schema, executed in-process with the API r
 
 | Tool | Arguments | Reads |
 | --- | --- | --- |
-| `search_players` | `name?`, `position?`, `sub_position?`, `valuation_status?`, `sort_by?` (`market_value` by default, `undervaluation`, `overvaluation`), `cluster_id?`, `limit?` | `list_players` (`repositories/players.py:46`) |
-| `get_player_profile` | `player_id` | `get_player_profile` (`repositories/players.py:116`) |
+| `search_players` | `name?`, `position?`, `sub_position?` (one value, or a list of 1 to 4), `valuation_status?`, `sort_by?` (`market_value` by default, `undervaluation`, `overvaluation`), `cluster_id?` (0 to 2), `min_age?` and `max_age?` (whole completed years, 15 to 45, both inclusive), `limit?` (1 to 10, default 5) | `list_players` (`repositories/players.py:33`) |
+| `get_player_profile` | `player_id` | `get_player_profile` (`repositories/player_profile.py:38`) |
 | `get_player_valuation` | `player_id` | `get_player_valuation` (`repositories/valuations.py:12`) |
 | `get_player_replacements` | `player_id` | `get_player_replacements` (`repositories/replacements.py:12`) |
-| `get_cluster_summary` | `cluster_id?` | `get_clusters_summary` (`repositories/clusters.py:18`) |
+| `get_cluster_summary` | `cluster_id?` | `get_clusters_summary` (`repositories/clusters.py:34`) |
+
+The `search_players` age bounds count completed years, so `max_age=23` admits a player aged 23.9 and excludes one aged 24.0. The filter is `s.age >= min_age AND s.age < max_age + 1` on the season age. The prompt maps the phrasings: «menores de 24» is `max_age=23`, «hasta 24» is `max_age=24`, «mayores de 20» is `min_age=21`, «a partir de 20» is `min_age=20`, and «de 21 años» is `min_age=max_age=21`. The authoritative contract is [ARCHITECTURE.md](ARCHITECTURE.md) ADR-015 (amendment of 2026-11-22).
 
 Rules:
 
@@ -613,13 +615,17 @@ Rules:
 
 ### 10.3 Loop
 
-Implemented with PydanticAI (C4). The loop is the framework's; the guards are ours:
+Implemented as a direct loop over the shared OpenAI-compatible client, not PydanticAI (the 2026-11-08 decision in [WORK_PLAN.md](WORK_PLAN.md) §5; [ARCHITECTURE.md ADR-016](ARCHITECTURE.md#adr-016-a-direct-openai-compatible-client-with-pydantic-schemas-without-an-agent-framework)). The loop is ours, and so are its guards:
 
-- **Max 4 tool iterations** per request. A confused model loops forever without a cap.
+- **At most `llm_max_tool_iterations` tool calls** per turn (default 4, `DELPHOS_LLM_MAX_TOOL_ITERATIONS`, §13). A confused model loops forever without a cap.
+- **Several calls per reply.** A reply carries up to 4 calls (`MAX_CALLS_PER_REPLY`). They run in order, each as its own step. A call beyond the remaining budget is not run and gets a typed error block. All results of one reply go back to the model as one message, so the budget trim drops a reply and its results together.
+- **Malformed call** → one retry per turn (`MAX_MALFORMED_RETRIES`, not counted against the cap), with a typed error that names what was detected: invalid JSON, text mixed with a call, too many calls, or a missing `tool` key. A second broken reply ends in `FALLBACK_ANSWER`. The model's broken text is never shown as an answer.
 - **Unknown tool name** → a typed error returned to the model, never an exception to the client.
 - **Argument validation failure** → a typed error naming the offending argument.
 - **No tool call** where one was needed → the model answers from its own knowledge, which is wrong. The system prompt forbids it: *"Responde solo con datos de las herramientas. Si las herramientas no contienen la respuesta, dilo explícitamente."*
 - **Unknown model / hallucinated entity** → the tool returns an empty result, not an error, and the model says it found nothing.
+
+**Shipped divergence (2026-11-22).** This section assumed one tool call per iteration. The shipped loop accepts up to four calls in one reply, as listed above, because a live run showed the model sending two `search_players` calls in one reply when one call could not express both wing positions. The prompt still asks for one call per reply and allows several only when needed. The per-result cap is 4,000 characters (`MAX_RESULT_CHARS` in `backend/src/delphos_backend/services/chat_tool_args.py`), not the token budget of §10.4. The authoritative contract is [ARCHITECTURE.md](ARCHITECTURE.md) ADR-015 (amendment of 2026-11-22).
 
 ### 10.4 Context budget
 
@@ -777,6 +783,11 @@ backend/src/delphos_backend/
                                #   Keeps: assemble_player_scouting_context -> moves to report_facts.
     chat_tools.py             # NEW. The five typed tools (§10.2).
     chat_agent.py             # NEW. The tool loop (§10.3).
+    chat_call_parse.py        # NEW (2026-11-22). Reads a reply as one or several calls, with reason codes.
+    chat_call_run.py          # NEW (2026-11-22). Runs one call inside the loop; the skipped-call block.
+    chat_call_errors.py       # NEW (2026-11-22). The specific error for a malformed call.
+    chat_search_args.py       # NEW (2026-11-22). Validates sub_position lists, min_age and max_age.
+    chat_player_summary.py    # NEW (2026-11-22). The slim player row that search_players returns.
   api/
     reports.py                # EXTENDED. source, llm_model, prompt_version on the response.
     chat.py                   # NEW. POST /chat, GET /chat/sessions, GET /chat/sessions/{id}.
@@ -785,6 +796,9 @@ backend/src/delphos_backend/
     chat.py                   # NEW. ChatRequest / ChatResponse.
   repositories/
     chat.py                   # NEW. Session and message persistence.
+    players.py                # EXTENDED (2026-11-22). list_players; the filter builder moved out.
+    player_filters.py         # NEW (2026-11-22). WHERE conditions for the search filters.
+    player_profile.py         # NEW (2026-11-22). get_player_profile, moved out of players.py.
 
 ml/src/delphos_domain/
   __init__.py                 # NEW. Package facade (ADR-013: its own uv project, no deps).
