@@ -65,7 +65,8 @@ def int_arg(
         return None, arg_error(tool, argument, value, expected)
     try:
         parsed = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # inf and nan are floats, not ages or limits: int() raises on both.
         return None, arg_error(tool, argument, value, expected)
     out_of_range = not lo <= parsed <= hi
     if (isinstance(value, float) and not value.is_integer()) or out_of_range:

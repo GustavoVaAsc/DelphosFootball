@@ -18,14 +18,14 @@ from delphos_domain import (
     SUB_POSITION_LABELS,
     VALUATION_STATUS_LABELS,
     resolve_cluster_label,
-    resolve_position_label,
-    resolve_valuation_label,
 )
 from psycopg import AsyncConnection
 
 from delphos_backend.repositories.clusters import get_clusters_summary
 from delphos_backend.repositories.player_order import DEFAULT_SORT, PLAYER_ORDERINGS
 from delphos_backend.repositories.players import list_players
+from delphos_backend.services.chat_player_summary import player_summary
+from delphos_backend.services.chat_search_args import age_args, sub_positions_arg
 from delphos_backend.services.chat_tool_args import (
     DEFAULT_LIMIT,
     MAX_LIMIT,
@@ -50,12 +50,17 @@ async def search_players_tool(
         return error
     for argument, allowed in (
         ("position", POSITION_LABELS),
-        ("sub_position", SUB_POSITION_LABELS),
         ("sort_by", PLAYER_ORDERINGS),
         ("valuation_status", VALUATION_STATUS_LABELS),
     ):
         if error := enum_arg("search_players", argument, args, allowed):
             return error
+    sub_positions, error = sub_positions_arg("search_players", args, SUB_POSITION_LABELS)
+    if error:
+        return error
+    min_age, max_age, error = age_args("search_players", args)
+    if error:
+        return error
     cluster_id, error = int_arg("search_players", "cluster_id", args, lo=0, hi=2, required=False)
     if error:
         return error
@@ -69,41 +74,20 @@ async def search_players_tool(
         run_id,
         name=name,
         position=args.get("position"),
-        sub_position=args.get("sub_position"),
+        sub_position=sub_positions,
+        min_age=min_age,
+        max_age=max_age,
         sort_by=sort_by,
         valuation_status=args.get("valuation_status"),
         cluster_id=cluster_id,
         page_size=page_size,
     )
     return {
-        "players": [_player_summary(p) for p in players],
+        "players": [player_summary(p) for p in players],
         "total": total,
         "limit": page_size,
         "sort_by": sort_by,
     }
-
-
-def _player_summary(row: dict[str, Any]) -> dict[str, Any]:
-    """Slim, Spanish-labelled player row so 10 results stay inside the JSON cap."""
-    return {
-        "player_id": row.get("player_id"),
-        "name": row.get("name"),
-        "position_label": resolve_position_label(row.get("position"), row.get("sub_position")),
-        "club_name": row.get("club_name"),
-        "market_value_eur": row.get("market_value_eur"),
-        "valuation_label": resolve_valuation_label(row.get("valuation_status") or ""),
-        "cluster_id": row.get("cluster_id"),
-        "age": _season_age(row.get("age")),
-    }
-
-
-def _season_age(age: float | None) -> float | None:
-    """The age the search reports: fct_player_seasons.age, as of the active season.
-
-    It is the same column get_player_profile returns in its `age`, rounded to one
-    decimal here to keep 10 rows inside the JSON cap and the figure readable.
-    """
-    return round(age, 1) if age is not None else None
 
 
 async def get_cluster_summary_tool(

@@ -48,6 +48,36 @@ CASES: list[tuple[str, object, str]] = [
         "Buscando jugadores en Mediocampo del arquetipo Rotación y Copas que coinciden con "
         "«Mbappé», ordenados por sobrevaloración…",
     ),
+    (
+        "search_players",
+        {
+            "sub_position": ["Left Winger", "Right Winger"],
+            "valuation_status": "undervalued",
+            "max_age": 23,
+            "sort_by": "undervaluation",
+        },
+        "Buscando extremos izquierdos y extremos derechos infravalorados de hasta 23 años, "
+        "ordenados por infravaloración…",
+    ),
+    (
+        "search_players",
+        {"sub_position": "Centre-Back", "min_age": 20, "max_age": 25},
+        "Buscando defensas centrales de entre 20 y 25 años…",
+    ),
+    (
+        "search_players",
+        {"sub_position": ["Centre-Back", "Left-Back", "Right-Back"], "min_age": 30},
+        "Buscando defensas centrales, laterales izquierdos y laterales derechos de 30 años o más…",
+    ),
+    ("search_players", {"sub_position": ["Centre-Forward"]}, "Buscando delanteros centro…"),
+    ("search_players", {"min_age": 21, "max_age": 21}, "Buscando jugadores de 21 años…"),
+    ("search_players", {"min_age": 20}, "Buscando jugadores de 20 años o más…"),
+    ("search_players", {"max_age": 24}, "Buscando jugadores de hasta 24 años…"),
+    (
+        "search_players",
+        {"position": "Attack", "max_age": 23},
+        "Buscando jugadores de hasta 23 años en Ataque…",
+    ),
     ("get_player_profile", {"player_id": 7}, f"Consultando el perfil {UNKNOWN_DE}…"),
     ("get_player_valuation", {"player_id": 7}, f"Revisando la valoración {UNKNOWN_DE}…"),
     ("get_player_replacements", {"player_id": 7}, f"Evaluando reemplazos para {UNKNOWN_PLAYER}…"),
@@ -59,6 +89,18 @@ INVALID_CASES: list[tuple[str, object]] = [
     ("search_players", {"sort_by": "price_desc"}),
     ("search_players", {"limit": 99}),
     ("search_players", {"name": 5}),
+    ("search_players", {"sub_position": []}),
+    ("search_players", {"sub_position": ["Left Winger", "Winger"]}),
+    ("search_players", {"limit": float("inf")}),
+    ("search_players", {"limit": float("nan")}),
+    ("search_players", {"cluster_id": float("inf")}),
+    ("search_players", {"max_age": float("inf")}),
+    ("get_player_profile", {"player_id": float("inf")}),
+    ("search_players", {"max_age": "24"}),
+    ("search_players", {"min_age": 24.5}),
+    ("search_players", {"min_age": True}),
+    ("search_players", {"max_age": 99}),
+    ("search_players", {"min_age": 30, "max_age": 20}),
     ("get_player_profile", {}),
     ("get_player_profile", {"player_id": "abc"}),
     ("get_player_valuation", {"player_id": True}),
@@ -132,3 +174,11 @@ def test_safe_display_text_drops_format_and_separator_characters_and_guillemets(
     from delphos_backend.services.chat_tool_text import safe_display_text
 
     assert safe_display_text("Ra‮fael​ Le ão» «x") == "Ra fael Le ão x"
+
+
+def test_the_plural_map_covers_every_sub_position() -> None:
+    from delphos_domain import SUB_POSITION_LABELS
+
+    from delphos_backend.services.chat_search_describe import SUB_POSITION_PLURALS
+
+    assert set(SUB_POSITION_LABELS) <= set(SUB_POSITION_PLURALS)

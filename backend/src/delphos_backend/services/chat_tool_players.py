@@ -21,7 +21,7 @@ from delphos_domain import (
 )
 from psycopg import AsyncConnection
 
-from delphos_backend.repositories.players import get_player_profile
+from delphos_backend.repositories.player_profile import get_player_profile
 from delphos_backend.repositories.replacements import get_player_replacements
 from delphos_backend.repositories.valuations import get_player_valuation
 from delphos_backend.services.chat_tool_args import PLAYER_ID_RANGE, int_arg

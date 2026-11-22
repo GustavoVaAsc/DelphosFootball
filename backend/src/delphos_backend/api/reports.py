@@ -16,7 +16,8 @@ from psycopg import AsyncConnection
 from delphos_backend.core.config import get_settings
 from delphos_backend.core.db import get_db
 from delphos_backend.repositories.active_run import get_active_model_run
-from delphos_backend.repositories.players import get_player_profile, get_player_valuation
+from delphos_backend.repositories.player_profile import get_player_profile
+from delphos_backend.repositories.players import get_player_valuation
 from delphos_backend.repositories.replacements import get_player_replacements
 from delphos_backend.repositories.reports import (
     get_report_by_id,

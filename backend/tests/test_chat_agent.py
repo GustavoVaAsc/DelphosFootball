@@ -104,7 +104,7 @@ def test_context_budget_trims_history_to_chat_history_turns() -> None:
 
 
 def test_long_history_is_trimmed_to_fit_the_context_budget() -> None:
-    settings = make_settings(llm_context_size=2000)
+    settings = make_settings(llm_context_size=2500)
     history = [
         {
             "role": "user" if i % 2 == 0 else "assistant",

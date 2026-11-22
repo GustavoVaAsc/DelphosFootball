@@ -5,10 +5,10 @@ connection factory.
 Output: ChatEvent stream ("tool_start" and "tool" progress, "message" final) or a
 collected ChatTurn.
 Responsibility: runs the capped tool loop (LLM_PLAN §10.3) through the shared
-llm_client, bounds the concurrent LLM calls, parses the model's JSON tool calls,
-describes each call before it runs, and feeds typed tool errors (including a
-malformed call, never shown as an answer) back to the model. The prompt assembly
-lives in chat_budget and the reply parsing in chat_protocol. May raise InferenceError;
+llm_client, bounds the concurrent LLM calls, runs the one or several tool calls of
+each reply, and feeds typed tool errors (including a malformed call, never shown as an
+answer) back to the model. Prompt assembly lives in chat_budget, reply parsing in
+chat_call_parse and the per-call execution in chat_call_run. May raise InferenceError;
 callers map it to a problem response or an SSE error event.
 
 The inference endpoint is decided once per turn, before the first answer of that
@@ -21,24 +21,24 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
 from typing import Any
 
 from delphos_backend.core.config import Settings
 from delphos_backend.services.chat_budget import build_messages, trim_to_budget
+from delphos_backend.services.chat_call_errors import malformed_call_error
+from delphos_backend.services.chat_call_parse import scan_calls
+from delphos_backend.services.chat_call_run import run_tool_call, skipped_call_block
 from delphos_backend.services.chat_concurrency import llm_call_semaphore
 from delphos_backend.services.chat_conn import ConnectionFactory
+from delphos_backend.services.chat_event import ChatEvent
 from delphos_backend.services.chat_player_refs import extract_referenced_player_ids
 from delphos_backend.services.chat_prompt import FALLBACK_ANSWER
 from delphos_backend.services.chat_protocol import (
-    MALFORMED_CALL_ERROR,
     looks_like_tool_call,
-    parse_tool_call,
     tool_result_message,
+    tool_results_message,
 )
-from delphos_backend.services.chat_tool_describe import describe_tool_call, remember_player_names
-from delphos_backend.services.chat_tool_summary import summarize_tool_result
-from delphos_backend.services.chat_tools import TOOL_NAMES, execute_tool
+from delphos_backend.services.chat_tools import execute_tool
 from delphos_backend.services.llm_client import (
     PRIMARY_ENDPOINT,
     InferenceError,
@@ -52,12 +52,10 @@ MAX_MALFORMED_RETRIES = 1
 """Broken tool calls the model may retry per turn, on top of the iteration cap."""
 
 
-@dataclass(frozen=True)
-class ChatEvent:
-    """One unit of turn progress: "tool_start" and "tool" while working, "message" last."""
-
-    type: str
-    data: dict[str, Any]
+def _message(content: str, tools_called: list[str], referenced_ids: list[int]) -> ChatEvent:
+    """The final "message" event of a turn."""
+    data = {"content": content, "tools_called": tools_called}
+    return ChatEvent("message", {**data, "referenced_player_ids": referenced_ids})
 
 
 async def stream_chat_turn(
@@ -97,54 +95,34 @@ async def stream_chat_turn(
         if result.endpoint != PRIMARY_ENDPOINT:
             logger.info("Chat turn served by the %s endpoint", result.endpoint)
         content = result.content.strip()
-        call = parse_tool_call(content)
-        if call is None and not looks_like_tool_call(content):
+        calls, reason = scan_calls(content)
+        if calls is None and not looks_like_tool_call(content):
             if not content:
                 raise InferenceError("el modelo devolvió una respuesta vacía")
             referenced_player_ids = extract_referenced_player_ids(content, names)
-            yield ChatEvent(
-                "message",
-                {
-                    "content": content,
-                    "tools_called": tools_called,
-                    "referenced_player_ids": referenced_player_ids,
-                },
-            )
+            yield _message(content, tools_called, referenced_player_ids)
             return
         messages.append({"role": "assistant", "content": content})
         retry_spent = malformed >= MAX_MALFORMED_RETRIES or max_iterations == 0
-        if (call is None and retry_spent) or (call is not None and step >= max_iterations):
-            yield ChatEvent(
-                "message",
-                {
-                    "content": FALLBACK_ANSWER,
-                    "tools_called": tools_called,
-                    "referenced_player_ids": [],
-                },
-            )
+        if (calls is None and retry_spent) or (calls is not None and step >= max_iterations):
+            yield _message(FALLBACK_ANSWER, tools_called, [])
             return
-        if call is None:
+        if calls is None:
             # A broken call is retried like a bad argument; its text is never an answer.
             malformed += 1
-            messages.append(tool_result_message("llamada", MALFORMED_CALL_ERROR))
+            messages.append(tool_result_message("llamada", malformed_call_error(reason)))
             continue
-        step += 1
-        tool_name = call["tool"] if call["tool"] in TOOL_NAMES else "unknown"
-        description = describe_tool_call(call["tool"], call.get("arguments"), names)
-        yield ChatEvent("tool_start", {"step": step, "tool": tool_name, "description": description})
-        payload = await execute_tool(conn_factory, run_id, call["tool"], call.get("arguments"))
-        ok = "error" not in payload
-        if ok:
-            tools_called.append(tool_name)
-            remember_player_names(payload, names)
-        messages.append(tool_result_message(call["tool"], payload))
-        yield ChatEvent(
-            "tool",
-            {
-                "step": step,
-                "tool": tool_name,
-                "ok": ok,
-                "summary": summarize_tool_result(call["tool"], payload),
-                "description": description,
-            },
-        )
+        # A reply's calls run in order, each with its own step and iteration; those over
+        # the remaining budget get an error block. All blocks go in ONE user message, so
+        # roles keep alternating and the budget trim never splits the group.
+        room = max_iterations - step
+        results: list[str] = []
+        for call in calls[:room]:
+            step += 1
+            async for event in run_tool_call(
+                conn_factory, run_id, call, step, results, names, tools_called, execute_tool
+            ):
+                yield event
+        for ordinal, call in enumerate(calls[room:], start=room + 1):
+            results.append(skipped_call_block(call, ordinal, len(calls)))
+        messages.append(tool_results_message(results))
